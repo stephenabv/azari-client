@@ -1,0 +1,243 @@
+.as-impact {
+  position: relative;
+  width: 100%;
+  min-height: 870px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+}
+
+.as-impact-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.as-impact-content {
+  position: relative;
+  z-index: 1;
+  padding: 128px 0 96px;
+}
+
+.as-impact-heading {
+  text-align: center;
+  opacity: 0;
+  transform: translateY(45px);
+  gap: 16px;
+}
+
+.as-impact-heading h2 {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 42px;
+  font-weight: 500;
+  line-height: 120%;
+}
+
+.as-impact-heading p {
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.as-impact-card {
+  width: 790px;
+  margin: 68px auto 0;
+  padding: 48px 48px 44px;
+  border-radius: 24px;
+  background: transparent;
+  opacity: 0;
+  transform: translateY(45px);
+}
+
+.as-slider-group {
+  opacity: 0;
+  transform: translateY(45px);
+  gap: 24px;
+}
+
+.as-slider-group+.as-slider-group {
+  margin-top: 48px;
+}
+
+.as-slider-question {
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.as-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+}
+
+.as-range {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  border-radius: 999px;
+  outline: none;
+  background: linear-gradient(to right,
+      #ff5c58 0%,
+      #ff5c58 var(--progress),
+      #ffffff var(--progress),
+      #ffffff 100%);
+}
+
+.as-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #FC615A;
+  border: 4px solid rgba(255, 92, 88, 0.35);
+  box-shadow: 0 0 0 4px rgba(255, 92, 88, 0.18);
+  cursor: pointer;
+}
+
+.as-range::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #FC615A;
+  border: 4px solid rgba(255, 92, 88, 0.35);
+  box-shadow: 0 0 0 4px rgba(255, 92, 88, 0.18);
+  cursor: pointer;
+}
+
+.as-current-value {
+  margin-top: 26px;
+  text-align: center;
+}
+
+.as-current-value strong {
+  font-family: "Outfit", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.as-current-value span {
+  margin-left: 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.as-impact-divider {
+  height: 1px;
+  margin: 50px 0 34px;
+  background: rgba(255, 255, 255, 0.12);
+  opacity: 0;
+  transform: translateY(45px);
+}
+
+.as-impact-results {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  opacity: 0;
+  transform: translateY(45px);
+}
+
+.as-result-label {
+  font-family: "Inter", sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.as-system-size {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  line-height: 120%;
+}
+
+.as-system-size span {
+  margin-left: 4px;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.as-savings {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  color: #FFD701;
+}
+
+.as-impact-button {
+  display: block;
+  margin: 40px auto 16px;
+  height: 52px;
+  padding: 16px 40px;
+  border: none;
+  border-radius: 8px;
+  background: #FC615A;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(255, 92, 88, 0.35);
+  opacity: 0;
+  transform: translateY(45px);
+}
+
+.as-impact-note {
+  text-align: center;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  line-height: 120%;
+  margin: 0;
+}
+
+.as-impact.is-shown .as-impact-heading {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-impact.is-shown .as-impact-card {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.7s ease 0.25s, transform 0.7s ease 0.25s;
+}
+
+.as-impact.is-shown .as-slider-group,
+.as-impact.is-shown .as-impact-divider,
+.as-impact.is-shown .as-impact-results,
+.as-impact.is-shown .as-impact-button,
+.as-impact.is-shown .as-impact-note {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-impact.is-shown .as-delay-1 {
+  transition-delay: 0.45s;
+}
+
+.as-impact.is-shown .as-delay-2 {
+  transition-delay: 0.6s;
+}
+
+.as-impact.is-shown .as-delay-3 {
+  transition-delay: 0.75s;
+}
+
+.as-impact.is-shown .as-delay-4 {
+  transition-delay: 0.9s;
+}
+
+.as-impact.is-shown .as-delay-5 {
+  transition-delay: 1.05s;
+}
+
+.as-impact.is-shown .as-delay-6 {
+  transition-delay: 1.2s;
+}

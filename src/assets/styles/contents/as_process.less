@@ -1,0 +1,156 @@
+.as-process {
+  width: 100%;
+  padding: 120px 116px;
+}
+
+/* TOP */
+.as-process-steps {
+  display: flex;
+  justify-content: space-between;
+}
+
+.as-process-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-process-step.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-process-number {
+  font-family: "Outfit", sans-serif;
+  font-size: 120px;
+  font-weight: 700;
+}
+
+.as-process-title {
+  font-family: "Outfit", sans-serif;
+  font-size: 29px;
+  font-weight: 500;
+  line-height: 120%;
+  letter-spacing: 0;
+}
+
+.as-process-line {
+  position: relative;
+  margin: 40px 0 72px;
+  height: 6px;
+}
+
+.as-process-line-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.as-process-line-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: #fc615a;
+  box-shadow: 0 0 12px rgba(252, 97, 90, 0.5);
+  transition: width 1s ease;
+}
+
+.as-process-line-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fc615a;
+  box-shadow: 0 0 12px rgba(252, 97, 90, 0.6);
+  opacity: 0;
+  transition: left 1s ease, opacity 0.3s ease;
+}
+
+.as-process-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 80px;
+}
+
+.as-process-card {
+  max-width: 420px;
+  gap: 16px;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-process-card.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-process-card-title {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 120%;
+  letter-spacing: 0;
+}
+
+.as-process-card-description {
+  text-align: justify;
+  font-weight: 400;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  line-height: 26px;
+}
+
+.as-process-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 120px;
+  gap: 80px;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-process-footer.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-process-image {
+  width: 640px;
+  height: 200px;
+  border-radius: 24px;
+  background-size: cover;
+  background-position: center;
+}
+
+.as-process-cta h2 {
+  margin: 0 0 32px;
+  font-family: "Outfit", sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.as-process-cta button {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+
+  background: #fc615a;
+  color: #ffffff;
+}

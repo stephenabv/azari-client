@@ -1,0 +1,22 @@
+.stats-card-section {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 244px);
+  gap: 16px;
+  justify-content: center;
+}
+
+.stats-card-wrapper {
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.stats-card-wrapper.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.light-theme .stats-card-section {
+  background: transparent;
+}

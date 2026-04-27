@@ -1,0 +1,122 @@
+.as-engineered {
+  width: auto;
+  min-height: 390px;
+  background: transparent;
+  display: grid;
+  grid-template-columns: minmax(0, 416px) minmax(0, 1fr);
+  column-gap: clamp(48px, 8vw, 190px);
+  margin: 0 116px;
+  overflow: hidden;
+}
+
+.as-engineered p {
+  text-align: justify;
+}
+
+.as-engineered-left,
+.as-engineered-grid,
+.as-engineered-card,
+.as-engineered-head,
+.as-engineered-body {
+  min-width: 0;
+}
+
+.as-engineered-left {
+  padding-top: 8px;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-engineered-left.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-engineered-title {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 50px;
+  font-weight: 500;
+  line-height: 120%;
+}
+
+.as-engineered-description {
+  font-family: "Inter", sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 30px;
+  letter-spacing: 0.02em;
+}
+
+.as-engineered-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(48px, 4vw, 88px);
+  row-gap: 96px;
+}
+
+.as-engineered-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-engineered-card.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-engineered-head {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 18px;
+  align-items: center;
+}
+
+.as-engineered-number {
+  width: 16px;
+  height: 20px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: #fc615a;
+  justify-self: center;
+}
+
+.as-engineered-card-title {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 120%;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.as-engineered-body {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 18px;
+}
+
+.as-engineered-line {
+  width: 1px;
+  height: 100%;
+  background: #b1b1b1;
+  justify-self: center;
+}
+
+.as-engineered-card-description {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 26px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}

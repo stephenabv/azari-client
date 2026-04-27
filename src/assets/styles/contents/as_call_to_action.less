@@ -1,0 +1,77 @@
+.as-cta-section {
+  width: 100%;
+  min-height: 540px;
+  padding: 130px 24px;
+  text-align: center;
+}
+
+.as-cta-title {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 70px;
+  font-weight: 400;
+  line-height: 120%;
+  letter-spacing: 0;
+
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.as-cta-title span {
+  color: #fc615a;
+}
+
+.as-cta-description {
+  margin: 32px auto 0;
+  font-family: "Inter", sans-serif;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 120%;
+
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+}
+
+.as-cta-actions {
+  margin-top: 48px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.8s ease 0.4s, transform 0.8s ease 0.4s;
+}
+
+.as-cta-section.is-shown .as-cta-title,
+.as-cta-section.is-shown .as-cta-description,
+.as-cta-section.is-shown .as-cta-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-cta-primary,
+.as-cta-secondary {
+  padding: 16px 40px;
+  border-radius: 8px;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 120%;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.as-cta-primary {
+  border: none;
+  background: #fc615a;
+  color: #ffffff;
+  box-shadow: 0 18px 36px rgba(252, 97, 90, 0.35);
+}
+
+.as-cta-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 44px rgba(252, 97, 90, 0.45);
+}

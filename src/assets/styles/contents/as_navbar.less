@@ -1,0 +1,104 @@
+.ASNavbar {
+  width: 100%;
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  font: 14px "Inter", sans-serif;
+  border-radius: 24px;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  width: 140px;
+  height: 28px;
+  background: center / contain no-repeat;
+  cursor: pointer;
+}
+
+.nav-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+}
+
+.nav-menu li {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.nav-link-text {
+  display: inline-block;
+  line-height: 1;
+}
+
+.nav-indicator {
+  position: absolute;
+  bottom: 0;
+  height: 3.2px;
+  background: linear-gradient(90deg, #fa8248, #fc5c5c);
+  border-radius: 999px;
+  transform: skewX(-28deg);
+  transform-origin: center;
+  transition:
+    left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.getQuote-btn {
+  padding: 16px 40px;
+  border: none;
+  border-radius: 8px;
+  font: 600 14px "Inter", sans-serif;
+  line-height: 1.2;
+  color: #fff;
+  background-color: #fc615a;
+  cursor: pointer;
+}
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.theme-toggle-img {
+  width: auto;
+  height: 40px;
+  display: block;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    filter 0.3s ease;
+}
+
+.theme-toggle-btn:hover .theme-toggle-img {
+  transform: scale(1.03);
+}
+
+.theme-toggle-btn:active .theme-toggle-img {
+  transform: scale(0.97);
+}

@@ -1,0 +1,40 @@
+:root {
+  --navbar-height: 75px;
+  --navbar-offset: 16px;
+}
+
+header.navbar-section {
+  position: fixed;
+  top: var(--navbar-offset);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.navbar-inner {
+  width: 90%;
+  max-width: 1400px;
+}
+
+.page-container {
+  padding-top: calc(var(--navbar-height) + var(--navbar-offset) + 16px);
+}
+
+.page-container.no-offset {
+  padding-top: 0;
+}
+
+.app-main {
+  min-height: 100vh;
+}
+
+.layout-content {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-page-body {
+  flex: 1;
+}
