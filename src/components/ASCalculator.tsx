@@ -97,8 +97,83 @@ export default function ASImpactCalculator() {
 
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
-
   const [isShown, setIsShown] = useState(false);
+
+  const [monthlyBillError, setMonthlyBillError] = useState("");
+  const [electricRateError, setElectricRateError] = useState("");
+
+  const clampValue = (value: number, min: number, max: number) => {
+    return Math.min(max, Math.max(min, value));
+  };
+
+  const handleMonthlyBillInput = (value: string) => {
+    // remove non-numeric characters
+    let cleaned = value.replace(/[^\d]/g, "");
+
+    // remove leading zeros
+    cleaned = cleaned.replace(/^0+(?=\d)/, "");
+
+    if (cleaned === "") {
+      setMonthlyBill(0);
+      return;
+    }
+
+    const numericValue = Number(cleaned);
+
+    setMonthlyBill(numericValue);
+
+    if (numericValue < IMPACT_CALCULATOR_CONFIG.monthlyBill.min) {
+      setMonthlyBillError(
+        `Minimum value is ₱${IMPACT_CALCULATOR_CONFIG.monthlyBill.min.toLocaleString()}`
+      );
+      return;
+    }
+
+    if (numericValue > IMPACT_CALCULATOR_CONFIG.monthlyBill.max) {
+      setMonthlyBillError(
+        `Maximum value is ₱${IMPACT_CALCULATOR_CONFIG.monthlyBill.max.toLocaleString()}`
+      );
+      return;
+    }
+
+    setMonthlyBillError("");
+  };
+
+  const handleElectricRateInput = (value: string) => {
+    // allow decimal but restrict format
+    let cleaned = value.replace(/[^\d.]/g, "");
+
+    // prevent multiple dots
+    cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
+
+    // remove leading zeros (but allow "0.x")
+    cleaned = cleaned.replace(/^0+(?=\d)/, "");
+
+    if (cleaned === "") {
+      setElectricRate(0);
+      return;
+    }
+
+    const numericValue = Number(cleaned);
+
+    setElectricRate(numericValue);
+
+    if (numericValue < IMPACT_CALCULATOR_CONFIG.electricRate.min) {
+      setElectricRateError(
+        `Minimum value is ₱${IMPACT_CALCULATOR_CONFIG.electricRate.min}`
+      );
+      return;
+    }
+
+    if (numericValue > IMPACT_CALCULATOR_CONFIG.electricRate.max) {
+      setElectricRateError(
+        `Maximum value is ₱${IMPACT_CALCULATOR_CONFIG.electricRate.max}`
+      );
+      return;
+    }
+
+    setElectricRateError("");
+  };
 
   const [monthlyBill, setMonthlyBill] = useState(
     IMPACT_CALCULATOR_CONFIG.monthlyBill.defaultValue
@@ -217,14 +292,20 @@ export default function ASImpactCalculator() {
               <span>{IMPACT_CALCULATOR_CONFIG.labels.monthlyBillMin}</span>
               <span>{IMPACT_CALCULATOR_CONFIG.labels.monthlyBillMax}</span>
             </div>
-
             <input
               type="range"
               min={IMPACT_CALCULATOR_CONFIG.monthlyBill.min}
               max={IMPACT_CALCULATOR_CONFIG.monthlyBill.max}
               step={IMPACT_CALCULATOR_CONFIG.monthlyBill.step}
-              value={monthlyBill}
-              onChange={(e) => setMonthlyBill(Number(e.target.value))}
+              value={clampValue(
+                monthlyBill,
+                IMPACT_CALCULATOR_CONFIG.monthlyBill.min,
+                IMPACT_CALCULATOR_CONFIG.monthlyBill.max
+              )}
+              onChange={(e) => {
+                setMonthlyBill(Number(e.target.value));
+                setMonthlyBillError("");
+              }}
               className="as-range"
               style={
                 {
@@ -232,15 +313,25 @@ export default function ASImpactCalculator() {
                 } as React.CSSProperties
               }
             />
-
             <div className="as-current-value">
-              <strong>
-                ₱{" "}
-                {monthlyBill.toLocaleString("en-US", {
-                  maximumFractionDigits: 0,
-                })}
-              </strong>
-              <span>/ month</span>
+              <div className="as-current-row">
+                <span className="as-prefix">₱</span>
+
+                <div className="as-current-input-box">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={monthlyBill === 0 ? "" : monthlyBill}
+                    onChange={(e) => handleMonthlyBillInput(e.target.value)}
+                  />
+                </div>
+
+                <span className="as-suffix">/ month</span>
+              </div>
+
+              {monthlyBillError && (
+                <p className="as-current-error">{monthlyBillError}</p>
+              )}
             </div>
           </div>
 
@@ -259,8 +350,15 @@ export default function ASImpactCalculator() {
               min={IMPACT_CALCULATOR_CONFIG.electricRate.min}
               max={IMPACT_CALCULATOR_CONFIG.electricRate.max}
               step={IMPACT_CALCULATOR_CONFIG.electricRate.step}
-              value={electricRate}
-              onChange={(e) => setElectricRate(Number(e.target.value))}
+              value={clampValue(
+                electricRate,
+                IMPACT_CALCULATOR_CONFIG.electricRate.min,
+                IMPACT_CALCULATOR_CONFIG.electricRate.max
+              )}
+              onChange={(e) => {
+                setElectricRate(Number(e.target.value));
+                setElectricRateError("");
+              }}
               className="as-range"
               style={
                 {
@@ -270,8 +368,24 @@ export default function ASImpactCalculator() {
             />
 
             <div className="as-current-value">
-              <strong>₱ {electricRate.toFixed(2)}</strong>
-              <span>/ kWh</span>
+              <div className="as-current-row">
+                <span className="as-prefix">₱</span>
+
+                <div className="as-current-input-box">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={electricRate === 0 ? "" : electricRate}
+                    onChange={(e) => handleElectricRateInput(e.target.value)}
+                  />
+                </div>
+
+                <span className="as-suffix">/ kWh</span>
+              </div>
+
+              {electricRateError && (
+                <p className="as-current-error">{electricRateError}</p>
+              )}
             </div>
           </div>
 

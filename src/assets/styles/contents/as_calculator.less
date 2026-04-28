@@ -110,20 +110,87 @@
 
 .as-current-value {
   margin-top: 26px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
-.as-current-value strong {
+.as-current-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.as-prefix {
+  font-family: "Outfit", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.as-suffix {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.as-current-input-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 54px;
+  padding: 2px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(6px);
+}
+
+.as-current-input-box span {
+  margin: 0 8px 0 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.as-current-input-box input {
+  width: 120px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #ffffff;
+  text-align: center;
   font-family: "Outfit", sans-serif;
   font-size: 28px;
   font-weight: 700;
 }
 
-.as-current-value span {
+.as-current-input-box input::-webkit-outer-spin-button,
+.as-current-input-box input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.as-current-input-box input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.as-current-input-box small {
   margin-left: 12px;
   font-family: "Inter", sans-serif;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.as-current-error {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ffd701;
 }
 
 .as-impact-divider {

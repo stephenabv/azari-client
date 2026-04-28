@@ -1,125 +1,501 @@
 .as-coming-soon {
+  position: relative;
   min-height: 100vh;
-  padding: auto 24px;
-
+  padding: 120px 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.dark-theme .as-coming-soon {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(252, 97, 90, 0.18), transparent 34%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.06), transparent 30%),
+    #000;
+}
+
+.light-theme .as-coming-soon {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(252, 97, 90, 0.12), transparent 34%),
+    radial-gradient(circle at 80% 10%, rgba(0, 0, 0, 0.05), transparent 30%),
+    #fff;
+}
+
+.as-coming-soon-bg span {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(4px);
+  animation: floatBlob 8s ease-in-out infinite;
+}
+
+.as-coming-soon-bg span:nth-child(1) {
+  width: 180px;
+  height: 180px;
+  background: rgba(252, 97, 90, 0.2);
+  left: 10%;
+  top: 15%;
+}
+
+.as-coming-soon-bg span:nth-child(2) {
+  width: 240px;
+  height: 240px;
+  background: rgba(255, 255, 255, 0.1);
+  right: 10%;
+  bottom: 15%;
+  animation-delay: 1.2s;
+}
+
+.as-coming-soon-bg span:nth-child(3) {
+  width: 120px;
+  height: 120px;
+  background: rgba(255, 255, 255, 0.08);
+  right: 25%;
+  top: 20%;
+  animation-delay: 2.1s;
 }
 
 .as-coming-soon-card {
-  max-width: 720px;
+  width: min(100%, 820px);
+  padding: 56px 48px;
+  border-radius: 28px;
   text-align: center;
-
+  backdrop-filter: blur(20px);
+  transform: translateY(34px) scale(0.96);
   opacity: 0;
-  transform: translateY(36px) scale(0.98);
-  animation: comingSoonCardIn 0.9s ease forwards;
+  animation: cardEnter 900ms ease forwards;
+}
+
+.dark-theme .as-coming-soon-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+}
+
+.light-theme .as-coming-soon-card {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.08);
+}
+
+.as-coming-soon-visual {
+  position: relative;
+  width: 220px;
+  height: 190px;
+  margin: 0 auto 30px;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeUp 800ms ease 250ms forwards;
+}
+
+.as-sun-core {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
+  animation: solarPulse 2.8s ease-in-out infinite;
+}
+
+.as-sun-core span {
+  width: 40px;
+  height: 40px;
+  background: #fc615a;
+  border-radius: 50%;
+  box-shadow: 0 0 40px rgba(252, 97, 90, 0.6);
+}
+
+.as-energy-ring {
+  position: absolute;
+  top: 35px;
+  left: 50%;
+  border-radius: 50%;
+  border: 1px solid rgba(252, 97, 90, 0.45);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+
+.as-energy-ring-one {
+  width: 88px;
+  height: 88px;
+  animation: energyRing 2.8s ease-out infinite;
+}
+
+.as-energy-ring-two {
+  width: 118px;
+  height: 118px;
+  animation: energyRing 2.8s ease-out 0.7s infinite;
+}
+
+.as-solar-panel-grid {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 150px;
+  height: 90px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 10px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fc615a, #8a2b28);
+  transform: translateX(-50%) perspective(300px) rotateX(20deg);
+  box-shadow: 0 18px 35px rgba(252, 97, 90, 0.22);
+  animation: panelFloat 3.2s ease-in-out infinite;
+}
+
+.as-solar-panel-grid i {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  animation: panelCellGlow 2s ease-in-out infinite;
+}
+
+.as-solar-panel-grid i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.as-solar-panel-grid i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.as-solar-panel-grid i:nth-child(4) {
+  animation-delay: 0.45s;
+}
+
+.as-solar-panel-grid i:nth-child(5) {
+  animation-delay: 0.6s;
+}
+
+.as-solar-panel-grid i:nth-child(6) {
+  animation-delay: 0.75s;
+}
+
+.as-battery-card {
+  position: absolute;
+  right: 0;
+  bottom: 25px;
+  width: 45px;
+  height: 70px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  animation: batteryFloat 3s ease-in-out infinite;
+}
+
+.as-battery-head {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 18px;
+  height: 6px;
+  background: #fc615a;
+  border-radius: 4px 4px 0 0;
+  transform: translateX(-50%);
+}
+
+.as-battery-level {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  height: 60%;
+  background: linear-gradient(to top, #fc615a, #ffb3af);
+  border-radius: 8px;
+  animation: batteryCharge 2s ease-in-out infinite;
+}
+
+.as-energy-line {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fc615a, transparent);
+  opacity: 0.35;
+  animation: energyFlow 1.6s ease-in-out infinite;
+}
+
+.as-energy-line-one {
+  width: 80px;
+  left: 30px;
+  top: 90px;
+  transform: rotate(20deg);
+}
+
+.as-energy-line-two {
+  width: 70px;
+  right: 20px;
+  top: 110px;
+  transform: rotate(-20deg);
+  animation-delay: 0.5s;
 }
 
 .as-coming-soon-eyebrow {
-  margin: 0 0 20px;
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.18em;
+  margin: 0 0 14px;
+  color: #fc615a;
+  font-weight: 700;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-
   opacity: 0;
   transform: translateY(18px);
-  animation: comingSoonFadeUp 0.7s ease forwards 0.15s;
+  animation: fadeUp 700ms ease 450ms forwards;
 }
 
 .as-coming-soon-title {
   margin: 0;
   font-family: "Outfit", sans-serif;
-  font-size: 56px;
-  font-weight: 600;
-  line-height: 120%;
-
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 700;
+  line-height: 105%;
+  letter-spacing: -0.05em;
   opacity: 0;
-  transform: translateY(24px);
-  animation: comingSoonFadeUp 0.8s ease forwards 0.3s;
+  transform: translateY(22px);
+  animation: fadeUp 700ms ease 600ms forwards;
+}
+
+.dark-theme .as-coming-soon-title {
+  color: #e8e8e8;
+}
+
+.light-theme .as-coming-soon-title {
+  color: #0b0b0b;
 }
 
 .as-coming-soon-text {
-  margin: 28px auto 0;
-  max-width: 560px;
+  max-width: 650px;
+  margin: 22px auto 0;
   font-family: "Inter", sans-serif;
-  font-size: 18px;
-  line-height: 170%;
-
+  font-size: 16px;
+  line-height: 165%;
   opacity: 0;
-  transform: translateY(24px);
-  animation: comingSoonFadeUp 0.8s ease forwards 0.45s;
+  transform: translateY(22px);
+  animation: fadeUp 700ms ease 750ms forwards;
 }
 
-.as-coming-soon-text span {
-  font-weight: 700;
-  display: inline-block;
-  animation: countdownPulse 1s ease-in-out infinite;
+.as-coming-soon-text strong {
+  color: #fc615a;
+  font-weight: 800;
+  animation: countdownPop 1s ease-in-out infinite;
+}
+
+.dark-theme .as-coming-soon-text {
+  color: #9ca3af;
+}
+
+.light-theme .as-coming-soon-text {
+  color: #0e0e0e;
+}
+
+.as-countdown-progress {
+  position: relative;
+  width: min(100%, 420px);
+  height: 8px;
+  margin: 28px auto 0;
+  border-radius: 999px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fadeUp 700ms ease 900ms forwards;
+}
+
+.dark-theme .as-countdown-progress {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.light-theme .as-countdown-progress {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.as-countdown-progress span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fc615a, #ffd36b);
+  box-shadow: 0 0 20px rgba(252, 97, 90, 0.45);
+  transition: width 500ms ease;
+}
+
+.as-coming-soon-actions {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: fadeUp 700ms ease 1050ms forwards;
 }
 
 .as-coming-soon-button {
-  margin-top: 40px;
-  height: 54px;
-  padding: 0 36px;
+  margin-top: 30px;
+  padding: 14px 30px;
+  border-radius: 999px;
+  background: #fc615a;
+  color: #fff;
   border: none;
-  border-radius: 8px;
-
-  font-family: "Inter", sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-
   cursor: pointer;
-
-  opacity: 0;
-  transform: translateY(24px);
-  animation: comingSoonFadeUp 0.8s ease forwards 0.6s;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 14px 32px rgba(252, 97, 90, 0.35);
+  transition: transform 250ms ease, box-shadow 250ms ease, background 250ms ease;
 }
 
 .as-coming-soon-button:hover {
   transform: translateY(-3px);
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+  background: #ff706a;
+  box-shadow: 0 18px 42px rgba(252, 97, 90, 0.45);
 }
 
 .as-coming-soon-button:active {
   transform: translateY(-1px) scale(0.98);
 }
 
-/* Animations */
-
-@keyframes comingSoonCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(36px) scale(0.98);
-  }
-
+@keyframes cardEnter {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
 
-@keyframes comingSoonFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-
+@keyframes fadeUp {
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-@keyframes countdownPulse {
+@keyframes solarPulse {
 
   0%,
   100% {
-    transform: scale(1);
+    transform: translateX(-50%) scale(1);
   }
 
   50% {
-    transform: scale(1.18);
+    transform: translateX(-50%) scale(1.1);
+  }
+}
+
+@keyframes energyRing {
+  0% {
+    opacity: 0.65;
+    transform: translate(-50%, -50%) scale(0.65);
+  }
+
+  80% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.35);
+  }
+}
+
+@keyframes panelFloat {
+
+  0%,
+  100% {
+    transform: translateX(-50%) perspective(300px) rotateX(20deg) translateY(0);
+  }
+
+  50% {
+    transform: translateX(-50%) perspective(300px) rotateX(20deg) translateY(-6px);
+  }
+}
+
+@keyframes panelCellGlow {
+
+  0%,
+  100% {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  50% {
+    background: rgba(255, 255, 255, 0.36);
+  }
+}
+
+@keyframes batteryFloat {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes batteryCharge {
+
+  0%,
+  100% {
+    height: 35%;
+  }
+
+  50% {
+    height: 82%;
+  }
+}
+
+@keyframes energyFlow {
+
+  0%,
+  100% {
+    opacity: 0.2;
+    background-position: -80px 0;
+  }
+
+  50% {
+    opacity: 1;
+    background-position: 80px 0;
+  }
+}
+
+@keyframes floatBlob {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.08);
+  }
+}
+
+@keyframes countdownPop {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (max-width: 640px) {
+  .as-coming-soon {
+    padding: 90px 18px;
+  }
+
+  .as-coming-soon-card {
+    padding: 42px 24px;
+  }
+
+  .as-coming-soon-visual {
+    width: 190px;
+    height: 170px;
+  }
+
+  .as-solar-panel-grid {
+    width: 130px;
+    height: 80px;
+  }
+
+  .as-battery-card {
+    width: 38px;
+    height: 62px;
   }
 }

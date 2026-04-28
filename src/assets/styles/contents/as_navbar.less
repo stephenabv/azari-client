@@ -102,3 +102,293 @@
 .theme-toggle-btn:active .theme-toggle-img {
   transform: scale(0.97);
 }
+
+.mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.mobile-menu-btn span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.mobile-menu-btn.open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.mobile-menu-btn.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-btn.open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.mobile-nav-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 16px;
+  right: 16px;
+  z-index: 999;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(18, 18, 18, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s ease,
+    transform 0.25s ease;
+}
+
+.mobile-nav-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.mobile-nav-menu button {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: #fff;
+  font: 500 14px "Inter", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
+}
+
+.mobile-nav-menu button.active,
+.mobile-nav-menu button:hover {
+  background: rgba(252, 97, 90, 0.18);
+  color: #fc615a;
+}
+
+.light-theme .mobile-menu-btn {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111;
+}
+
+.light-theme .mobile-nav-menu {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+}
+
+.light-theme .mobile-nav-menu button {
+  color: #111;
+}
+
+.light-theme .mobile-nav-menu button.active,
+.light-theme .mobile-nav-menu button:hover {
+  background: rgba(252, 97, 90, 0.12);
+  color: #fc615a;
+}
+
+@media (max-width: 1200px) {
+  .ASNavbar {
+    padding: 12px 24px;
+  }
+
+  .nav-menu {
+    gap: 24px;
+  }
+
+  .nav-actions {
+    gap: 24px;
+  }
+
+  .getQuote-btn {
+    padding: 14px 32px;
+  }
+}
+
+@media (max-width: 992px) {
+  .ASNavbar {
+    padding: 12px 20px;
+  }
+
+  .nav-logo {
+    width: 120px;
+  }
+
+  .nav-menu {
+    gap: 20px;
+  }
+
+  .nav-link-text {
+    font-size: 13px;
+  }
+
+  .getQuote-btn {
+    padding: 12px 24px;
+    font-size: 13px;
+  }
+
+  .theme-toggle-img {
+    height: 36px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ASNavbar {
+    padding: 10px 16px;
+  }
+
+  .nav-menu {
+    display: none;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .mobile-nav-menu {
+    display: flex;
+  }
+
+  .nav-actions {
+    gap: 14px;
+  }
+
+  .getQuote-btn {
+    padding: 10px 18px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .theme-toggle-img {
+    height: 34px;
+  }
+}
+
+@media (max-width: 576px) {
+  .ASNavbar {
+    padding: 10px 14px;
+  }
+
+  .nav-logo {
+    width: 100px;
+    height: 24px;
+  }
+
+  .nav-actions {
+    gap: 10px;
+  }
+
+  .getQuote-btn {
+    padding: 9px 14px;
+    font-size: 12px;
+  }
+
+  .theme-toggle-img {
+    height: 32px;
+  }
+
+  .mobile-menu-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .mobile-nav-menu {
+    left: 12px;
+    right: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .ASNavbar {
+    padding: 8px 12px;
+  }
+
+  .nav-logo {
+    width: 88px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+  }
+
+  .getQuote-btn {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .theme-toggle-img {
+    height: 30px;
+  }
+
+  .mobile-menu-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .mobile-menu-btn span {
+    width: 16px;
+  }
+}
+
+@media (max-width: 340px) {
+  .getQuote-btn {
+    display: none;
+  }
+
+  .nav-logo {
+    width: 96px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .ASNavbar {
+    padding: 8px 20px;
+  }
+
+  .nav-menu {
+    display: none;
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+  }
+
+  .mobile-nav-menu {
+    display: flex;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+
+  .getQuote-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .theme-toggle-img {
+    height: 30px;
+  }
+}

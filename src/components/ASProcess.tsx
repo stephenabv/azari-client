@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import lightBg from "../assets/videos/bg_hero_section_light.mp4";
+
 
 const steps = [
   {
@@ -114,13 +116,20 @@ export default function ASProcessSection() {
       </div>
 
       <div className={`as-process-footer ${showFooter ? "is-shown" : ""}`}>
-        <div
-          className="as-process-image"
-          style={{ backgroundImage: `url(/images/solar-roof.jpg)` }}
-        />
+        <div className="as-process-video">
+          <video
+            src={lightBg}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          />
+        </div>
 
         <div className="as-process-cta">
-          <h2>Your Path to Energy Independence</h2>
+          <p>Your Path to Energy Independence</p>
           <button>Get Started</button>
         </div>
       </div>

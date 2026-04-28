@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type ProjectCategory =
   | "All Projects"
@@ -25,13 +25,30 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
-const PROJECTS_DATA: Project[] = [
-  // (still empty / commented)
-];
+const PROJECTS_DATA: Project[] = [];
 
 export default function ASProjects() {
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
+
+  const activeIndex = filters.indexOf(activeFilter);
+
+  const filterRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [indicatorStyle, setIndicatorStyle] = useState({
+    width: 0,
+    x: 0,
+  });
+
+  useLayoutEffect(() => {
+    const activeButton = filterRefs.current[activeIndex];
+
+    if (!activeButton) return;
+
+    setIndicatorStyle({
+      width: activeButton.offsetWidth,
+      x: activeButton.offsetLeft,
+    });
+  }, [activeIndex]);
 
   const filteredProjects = useMemo(() => {
     return PROJECTS_DATA.filter((project) =>
@@ -54,9 +71,20 @@ export default function ASProjects() {
       </div>
 
       <div className="as-projects-filters">
-        {filters.map((filter) => (
+        <span
+          className="as-projects-filter-indicator"
+          style={{
+            width: `${indicatorStyle.width}px`,
+            transform: `translateX(${indicatorStyle.x}px)`,
+          }}
+        />
+
+        {filters.map((filter, index) => (
           <button
             key={filter}
+            ref={(el) => {
+              filterRefs.current[index] = el;
+            }}
             className={`as-projects-filter ${activeFilter === filter ? "active" : ""
               }`}
             onClick={() => setActiveFilter(filter)}
@@ -66,7 +94,6 @@ export default function ASProjects() {
         ))}
       </div>
 
-      {/* ✅ FIXED: conditional wrapper instead of grid wrapping everything */}
       {filteredProjects.length > 0 ? (
         <div className="as-projects-grid">
           {filteredProjects.map((project, index) => (
@@ -76,7 +103,6 @@ export default function ASProjects() {
               style={{ animationDelay: `${index * 90}ms` }}
             >
               <img src={project.image} alt={project.title} />
-
               <div className="as-project-card-shade" />
 
               <div className="as-project-card-content">
@@ -106,7 +132,26 @@ export default function ASProjects() {
         </div>
       ) : (
         <div className="as-projects-empty">
-          <p>----- No data to show -----</p>
+          <div className="as-empty-visual">
+            <div className="as-empty-sun" />
+            <div className="as-empty-orbit" />
+            <div className="as-empty-orbit delay" />
+
+            <div className="as-empty-panels">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="as-empty-flow" />
+          </div>
+
+          <h3>Solar systems loading</h3>
+
+          <p>
+            We’re preparing real installation data, performance metrics, and
+            savings insights. This section will be powered soon.
+          </p>
         </div>
       )}
     </section>
