@@ -16,7 +16,7 @@ const statCardsData = [
   },
   {
     value: "5-YEAR",
-    label: "performance warranty",
+    label: "PERFORMANCE WARRANTY",
   },
 ];
 
@@ -39,12 +39,15 @@ export default function ASMetrics() {
         statCardsData.forEach((_, index) => {
           window.setTimeout(() => {
             setVisibleCards(index);
-          }, (index + 1) * 300);
+          }, (index + 1) * 220);
         });
 
         observer.disconnect();
       },
-      { threshold: 0.35 }
+      {
+        threshold: 0.2,
+        rootMargin: "0px 0px -8% 0px",
+      }
     );
 
     observer.observe(el);
@@ -61,11 +64,7 @@ export default function ASMetrics() {
             }`}
         >
           {index <= visibleCards && (
-            <StatCard
-              value={item.value}
-              label={item.label}
-              duration={1800}
-            />
+            <StatCard value={item.value} label={item.label} duration={1800} />
           )}
         </div>
       ))}

@@ -12,7 +12,6 @@
   font-weight: 400;
   line-height: 120%;
   letter-spacing: 0;
-
   opacity: 0;
   transform: translateY(45px);
   transition: opacity 0.8s ease, transform 0.8s ease;
@@ -28,7 +27,6 @@
   font-size: 20px;
   font-weight: 400;
   line-height: 120%;
-
   opacity: 0;
   transform: translateY(45px);
   transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
@@ -39,7 +37,6 @@
   display: flex;
   justify-content: center;
   gap: 20px;
-
   opacity: 0;
   transform: translateY(45px);
   transition: opacity 0.8s ease 0.4s, transform 0.8s ease 0.4s;
@@ -74,4 +71,107 @@
 .as-cta-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 24px 44px rgba(252, 97, 90, 0.45);
+}
+
+.as-cta-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: inherit;
+}
+
+.as-cta-secondary:hover {
+  transform: translateY(-2px);
+}
+
+@media (max-width: 1100px) {
+  .as-cta-section {
+    min-height: 480px;
+    padding: 110px 24px;
+  }
+
+  .as-cta-title {
+    font-size: 58px;
+  }
+
+  .as-cta-description {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .as-cta-section {
+    min-height: auto;
+    padding: 90px 24px;
+  }
+
+  .as-cta-title {
+    font-size: 44px;
+  }
+
+  .as-cta-description {
+    max-width: 520px;
+    margin-top: 24px;
+    font-size: 16px;
+    line-height: 150%;
+  }
+
+  .as-cta-actions {
+    margin-top: 36px;
+  }
+
+  .as-cta-primary,
+  .as-cta-secondary {
+    padding: 14px 28px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 576px) {
+  .as-cta-section {
+    padding: 76px 20px;
+  }
+
+  .as-cta-title {
+    font-size: 34px;
+  }
+
+  .as-cta-title br {
+    display: none;
+  }
+
+  .as-cta-actions {
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .as-cta-primary,
+  .as-cta-secondary {
+    width: 100%;
+    min-height: 50px;
+  }
+}
+
+@media (max-width: 400px) {
+  .as-cta-section {
+    padding: 64px 16px;
+  }
+
+  .as-cta-title {
+    font-size: 30px;
+  }
+
+  .as-cta-description {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 340px) {
+  .as-cta-title {
+    font-size: 27px;
+  }
+
+  .as-cta-primary,
+  .as-cta-secondary {
+    font-size: 14px;
+  }
 }

@@ -1,5 +1,7 @@
 .stat-card {
-  padding: 24px;
+  width: 100%;
+  min-height: 128px;
+  padding: clamp(18px, 2.5vw, 24px);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: #0b0b0b;
@@ -8,40 +10,38 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .stat-card-value {
   margin: 0;
   font-family: "Outfit", sans-serif;
-  font-size: 29px;
+  font-size: clamp(24px, 2.4vw, 29px);
   font-weight: 700;
-  line-height: 120%;
+  line-height: 1.2;
   letter-spacing: 0;
-
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-
   color: #ffffff;
+  word-break: break-word;
 }
 
 .stat-card-label {
   margin: 0;
   font-family: "Inter", sans-serif;
-  font-size: 12px;
+  font-size: clamp(11px, 1.2vw, 12px);
   font-weight: 400;
-  line-height: 120%;
-  letter-spacing: 0;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  color: #E8E8E8;
+  color: #e8e8e8;
+  word-break: break-word;
 }
 
 .light-theme .stat-card {
@@ -55,4 +55,25 @@
 
 .light-theme .stat-card-label {
   color: #666666;
+}
+
+@media (max-width: 576px) {
+  .stat-card {
+    min-height: 118px;
+    border-radius: 14px;
+  }
+}
+
+@media (max-width: 400px) {
+  .stat-card {
+    min-height: 108px;
+  }
+
+  .stat-card-value {
+    font-size: 24px;
+  }
+
+  .stat-card-label {
+    font-size: 11px;
+  }
 }

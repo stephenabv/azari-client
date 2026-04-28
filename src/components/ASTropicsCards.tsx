@@ -74,9 +74,7 @@ export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
       >
         <div className="as-performance-card-container">
           <p className="as-performance-title">{performance.title}</p>
-          <p className="as-performance-description">
-            {performance.subtitle}
-          </p>
+          <p className="as-performance-description">{performance.subtitle}</p>
 
           <div className="as-performance-content">
             <div

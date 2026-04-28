@@ -48,12 +48,15 @@ export default function ASEngineeredExcellence() {
         excellenceItems.forEach((_, index) => {
           window.setTimeout(() => {
             setVisibleCards(index);
-          }, (index + 1) * 300);
+          }, (index + 1) * 250);
         });
 
         observer.disconnect();
       },
-      { threshold: 0.3 }
+      {
+        threshold: 0.2,
+        rootMargin: "0px 0px -8% 0px",
+      }
     );
 
     observer.observe(el);

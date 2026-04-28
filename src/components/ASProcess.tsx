@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 
-
 const steps = [
   {
     number: "01",
@@ -74,42 +73,67 @@ export default function ASProcessSection() {
 
   return (
     <section ref={sectionRef} className="as-process">
-      <div className="as-process-steps">
+      <div className="as-process-desktop">
+        <div className="as-process-steps">
+          {steps.map((step, index) => (
+            <div
+              key={step.number}
+              className={`as-process-step ${index <= activeStep ? "is-shown" : ""
+                }`}
+            >
+              <span className="as-process-number">{step.number}</span>
+              <p className="as-process-title">{step.title}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="as-process-line">
+          <div className="as-process-line-track" />
+          <div
+            className="as-process-line-bar"
+            style={{ width: `${progressWidth}%` }}
+          />
+          <div
+            className="as-process-line-dot"
+            style={{
+              left: `${progressWidth}%`,
+              opacity: activeStep < 0 ? 0 : 1,
+            }}
+          />
+        </div>
+
+        <div className="as-process-content">
+          {steps.map((step, index) => (
+            <div
+              key={step.number}
+              className={`as-process-card ${index <= activeStep ? "is-shown" : ""
+                }`}
+            >
+              <p className="as-process-card-title">{step.title}</p>
+              <p className="as-process-card-description">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="as-process-mobile">
         {steps.map((step, index) => (
           <div
             key={step.number}
-            className={`as-process-step ${index <= activeStep ? "is-shown" : ""
+            className={`as-process-mobile-item ${index <= activeStep ? "is-shown" : ""
               }`}
           >
-            <span className="as-process-number">{step.number}</span>
-            <p className="as-process-title">{step.title}</p>
-          </div>
-        ))}
-      </div>
+            <div className="as-process-mobile-head">
+              <span className="as-process-number">{step.number}</span>
+              <p className="as-process-title">{step.title}</p>
+            </div>
 
-      <div className="as-process-line">
-        <div className="as-process-line-track" />
-        <div
-          className="as-process-line-bar"
-          style={{ width: `${progressWidth}%` }}
-        />
-        <div
-          className="as-process-line-dot"
-          style={{
-            left: `${progressWidth}%`,
-            opacity: activeStep < 0 ? 0 : 1,
-          }}
-        />
-      </div>
+            <div className="as-process-mobile-line">
+              <span />
+            </div>
 
-      <div className="as-process-content">
-        {steps.map((step, index) => (
-          <div
-            key={step.number}
-            className={`as-process-card ${index <= activeStep ? "is-shown" : ""
-              }`}
-          >
-            <p className="as-process-card-title">{step.title}</p>
             <p className="as-process-card-description">{step.description}</p>
           </div>
         ))}
@@ -130,7 +154,7 @@ export default function ASProcessSection() {
 
         <div className="as-process-cta">
           <p>Your Path to Energy Independence</p>
-          <button>Get Started</button>
+          <button type="button">Get Started</button>
         </div>
       </div>
     </section>

@@ -74,7 +74,7 @@ export default function ASBenefitsBanner() {
       <div className="as-benefits-content">
         {benefitsData.map((item, index) => (
           <div
-            key={index}
+            key={`${item.title}-${index}`}
             className={`as-benefit-item ${item.className} ${index <= visibleItems ? "is-shown" : ""
               }`}
           >

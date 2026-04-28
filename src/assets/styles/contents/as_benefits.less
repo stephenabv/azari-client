@@ -111,3 +111,244 @@
   align-items: center;
   color: #ffffff;
 }
+
+@media (max-width: 1300px) {
+  .benefit-one {
+    left: 40px;
+  }
+
+  .benefit-two {
+    left: 36%;
+  }
+
+  .benefit-three {
+    left: auto;
+    right: 270px;
+  }
+
+  .benefit-four {
+    right: 50px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .ASBenefitsBanner {
+    height: auto;
+    min-height: 350px;
+  }
+
+  .as-benefits-content {
+    height: auto;
+    min-height: 350px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 36px 28px;
+    padding: 56px 48px;
+  }
+
+  .as-benefit-item,
+  .benefit-one,
+  .benefit-two,
+  .benefit-three,
+  .benefit-four {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .ASBenefitsBanner {
+    border-radius: 22px;
+  }
+
+  .as-benefits-overlay {
+    background:
+      linear-gradient(to bottom,
+        rgba(0, 0, 0, 0.28),
+        rgba(0, 0, 0, 0.78)),
+      rgba(0, 0, 0, 0.12);
+  }
+
+  .as-benefits-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: center;
+    align-items: center;
+    gap: 30px 20px;
+    padding: 48px 28px;
+  }
+
+  .as-benefit-item {
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .as-benefit-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .as-benefit-header,
+  .as-benefit-description {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 576px) {
+  .ASBenefitsBanner {
+    border-radius: 20px;
+  }
+
+  .as-benefits-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px 14px;
+    padding: 40px 20px;
+  }
+
+  .as-benefit-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .as-benefit-icon img {
+    width: 22px;
+    height: 22px;
+  }
+
+  .as-benefit-header {
+    font-size: 14px;
+  }
+
+  .as-benefit-description {
+    font-size: 9px;
+    line-height: 150%;
+  }
+}
+
+@media (max-width: 400px) {
+  .ASBenefitsBanner {
+    height: auto;
+    min-height: auto;
+    border-radius: 18px;
+  }
+
+  .as-benefits-content {
+    height: auto;
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 32px 16px;
+  }
+
+  .as-benefit-item {
+    width: 100%;
+    max-width: 270px;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+  }
+
+  .as-benefit-text {
+    align-items: flex-start;
+  }
+
+  .as-benefit-header,
+  .as-benefit-description {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .as-benefit-header {
+    font-size: 13px;
+  }
+
+  .as-benefit-description {
+    font-size: 8.5px;
+    line-height: 145%;
+  }
+}
+
+@media (max-width: 340px) {
+  .as-benefits-content {
+    gap: 18px;
+    padding: 28px 14px;
+  }
+
+  .as-benefit-item {
+    max-width: 240px;
+    gap: 10px;
+  }
+
+  .as-benefit-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .as-benefit-icon img {
+    width: 20px;
+    height: 20px;
+  }
+
+  .as-benefit-header {
+    font-size: 12px;
+  }
+
+  .as-benefit-description {
+    font-size: 8px;
+  }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .ASBenefitsBanner {
+    height: auto;
+    min-height: auto;
+  }
+
+  .as-benefits-content {
+    height: auto;
+    min-height: auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(130px, 1fr));
+    gap: 18px;
+    padding: 30px;
+  }
+
+  .as-benefit-item,
+  .benefit-one,
+  .benefit-two,
+  .benefit-three,
+  .benefit-four {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+  }
+
+  .as-benefit-item {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+  }
+
+  .as-benefit-text {
+    align-items: flex-start;
+  }
+
+  .as-benefit-header,
+  .as-benefit-description {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}

@@ -5,9 +5,17 @@ export default function ASFooter() {
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
 
-  const email = "customersupport@azari.solar";
-  const phone = "+63 961 618 3465";
-  const year = new Date().getFullYear();
+  const CONTACT_EMAIL = "sales@azari.solar";
+  const CONTACT_PHONE = "+63 961 618 3436";
+
+  const SOCIALS = ["Facebook", "Instagram", "TikTok"];
+
+  const FOOTER_TEXT = {
+    credit: "Designed by Orland Developed by Stephen & Adriel",
+    privacy: "Privacy Policy",
+    terms: "Terms and Condition",
+    copyright: `© ${new Date().getFullYear()} Azari.Solar. All Rights Reserved.`,
+  };
 
   useEffect(() => {
     const el = footerRef.current;
@@ -33,34 +41,36 @@ export default function ASFooter() {
     <footer
       ref={footerRef}
       className={`as-footer ${isShown ? "is-shown" : ""}`}
-      id="talktous"
     >
       <div className="as-footer-bg as-footer-bg-logo" />
       <div className="as-footer-bg as-footer-bg-shape" />
-      <div className="as-footer-overlay" />
 
       <div className="as-footer-content">
         <div className="as-footer-middle">
-          <a href={`mailto:${email}`} className="as-footer-link">
-            {email}
+          <a href={`mailto:${CONTACT_EMAIL}`} className="as-footer-link">
+            {CONTACT_EMAIL}
           </a>
 
-          <a href={`tel:${phone}`} className="as-footer-link">
-            {phone}
+          <a href={`tel:${CONTACT_PHONE}`} className="as-footer-link">
+            {CONTACT_PHONE}
           </a>
 
-          <a href="#socials" className="as-footer-link as-footer-socials">
-            Socials
-          </a>
+          <div className="as-footer-socials">
+            {SOCIALS.map((item) => (
+              <span key={item} className="as-footer-link">
+                {item}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div className="as-footer-bottom">
-          <span>Designed by Orland Developed by Adriel</span>
+          <span>{FOOTER_TEXT.credit}</span>
 
           <div className="as-footer-bottom-links">
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms and Condition</a>
-            <span>© {year} Azari Solar. All Rights Reserved.</span>
+            <a href="#privacy">{FOOTER_TEXT.privacy}</a>
+            <a href="#terms">{FOOTER_TEXT.terms}</a>
+            <span>{FOOTER_TEXT.copyright}</span>
           </div>
         </div>
       </div>

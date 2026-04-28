@@ -40,5 +40,540 @@ section.as-tropics-section {
 
 .as-tropics-text .subtext span,
 .as-tropics-text span {
-  color: #FC615A;
+  color: #fc615a;
+}
+
+.as-tropics-cards {
+  width: 100%;
+  padding: 0 116px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  box-sizing: border-box;
+}
+
+.as-tropics-card {
+  width: 100%;
+  height: 395px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background-size: cover;
+  background-position: center;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.as-tropics-card.is-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.as-card-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.as-climate-title {
+  position: absolute;
+  top: 40px;
+  left: 52px;
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 35px;
+  font-weight: 500;
+  line-height: 120%;
+  color: #e8e8e8;
+}
+
+.as-climate-tags {
+  position: absolute;
+  inset: 0;
+}
+
+.as-climate-tags span {
+  position: absolute;
+  width: 160px;
+  min-height: 36px;
+  padding: 8px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  border: 1px solid rgba(227, 227, 227, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  font-family: "Inter", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 140%;
+  text-transform: uppercase;
+  text-align: center;
+  color: #ffffff;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.as-climate-tags span:first-child {
+  top: 130px;
+  left: 16px;
+}
+
+.as-climate-tags span:last-child {
+  right: 24px;
+  bottom: 52px;
+}
+
+.as-solar-content {
+  position: absolute;
+  left: 34px;
+  bottom: 44px;
+}
+
+.as-solar-title {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 50px;
+  font-weight: 700;
+  line-height: 120%;
+  color: #ffffff;
+}
+
+.as-solar-description {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 180%;
+  letter-spacing: 0.06em;
+  color: #ffffff;
+}
+
+.as-performance-card-container {
+  height: 100%;
+  padding: 40px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.as-performance-title {
+  margin: 0;
+  max-width: 260px;
+  font-family: "Outfit", sans-serif;
+  font-size: 29px;
+  font-weight: 700;
+  line-height: 120%;
+}
+
+.as-performance-description {
+  margin: 20px 0 0;
+  max-width: 300px;
+  font-family: "Inter", sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 180%;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.as-performance-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: auto;
+  min-width: 0;
+}
+
+.as-performance-bars {
+  width: 100%;
+  max-width: 150px;
+  min-width: 0;
+  max-height: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bar-gap);
+}
+
+.as-performance-bars span {
+  width: 100%;
+  height: var(--bar-height);
+  border-radius: 2px;
+  flex-shrink: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.45s ease;
+}
+
+.as-performance-bars.is-animated span {
+  transform: scaleX(1);
+  transition-delay: calc(var(--bar-index) * 0.04s);
+}
+
+.as-performance-percentage {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 80px;
+  font-weight: 700;
+  line-height: 120%;
+  white-space: nowrap;
+}
+
+@media (max-width: 1300px) {
+  .as-tropics-cards {
+    padding: 0 72px;
+    gap: 24px;
+  }
+
+  .as-tropics-text {
+    margin: 0 72px;
+    column-gap: 56px;
+  }
+
+  .as-climate-title {
+    left: 36px;
+    font-size: 32px;
+  }
+
+  .as-performance-card-container {
+    padding: 34px;
+  }
+
+  .as-performance-percentage {
+    font-size: 68px;
+  }
+}
+
+@media (max-width: 1100px) {
+  section.as-tropics-section {
+    gap: 80px;
+  }
+
+  .as-tropics-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0 56px;
+  }
+
+  .as-performance-card {
+    grid-column: auto;
+    max-width: 420px;
+    justify-self: center;
+  }
+
+  .as-tropics-text {
+    grid-template-columns: 1fr;
+    row-gap: 28px;
+    margin: 0 56px;
+  }
+
+  .as-tropics-text .header {
+    font-size: 46px;
+  }
+
+  .as-tropics-text .subtext {
+    max-width: 760px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  section.as-tropics-section {
+    gap: 64px;
+  }
+
+  .as-tropics-cards {
+    grid-template-columns: 1fr;
+    padding: 0 32px;
+    gap: 24px;
+  }
+
+  .as-tropics-card {
+    height: 360px;
+    border-radius: 22px;
+  }
+
+  .as-performance-card {
+    grid-column: auto;
+  }
+
+  .as-climate-title {
+    top: 34px;
+    left: 34px;
+    font-size: 30px;
+  }
+
+  .as-climate-tags span:first-child {
+    top: 120px;
+    left: 18px;
+  }
+
+  .as-climate-tags span:last-child {
+    right: 22px;
+    bottom: 42px;
+  }
+
+  .as-solar-content {
+    left: 30px;
+    bottom: 38px;
+  }
+
+  .as-solar-title {
+    font-size: 44px;
+  }
+
+  .as-performance-card-container {
+    padding: 32px;
+  }
+
+  .as-performance-title {
+    font-size: 27px;
+  }
+
+  .as-performance-percentage {
+    font-size: 64px;
+  }
+
+  .as-tropics-text {
+    margin: 0 32px;
+    row-gap: 24px;
+  }
+
+  .as-tropics-text .header {
+    font-size: 40px;
+  }
+
+  .as-tropics-text .subtext {
+    font-size: 20px;
+    line-height: 130%;
+    text-align: left;
+  }
+}
+
+@media (max-width: 576px) {
+  section.as-tropics-section {
+    gap: 52px;
+  }
+
+  .as-tropics-cards {
+    padding: 0 20px;
+    gap: 20px;
+  }
+
+  .as-tropics-card {
+    height: 320px;
+    border-radius: 20px;
+  }
+
+  .as-climate-title {
+    top: 28px;
+    left: 26px;
+    font-size: 26px;
+  }
+
+  .as-climate-tags span {
+    width: 142px;
+    min-height: 34px;
+    font-size: 9px;
+  }
+
+  .as-climate-tags span:first-child {
+    top: 100px;
+    left: 14px;
+  }
+
+  .as-climate-tags span:last-child {
+    right: 14px;
+    bottom: 34px;
+  }
+
+  .as-solar-content {
+    left: 24px;
+    bottom: 30px;
+  }
+
+  .as-solar-title {
+    font-size: 38px;
+  }
+
+  .as-performance-card-container {
+    padding: 28px;
+  }
+
+  .as-performance-title {
+    font-size: 24px;
+  }
+
+  .as-performance-description {
+    margin-top: 14px;
+  }
+
+  .as-performance-content {
+    gap: 16px;
+  }
+
+  .as-performance-bars {
+    max-width: 120px;
+  }
+
+  .as-performance-percentage {
+    font-size: 54px;
+  }
+
+  .as-tropics-text {
+    margin: 0 20px;
+  }
+
+  .as-tropics-text .header {
+    font-size: 34px;
+  }
+
+  .as-tropics-text .subtext {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 400px) {
+  .as-tropics-cards {
+    padding: 0 16px;
+  }
+
+  .as-tropics-card {
+    height: 285px;
+    border-radius: 18px;
+  }
+
+  .as-climate-title {
+    top: 24px;
+    left: 22px;
+    font-size: 23px;
+  }
+
+  .as-climate-tags span {
+    width: 128px;
+    min-height: 32px;
+    padding: 7px;
+    font-size: 8px;
+    border-radius: 14px;
+  }
+
+  .as-climate-tags span:first-child {
+    top: 88px;
+    left: 12px;
+  }
+
+  .as-climate-tags span:last-child {
+    right: 12px;
+    bottom: 28px;
+  }
+
+  .as-solar-content {
+    left: 22px;
+    bottom: 26px;
+  }
+
+  .as-solar-title {
+    font-size: 34px;
+  }
+
+  .as-solar-description {
+    font-size: 9px;
+  }
+
+  .as-performance-card-container {
+    padding: 24px;
+  }
+
+  .as-performance-title {
+    font-size: 22px;
+  }
+
+  .as-performance-description {
+    max-width: 240px;
+    font-size: 9px;
+    line-height: 160%;
+  }
+
+  .as-performance-content {
+    gap: 12px;
+  }
+
+  .as-performance-bars {
+    max-width: 96px;
+  }
+
+  .as-performance-percentage {
+    font-size: 44px;
+  }
+
+  .as-tropics-text {
+    margin: 0 16px;
+  }
+
+  .as-tropics-text .header {
+    font-size: 30px;
+  }
+
+  .as-tropics-text .subtext {
+    font-size: 15px;
+    line-height: 140%;
+  }
+}
+
+@media (max-width: 340px) {
+  .as-tropics-card {
+    height: 260px;
+  }
+
+  .as-climate-title {
+    font-size: 21px;
+  }
+
+  .as-climate-tags span {
+    width: 116px;
+    font-size: 7.5px;
+  }
+
+  .as-solar-title {
+    font-size: 30px;
+  }
+
+  .as-performance-card-container {
+    padding: 20px;
+  }
+
+  .as-performance-title {
+    font-size: 20px;
+  }
+
+  .as-performance-description {
+    font-size: 8px;
+  }
+
+  .as-performance-percentage {
+    font-size: 38px;
+  }
+
+  .as-tropics-text .header {
+    font-size: 27px;
+  }
+
+  .as-tropics-text .subtext {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .as-tropics-card,
+  .as-tropics-text {
+    transition: none;
+    transform: none;
+  }
+
+  .as-performance-bars span {
+    transition: none;
+  }
 }
