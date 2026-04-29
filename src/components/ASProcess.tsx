@@ -52,7 +52,7 @@ export default function ASProcessSection() {
         timeouts.push(
           window.setTimeout(() => {
             setShowFooter(true);
-          }, (steps.length + 1) * 1100)
+          }, (steps.length + 1) * 500)
         );
 
         observer.disconnect();
