@@ -83,22 +83,6 @@ export default function AddApplianceModal({
     }, 0);
   }, [schedules]);
 
-  const estimatedUsage = useMemo(() => {
-    const wattsValue = Number(watts);
-    const quantityValue = Number(quantity);
-
-    if (
-      Number.isNaN(wattsValue) ||
-      Number.isNaN(quantityValue) ||
-      wattsValue <= 0 ||
-      quantityValue <= 0 ||
-      totalHours <= 0
-    ) {
-      return 0;
-    }
-
-    return wattsValue * quantityValue * totalHours;
-  }, [watts, quantity, totalHours]);
 
   const handleScheduleChange = (
     index: number,
