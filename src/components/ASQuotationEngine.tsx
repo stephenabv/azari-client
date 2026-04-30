@@ -516,7 +516,6 @@ export default function ASQuotationEngine() {
         <div className="as-quote-layout">
           <main className="as-quote-main">
 
-            {/* ── 01 Property Classification ─────────────── */}
             {QUOTE_ENGINE_CONFIG.view.showPropertyClassification && (
               <div className="as-form-section">
                 <div className="as-section-label">
@@ -544,7 +543,6 @@ export default function ASQuotationEngine() {
               </div>
             )}
 
-            {/* ── 02 & 03 — Bill mode only ────────────────── */}
             {quoteMode === "with-bill" && (
               <>
                 {/* 02 Consumption Data */}
