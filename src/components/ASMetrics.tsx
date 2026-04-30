@@ -1,22 +1,39 @@
 import { useEffect, useRef, useState } from "react";
 import { StatCard } from "../modules/rolling-card/ASRollingCard";
+import { getCollectionData } from "../services/ASFirestore";
 
-const statCardsData = [
+type MetricItem = {
+  value: string;
+  label: string;
+  order: number;
+};
+
+type ASMetricsData = {
+  id: string;
+  metrics?: Record<string, MetricItem>;
+  performance_rating?: number;
+};
+
+const DEFAULT_METRICS: MetricItem[] = [
   {
-    value: "18.51MW+",
+    value: "0",
     label: "INSTALLED",
+    order: 1,
   },
   {
-    value: "15,000",
+    value: "0",
     label: "ACTIVE CLIENTS",
+    order: 2,
   },
   {
-    value: "DOE & PEC",
+    value: "0",
     label: "CERTIFIED COMPLIANT",
+    order: 3,
   },
   {
-    value: "5-YEAR",
+    value: "0",
     label: "PERFORMANCE WARRANTY",
+    order: 4,
   },
 ];
 
@@ -25,6 +42,26 @@ export default function ASMetrics() {
   const hasAnimated = useRef(false);
 
   const [visibleCards, setVisibleCards] = useState(-1);
+  const [metrics, setMetrics] = useState<MetricItem[]>(DEFAULT_METRICS);
+
+  useEffect(() => {
+    const unsubscribe = getCollectionData<ASMetricsData>("ASMetrics", (data) => {
+      const firestoreMetrics = data[0]?.metrics;
+
+      if (!firestoreMetrics) {
+        setMetrics(DEFAULT_METRICS);
+        return;
+      }
+
+      const sortedMetrics = Object.values(firestoreMetrics)
+        .filter((item) => item?.label && item?.value)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      setMetrics(sortedMetrics.length ? sortedMetrics : DEFAULT_METRICS);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -36,7 +73,7 @@ export default function ASMetrics() {
 
         hasAnimated.current = true;
 
-        statCardsData.forEach((_, index) => {
+        metrics.forEach((_, index) => {
           window.setTimeout(() => {
             setVisibleCards(index);
           }, (index + 1) * 220);
@@ -53,15 +90,16 @@ export default function ASMetrics() {
     observer.observe(el);
 
     return () => observer.disconnect();
-  }, []);
+  }, [metrics]);
 
   return (
     <section ref={sectionRef} className="stats-card-section">
-      {statCardsData.map((item, index) => (
+      {metrics.map((item, index) => (
         <div
           key={`${item.value}-${item.label}-${index}`}
-          className={`stats-card-wrapper ${index <= visibleCards ? "is-shown" : ""
-            }`}
+          className={`stats-card-wrapper ${
+            index <= visibleCards ? "is-shown" : ""
+          }`}
         >
           {index <= visibleCards && (
             <StatCard value={item.value} label={item.label} duration={1800} />

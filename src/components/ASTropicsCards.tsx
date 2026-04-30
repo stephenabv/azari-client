@@ -1,9 +1,26 @@
+import { useEffect, useMemo, useState } from "react";
 import climateDark from "../assets/images/dark/climate_bg_dark.png";
 import assetsDeployed from "../assets/images/dark/assets_deployed_dark.png";
+import { getCollectionData } from "../services/ASFirestore";
 
 type ASTropicsCardsProps = {
   visibleCards: number;
 };
+
+type MetricItem = {
+  value: string;
+  label: string;
+  order: number;
+};
+
+type ASMetricsData = {
+  id: string;
+  metrics?: Record<string, MetricItem>;
+  performance_rating?: number;
+};
+
+const DEFAULT_ASSETS_DEPLOYED = "0";
+const DEFAULT_PERFORMANCE_RATING = 0;
 
 const cards = [
   {
@@ -14,7 +31,6 @@ const cards = [
   },
   {
     type: "solar",
-    title: "5.6 MWp+",
     subtitle: "SOLAR ASSETS DEPLOYED",
     image: assetsDeployed,
   },
@@ -22,16 +38,39 @@ const cards = [
     type: "performance",
     title: "Performance Guarantee",
     subtitle: "AVERAGE ELECTRICITY BILL REDUCTION FOR OUR CLIENTS",
-    percentage: 87,
     image: "/images/performance-bg.jpg",
   },
 ];
 
 export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
-  const performance = cards[2];
+  const [assetsTitle, setAssetsTitle] = useState(DEFAULT_ASSETS_DEPLOYED);
+  const [performanceRating, setPerformanceRating] = useState(
+    DEFAULT_PERFORMANCE_RATING
+  );
+
+  useEffect(() => {
+    const unsubscribe = getCollectionData<ASMetricsData>("ASMetrics", (data) => {
+      const item = data[0];
+
+      setAssetsTitle(item?.metrics?.installed?.value ?? DEFAULT_ASSETS_DEPLOYED);
+      setPerformanceRating(
+        item?.performance_rating ?? DEFAULT_PERFORMANCE_RATING
+      );
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const totalBars = 12;
-  const activeBars = Math.ceil((performance.percentage! / 100) * totalBars) - 2;
+
+  const activeBars = useMemo(() => {
+    const normalizedRating = Math.min(Math.max(performanceRating, 0), 100);
+    return Math.max(
+      0,
+      Math.ceil((normalizedRating / 100) * totalBars) - 2
+    );
+  }, [performanceRating]);
+
   const maxBarsHeight = 140;
   const barGap = 4;
   const barHeight = (maxBarsHeight - (totalBars - 1) * barGap) / totalBars;
@@ -39,8 +78,9 @@ export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
   return (
     <div className="as-tropics-cards">
       <div
-        className={`as-tropics-card as-climate-card ${visibleCards >= 0 ? "is-shown" : ""
-          }`}
+        className={`as-tropics-card as-climate-card ${
+          visibleCards >= 0 ? "is-shown" : ""
+        }`}
         style={{ backgroundImage: `url(${cards[0].image})` }}
       >
         <div className="as-card-overlay" />
@@ -55,31 +95,34 @@ export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
       </div>
 
       <div
-        className={`as-tropics-card as-solar-card ${visibleCards >= 1 ? "is-shown" : ""
-          }`}
+        className={`as-tropics-card as-solar-card ${
+          visibleCards >= 1 ? "is-shown" : ""
+        }`}
         style={{ backgroundImage: `url(${cards[1].image})` }}
       >
         <div className="as-card-overlay as-solar-overlay" />
 
         <div className="as-solar-content">
-          <p className="as-solar-title">{cards[1].title}</p>
+          <p className="as-solar-title">{assetsTitle}</p>
           <p className="as-solar-description">{cards[1].subtitle}</p>
         </div>
       </div>
 
       <div
-        className={`as-tropics-card as-performance-card ${visibleCards >= 2 ? "is-shown" : ""
-          }`}
-        style={{ backgroundImage: `url(${performance.image})` }}
+        className={`as-tropics-card as-performance-card ${
+          visibleCards >= 2 ? "is-shown" : ""
+        }`}
+        style={{ backgroundImage: `url(${cards[2].image})` }}
       >
         <div className="as-performance-card-container">
-          <p className="as-performance-title">{performance.title}</p>
-          <p className="as-performance-description">{performance.subtitle}</p>
+          <p className="as-performance-title">{cards[2].title}</p>
+          <p className="as-performance-description">{cards[2].subtitle}</p>
 
           <div className="as-performance-content">
             <div
-              className={`as-performance-bars ${visibleCards >= 2 ? "is-animated" : ""
-                }`}
+              className={`as-performance-bars ${
+                visibleCards >= 2 ? "is-animated" : ""
+              }`}
               style={
                 {
                   "--bar-height": `${barHeight}px`,
@@ -105,7 +148,7 @@ export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
             </div>
 
             <p className="as-performance-percentage">
-              {performance.percentage}%
+              {performanceRating}%
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 
@@ -32,6 +33,10 @@ export default function ASMainLayout() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    trackPageView(location.pathname);
   }, [location.pathname]);
 
   const toggleTheme = () => {
