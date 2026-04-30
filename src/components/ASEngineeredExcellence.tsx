@@ -42,6 +42,18 @@ const DEFAULT_EXCELLENCE_ITEMS: ExcellenceItem[] = [
   },
 ];
 
+const isExcellenceItem = (value: unknown): value is ExcellenceItem => {
+  if (!value || typeof value !== "object") return false;
+
+  const item = value as Partial<ExcellenceItem>;
+
+  return (
+    typeof item.number === "string" &&
+    typeof item.title === "string" &&
+    typeof item.description === "string"
+  );
+};
+
 export default function ASEngineeredExcellence() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
@@ -63,13 +75,8 @@ export default function ASEngineeredExcellence() {
           return;
         }
 
-        const firestoreItems = Object.entries(item)
-          .filter(([key]) => key !== "id")
-          .map(([, value]) => value)
-          .filter(
-            (value): value is ExcellenceItem =>
-              !!value?.number && !!value?.title && !!value?.description
-          )
+        const firestoreItems = Object.values(item)
+          .filter(isExcellenceItem)
           .sort((a, b) => Number(a.number) - Number(b.number));
 
         setExcellenceItems(
