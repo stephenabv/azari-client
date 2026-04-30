@@ -150,8 +150,6 @@ export default function RequestProposalModal({
     };
 
     await onSubmit(sanitizedData);
-
-    window.alert("Proposal request submitted successfully.");
   };
 
   return (

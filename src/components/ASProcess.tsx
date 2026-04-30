@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import { getCollectionData } from "../services/ASFirestore";
-import { StatCard } from "../modules/rolling-card/ASRollingCard";
 
 type ProcessStep = {
   number: string;

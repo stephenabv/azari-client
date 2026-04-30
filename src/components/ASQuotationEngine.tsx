@@ -5,12 +5,18 @@ import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
 import { getCollectionData } from "../services/ASFirestore";
 import { sendQuotationRequest } from "../modules/quotationbuilder";
+import ASSystemError from "../modules/system-error/ASSystemError";
 
 import residentialIcon from "../assets/icons/icon-resident.svg";
 import commercialIcon from "../assets/icons/icon-commercial.svg";
 import industrialIcon from "../assets/icons/icon-industrial.svg";
 
-type ModalType = "add-appliance" | "request-proposal" | "submitted" | null;
+type ModalType =
+  | "add-appliance"
+  | "request-proposal"
+  | "submitted"
+  | "system-error"
+  | null;
 type QuoteMode = "with-bill" | "no-bill";
 
 type QuoteNavigationState = {
@@ -64,6 +70,8 @@ type ProposalFormData = {
   phone?: string;
   message?: string;
 };
+
+
 
 const DEFAULT_CALCULATOR_CONFIG = {
   monthlyBill: {
@@ -589,6 +597,22 @@ export default function ASQuotationEngine() {
     setModal("request-proposal");
   };
 
+  const resetForm = () => {
+    setMonthlyBill(calculatorConfig.monthlyBill.defaultValue);
+    setElectricRate(calculatorConfig.electricRate.defaultValue);
+
+    setMonthlyBillInput(
+      String(calculatorConfig.monthlyBill.defaultValue)
+    );
+    setElectricRateInput(
+      String(calculatorConfig.electricRate.defaultValue)
+    );
+
+    setAppliances([]);
+    setUploadedBill(null);
+    setFormError("");
+  };
+
   const handleSubmitProposal = async (proposalForm?: ProposalFormData) => {
     const error = validateBeforeProposal();
 
@@ -600,7 +624,7 @@ export default function ASQuotationEngine() {
     setIsSubmitting(true);
 
     try {
-      await sendQuotationRequest({
+      const result = await sendQuotationRequest({
         quoteMode,
         selectedProperty,
         monthlyBill,
@@ -613,10 +637,13 @@ export default function ASQuotationEngine() {
         proposalForm,
       });
 
-      setModal("submitted");
-    } catch (error) {
-      console.error(error);
-      alert("Something went wrong while submitting your request.");
+      if (result.isRealSuccess) {
+        resetForm();
+        setModal("submitted");
+        return;
+      }
+
+      setModal("system-error");
     } finally {
       setIsSubmitting(false);
     }
@@ -954,6 +981,10 @@ export default function ASQuotationEngine() {
       )}
 
       {modal === "submitted" && <ProposalSubmittedModal onClose={closeModal} />}
+
+      {modal === "system-error" && (
+        <ASSystemError onClose={closeModal} />
+      )}
     </section>
   );
 }

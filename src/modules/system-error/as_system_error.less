@@ -1,0 +1,153 @@
+.as-system-error-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+}
+
+.as-system-error-modal {
+  width: min(640px, 100%);
+  padding: 56px 48px 44px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #171717;
+  color: #ffffff;
+  text-align: center;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.45);
+  animation: systemErrorIn 0.24s ease forwards;
+}
+
+.as-system-error-icon {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fc615a;
+  color: #ffffff;
+  font-family: "Outfit", sans-serif;
+  font-size: 58px;
+  font-weight: 700;
+}
+
+.as-system-error-modal h2 {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 36px;
+  font-weight: 500;
+}
+
+.as-system-error-modal p {
+  max-width: 500px;
+  margin: 22px auto 0;
+  font-family: "Inter", sans-serif;
+  font-size: 18px;
+  line-height: 150%;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.as-system-error-modal button {
+  width: 100%;
+  height: 58px;
+  margin-top: 40px;
+  border: none;
+  border-radius: 14px;
+  background: #fc615a;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 16px 32px rgba(252, 97, 90, 0.28);
+}
+
+.light-theme .as-system-error-overlay {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.light-theme .as-system-error-modal {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  color: #111111;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.18);
+}
+
+.light-theme .as-system-error-modal p {
+  color: rgba(17, 17, 17, 0.58);
+}
+
+@keyframes systemErrorIn {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 768px) {
+  .as-system-error-overlay {
+    align-items: flex-start;
+    padding: 90px 20px 24px;
+    overflow-y: auto;
+  }
+
+  .as-system-error-modal {
+    padding: 44px 28px 36px;
+    border-radius: 24px;
+  }
+
+  .as-system-error-icon {
+    width: 82px;
+    height: 82px;
+    font-size: 48px;
+  }
+
+  .as-system-error-modal h2 {
+    font-size: 30px;
+  }
+
+  .as-system-error-modal p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .as-system-error-overlay {
+    padding: 76px 14px 20px;
+  }
+
+  .as-system-error-modal {
+    padding: 36px 20px 30px;
+    border-radius: 20px;
+  }
+
+  .as-system-error-icon {
+    width: 72px;
+    height: 72px;
+    font-size: 42px;
+  }
+
+  .as-system-error-modal h2 {
+    font-size: 26px;
+  }
+
+  .as-system-error-modal p {
+    font-size: 15px;
+  }
+
+  .as-system-error-modal button {
+    height: 54px;
+    font-size: 16px;
+  }
+}

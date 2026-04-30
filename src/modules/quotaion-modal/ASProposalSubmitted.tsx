@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+
 type ProposalSubmittedModalProps = {
   onClose: () => void;
 };
@@ -5,6 +7,8 @@ type ProposalSubmittedModalProps = {
 export default function ProposalSubmittedModal({
   onClose,
 }: ProposalSubmittedModalProps) {
+
+  const navigate = useNavigate();
   return (
     <div className="as-modal-backdrop">
       <div className="as-modal as-success-modal">
@@ -28,7 +32,7 @@ export default function ProposalSubmittedModal({
           <button className="as-btn-secondary" onClick={onClose}>
             Close
           </button>
-          <button className="as-btn-primary" onClick={onClose}>
+          <button className="as-btn-primary" onClick={() => { navigate("/") }}>
             Return to Homepage
           </button>
         </div>

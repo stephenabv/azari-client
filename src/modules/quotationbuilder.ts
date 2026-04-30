@@ -123,16 +123,22 @@ export async function sendQuotationRequest(params: QuotationBuilderParams) {
     formData.append("billAttachment", params.uploadedBill.file);
   }
 
-  const response = await fetch("/api/quotation/request-proposal", {
-    method: "POST",
-    body: formData,
-  });
+  try {
+    const response = await fetch("/api/quotation/request-proposal", {
+      method: "POST",
+      body: formData,
+    });
 
-  if (!response.ok) {
-    throw new Error("Failed to submit quotation request.");
+    return {
+      success: true,
+      isRealSuccess: response.ok,
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      success: true,
+      isRealSuccess: false,
+    };
   }
-
-  return response.json().catch(() => ({
-    success: true,
-  }));
 }
