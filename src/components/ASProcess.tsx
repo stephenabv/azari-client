@@ -45,7 +45,7 @@ export default function ASProcessSection() {
           timeouts.push(
             window.setTimeout(() => {
               setActiveStep(index);
-            }, (index + 1) * 1100)
+            }, (index + 1) * 800)
           );
         });
 

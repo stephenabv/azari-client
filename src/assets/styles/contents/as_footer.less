@@ -25,7 +25,17 @@
   height: 680px;
   background: url("../../logos/logo.png") center/contain no-repeat;
   opacity: 0;
+
   transition: opacity 1s ease, transform 1s ease;
+
+  -webkit-mask-image: linear-gradient(to bottom,
+      rgba(0, 0, 0, 1) 55%,
+      rgba(0, 0, 0, 0.6) 75%,
+      rgba(0, 0, 0, 0) 100%);
+  mask-image: linear-gradient(to bottom,
+      rgba(0, 0, 0, 1) 55%,
+      rgba(0, 0, 0, 0.6) 75%,
+      rgba(0, 0, 0, 0) 100%);
 }
 
 .as-footer-bg-shape {
@@ -75,7 +85,7 @@
 
 .as-footer-link {
   font-family: "Outfit", sans-serif;
-  font-size: 32px;
+  font-size: 29px;
   transition: opacity 0.2s ease;
 }
 
@@ -90,10 +100,11 @@
 
 .as-footer-bottom {
   margin-top: 120px;
+  font-family: "Inter", sans-serif;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0;
   transform: translateY(45px);
   transition: opacity 0.75s ease 0.55s, transform 0.75s ease 0.55s;

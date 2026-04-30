@@ -25,7 +25,91 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
-const PROJECTS_DATA: Project[] = [];
+// const PROJECTS_DATA: Project[] = [];
+
+const PROJECTS_DATA: Project[] = [
+  {
+    id: 1,
+    category: "Industrial",
+    filter: ["All Projects", "Industrial Projects", "Recent Projects"],
+    title: "Batangas Cold Storage",
+    system: "3.2 MWp",
+    savings: "₱12.4M",
+    image: "/images/projects/project1.jpg",
+  },
+  {
+    id: 2,
+    category: "Industrial",
+    filter: ["All Projects", "Industrial Projects", "Recent Projects"],
+    title: "Makati Retail & Office",
+    system: "850 kWp",
+    savings: "₱4.2M",
+    image: "/images/projects/project2.jpg",
+  },
+  {
+    id: 3,
+    category: "Industrial",
+    filter: ["All Projects", "Industrial Projects"],
+    title: "Nuvali High-Efficiency",
+    system: "7.5 kWp",
+    savings: "₱385K",
+    image: "/images/projects/project3.jpg",
+  },
+  {
+    id: 4,
+    category: "Industrial",
+    filter: ["All Projects", "Industrial Projects"],
+    title: "Tarlac Poultry Farm",
+    system: "100 kWp",
+    savings: "₱2.8M",
+    image: "/images/projects/project4.jpg",
+  },
+  {
+    id: 5,
+    category: "Residential",
+    filter: ["All Projects", "Residential Projects", "Recent Projects"],
+    title: "Tagaytay Glass House",
+    system: "5.4 kWp",
+    savings: "₱310K",
+    image: "/images/projects/project5.jpg",
+  },
+  {
+    id: 6,
+    category: "Commercial",
+    filter: ["All Projects", "Commercial Projects"],
+    title: "Cebu IT Park Office",
+    system: "450 kWp",
+    savings: "₱5.1M",
+    image: "/images/projects/project6.jpg",
+  },
+  {
+    id: 7,
+    category: "Residential",
+    filter: ["All Projects", "Residential Projects"],
+    title: "Cavite Net-Zero Subdivision",
+    system: "12 kWp",
+    savings: "₱680K",
+    image: "/images/projects/project7.jpg",
+  },
+  {
+    id: 8,
+    category: "Commercial",
+    filter: ["All Projects", "Commercial Projects", "Recent Projects"],
+    title: "Pasig Lifestyle Retail",
+    system: "620 kWp",
+    savings: "₱7.4M",
+    image: "/images/projects/project8.jpg",
+  },
+  {
+    id: 9,
+    category: "Industrial",
+    filter: ["All Projects", "Industrial Projects"],
+    title: "Davao Cold Chain Logistics",
+    system: "1.5 MWp",
+    savings: "₱10.2M",
+    image: "/images/projects/project9.jpg",
+  },
+];
 
 export default function ASProjects() {
   const [activeFilter, setActiveFilter] =

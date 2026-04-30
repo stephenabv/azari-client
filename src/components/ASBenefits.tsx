@@ -36,6 +36,7 @@ export default function ASBenefitsBanner() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
   const [visibleItems, setVisibleItems] = useState(-1);
+  const [isVideoShown, setIsVideoShown] = useState(false);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -46,6 +47,7 @@ export default function ASBenefitsBanner() {
         if (!entry.isIntersecting || hasAnimated.current) return;
 
         hasAnimated.current = true;
+        setIsVideoShown(true);
 
         benefitsData.forEach((_, index) => {
           window.setTimeout(() => {
@@ -65,7 +67,13 @@ export default function ASBenefitsBanner() {
 
   return (
     <section ref={sectionRef} className="ASBenefitsBanner">
-      <video className="as-benefits-video" autoPlay muted loop playsInline>
+      <video
+        className={`as-benefits-video ${isVideoShown ? "is-video-shown" : ""}`}
+        autoPlay
+        muted
+        loop
+        playsInline
+      >
         <source src={benefitVideoOverlay} type="video/mp4" />
       </video>
 

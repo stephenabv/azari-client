@@ -1,19 +1,19 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
 
+import residentialIcon from "../assets/icons/icon-resident.svg";
+import commercialIcon from "../assets/icons/icon-commercial.svg";
+import industrialIcon from "../assets/icons/icon-industrial.svg";
+
 type ModalType = "add-appliance" | "request-proposal" | "submitted" | null;
+type QuoteMode = "with-bill" | "no-bill";
 
 type QuoteNavigationState = {
   monthlyBill?: number;
   electricRate?: number;
-  monthlyKwh?: number;
-  systemSize?: number;
-  estimatedMonthlySavings?: number;
-  annualSavings?: number;
-  tenYearSavings?: number;
 };
 
 type Appliance = {
@@ -22,6 +22,8 @@ type Appliance = {
   watts: number;
   quantity: number;
   hours: number;
+  schedule: string;
+  usageType: string;
   usage: number;
 };
 
@@ -34,13 +36,19 @@ type UploadedBill = {
 
 type ProposalFormData = {
   fullName?: string;
+  location?: string;
   email?: string;
   phone?: string;
-  company?: string;
   message?: string;
 };
 
 const QUOTE_ENGINE_CONFIG = {
+  view: {
+    showPropertyClassification: true,
+    showResidential: true,
+    showCommercial: true,
+    showIndustrial: true,
+  },
   formula: {
     averageSolarProductionPerKwp: 120,
     estimatedSavingsRate: 0.87,
@@ -48,9 +56,15 @@ const QUOTE_ENGINE_CONFIG = {
     projectionYears: 10,
   },
   defaults: {
+    quoteMode: "with-bill" as QuoteMode,
     monthlyBill: 0,
     electricRate: 14,
-    selectedProperty: "Commercial",
+    selectedProperty: "Residential",
+  },
+  validation: {
+    minMonthlyBill: 1,
+    minElectricRate: 8,
+    maxElectricRate: 20,
   },
   upload: {
     maxSizeInBytes: 10 * 1024 * 1024,
@@ -62,36 +76,42 @@ const QUOTE_ENGINE_CONFIG = {
 const propertyTypes = [
   {
     title: "Residential",
-    description: "For homes, apartments, and private properties.",
+    icon: residentialIcon,
+    isVisible: QUOTE_ENGINE_CONFIG.view.showResidential,
+    description:
+      "Standard detached housing or townhouses. Optimized for rooftop efficiency.",
   },
   {
     title: "Commercial",
-    description: "For buildings, restaurants, and business spaces.",
+    icon: commercialIcon,
+    isVisible: QUOTE_ENGINE_CONFIG.view.showCommercial,
+    description:
+      "Office buildings, retail spaces, and warehouses. Higher load capacity sizing.",
   },
   {
     title: "Industrial",
-    description: "For factories, warehouses, and large facilities.",
+    icon: industrialIcon,
+    isVisible: QUOTE_ENGINE_CONFIG.view.showIndustrial,
+    description:
+      "Manufacturing plants and large facilities. High-voltage integration focused.",
   },
 ];
 
 function formatSystemSize(value: number) {
   if (value >= 1000) {
-    return {
-      value: (value / 1000).toFixed(1),
-      unit: "MWp",
-    };
+    return { value: (value / 1000).toFixed(1), unit: "MWp" };
   }
-
-  return {
-    value: value.toFixed(1),
-    unit: "kWp",
-  };
+  return { value: value.toFixed(0), unit: "kWp" };
 }
 
 function formatNumber(value: number) {
-  return value.toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  });
+  return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+function formatCompactPeso(value: number) {
+  if (value >= 1_000_000) return `₱${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `₱${Math.round(value / 1_000)}k`;
+  return `₱${formatNumber(value)}`;
 }
 
 function formatFileSize(bytes: number) {
@@ -100,19 +120,15 @@ function formatFileSize(bytes: number) {
 
 function isAllowedFileType(file: File) {
   const fileName = file.name.toLowerCase();
-
-  const hasValidMimeType =
-    QUOTE_ENGINE_CONFIG.upload.allowedMimeTypes.includes(file.type);
-
-  const hasValidExtension =
-    QUOTE_ENGINE_CONFIG.upload.allowedExtensions.some((extension) =>
-      fileName.endsWith(extension)
-    );
-
+  const hasValidMimeType = QUOTE_ENGINE_CONFIG.upload.allowedMimeTypes.includes(file.type);
+  const hasValidExtension = QUOTE_ENGINE_CONFIG.upload.allowedExtensions.some((ext) =>
+    fileName.endsWith(ext)
+  );
   return hasValidMimeType && hasValidExtension;
 }
 
 function buildQuotationPayload(params: {
+  quoteMode: QuoteMode;
   selectedProperty: string;
   monthlyBill: number;
   electricRate: number;
@@ -122,11 +138,9 @@ function buildQuotationPayload(params: {
     estimatedMonthlySavings: number;
     annualSavings: number;
     tenYearSavings: number;
+    totalDailyUsageWh: number;
   };
-  formattedSystemSize: {
-    value: string;
-    unit: string;
-  };
+  formattedSystemSize: { value: string; unit: string };
   appliances: Appliance[];
   uploadedBill: UploadedBill | null;
   proposalForm?: ProposalFormData;
@@ -134,12 +148,13 @@ function buildQuotationPayload(params: {
   return {
     type: "quotation_request",
     submittedAt: new Date().toISOString(),
+    quoteMode: params.quoteMode,
 
     customer: {
       fullName: params.proposalForm?.fullName?.trim() || "",
+      location: params.proposalForm?.location?.trim() || "",
       email: params.proposalForm?.email?.trim() || "",
       phone: params.proposalForm?.phone?.trim() || "",
-      company: params.proposalForm?.company?.trim() || "",
       message: params.proposalForm?.message?.trim() || "",
     },
 
@@ -160,10 +175,11 @@ function buildQuotationPayload(params: {
         displayUnit: params.formattedSystemSize.unit,
         displayText: `${params.formattedSystemSize.value} ${params.formattedSystemSize.unit}`,
       },
-      configuration: `+${params.formattedSystemSize.value} ${params.formattedSystemSize.unit} Grid-Tie`,
+      configuration: `~${params.formattedSystemSize.value} ${params.formattedSystemSize.unit} Grid-Tie`,
       estimatedMonthlySavingsPhp: params.quoteSummary.estimatedMonthlySavings,
       estimatedAnnualSavingsPhp: params.quoteSummary.annualSavings,
       estimatedTenYearSavingsPhp: params.quoteSummary.tenYearSavings,
+      totalDailyUsageWh: params.quoteSummary.totalDailyUsageWh,
     },
 
     loadProfile: params.appliances.map((item) => ({
@@ -171,19 +187,25 @@ function buildQuotationPayload(params: {
       watts: item.watts,
       quantity: item.quantity,
       hoursPerDay: item.hours,
+      schedule: item.schedule,
+      usageType: item.usageType,
       estimatedUsageWhPerDay: item.usage,
     })),
 
     billAttachment: params.uploadedBill
       ? {
-          fileName: params.uploadedBill.name,
-          mimeType: params.uploadedBill.type,
-          sizeBytes: params.uploadedBill.size,
-          sizeDisplay: formatFileSize(params.uploadedBill.size),
-        }
+        fileName: params.uploadedBill.name,
+        mimeType: params.uploadedBill.type,
+        sizeBytes: params.uploadedBill.size,
+        sizeDisplay: formatFileSize(params.uploadedBill.size),
+      }
       : null,
   };
 }
+
+/* ============================================================
+   COMPONENT
+   ============================================================ */
 
 export default function ASQuotationEngine() {
   const location = useLocation();
@@ -191,81 +213,118 @@ export default function ASQuotationEngine() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  /* ---------- state ---------------------------------------- */
+
+  const [quoteMode, setQuoteMode] = useState<QuoteMode>(
+    QUOTE_ENGINE_CONFIG.defaults.quoteMode
+  );
   const [modal, setModal] = useState<ModalType>(null);
   const [uploadError, setUploadError] = useState("");
+  const [formError, setFormError] = useState("");
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [appliances, setAppliances] = useState<Appliance[]>([]);
-
   const [selectedProperty, setSelectedProperty] = useState(
     QUOTE_ENGINE_CONFIG.defaults.selectedProperty
   );
-
   const [monthlyBill, setMonthlyBill] = useState(
     quoteState.monthlyBill ?? QUOTE_ENGINE_CONFIG.defaults.monthlyBill
   );
-
   const [electricRate, setElectricRate] = useState(
     quoteState.electricRate ?? QUOTE_ENGINE_CONFIG.defaults.electricRate
   );
 
+  const visiblePropertyTypes = propertyTypes.filter((item) => item.isVisible);
+
   const closeModal = () => setModal(null);
 
+  /* ---------- scroll lock when modal is open --------------- */
+
+  useEffect(() => {
+    if (!modal) return;
+
+    const scrollY = window.scrollY;
+    const prev = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
+    return () => {
+      document.body.style.overflow = prev.overflow;
+      document.body.style.position = prev.position;
+      document.body.style.top = prev.top;
+      document.body.style.width = prev.width;
+      window.scrollTo(0, scrollY);
+    };
+  }, [modal]);
+
+  /* ---------- derived quote summary ------------------------ */
+
   const quoteSummary = useMemo(() => {
-    const monthlyKwh = electricRate > 0 ? monthlyBill / electricRate : 0;
+    const totalDailyUsageWh = appliances.reduce((total, item) => total + item.usage, 0);
 
-    const systemSize =
+    const loadProfileMonthlyKwh = (totalDailyUsageWh * 30) / 1000;
+    const billMonthlyKwh = electricRate > 0 ? monthlyBill / electricRate : 0;
+    const monthlyKwh = quoteMode === "with-bill" ? billMonthlyKwh : loadProfileMonthlyKwh;
+
+    const rawSystemSize =
       monthlyKwh / QUOTE_ENGINE_CONFIG.formula.averageSolarProductionPerKwp;
-
-    const roundedSystemSize =
-      monthlyBill > 0 ? Math.max(1, Number(systemSize.toFixed(1))) : 0;
+    const systemSize = monthlyKwh > 0 ? Math.max(1, Math.round(rawSystemSize)) : 0;
 
     const estimatedMonthlySavings =
-      monthlyBill * QUOTE_ENGINE_CONFIG.formula.estimatedSavingsRate;
+      quoteMode === "with-bill"
+        ? monthlyBill * QUOTE_ENGINE_CONFIG.formula.estimatedSavingsRate
+        : monthlyKwh * electricRate * QUOTE_ENGINE_CONFIG.formula.estimatedSavingsRate;
 
     const annualSavings =
       estimatedMonthlySavings * QUOTE_ENGINE_CONFIG.formula.monthsPerYear;
-
     const tenYearSavings =
       annualSavings * QUOTE_ENGINE_CONFIG.formula.projectionYears;
 
     return {
       monthlyKwh: Math.round(monthlyKwh),
-      systemSize: roundedSystemSize,
+      systemSize,
       estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
       annualSavings: Math.round(annualSavings),
       tenYearSavings: Math.round(tenYearSavings),
+      totalDailyUsageWh,
     };
-  }, [monthlyBill, electricRate]);
+  }, [appliances, electricRate, monthlyBill, quoteMode]);
 
   const formattedSystemSize = formatSystemSize(quoteSummary.systemSize);
 
-  const handleMonthlyBillChange = (value: string) => {
-    const parsedValue = Number(value);
+  /* ---------- handlers ------------------------------------- */
 
-    if (Number.isNaN(parsedValue) || parsedValue < 0) {
+  const handleMonthlyBillChange = (value: string) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed) || parsed < 0) {
       setMonthlyBill(0);
       return;
     }
-
-    setMonthlyBill(parsedValue);
+    setMonthlyBill(parsed);
+    setFormError("");
   };
 
   const handleElectricRateChange = (value: string) => {
-    const parsedValue = Number(value);
-
-    if (Number.isNaN(parsedValue) || parsedValue <= 0) {
-      setElectricRate(QUOTE_ENGINE_CONFIG.defaults.electricRate);
-      return;
-    }
-
-    setElectricRate(parsedValue);
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return;
+    const safe = Math.min(
+      QUOTE_ENGINE_CONFIG.validation.maxElectricRate,
+      Math.max(QUOTE_ENGINE_CONFIG.validation.minElectricRate, parsed)
+    );
+    setElectricRate(safe);
+    setFormError("");
   };
 
   const handleFileUpload = (file?: File) => {
     setUploadError("");
-
     if (!file) return;
 
     if (!isAllowedFileType(file)) {
@@ -280,12 +339,7 @@ export default function ASQuotationEngine() {
       return;
     }
 
-    setUploadedBill({
-      file,
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
+    setUploadedBill({ file, name: file.name, type: file.type, size: file.size });
   };
 
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -300,10 +354,7 @@ export default function ASQuotationEngine() {
   const handleRemoveUploadedBill = () => {
     setUploadedBill(null);
     setUploadError("");
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleRemoveAppliance = (id: string) => {
@@ -327,8 +378,6 @@ export default function ASQuotationEngine() {
       return;
     }
 
-    const usage = watts * quantity * hours;
-
     setAppliances((current) => [
       ...current,
       {
@@ -337,18 +386,62 @@ export default function ASQuotationEngine() {
         watts,
         quantity,
         hours,
-        usage,
+        schedule: item.schedule,
+        usageType: item.usageType,
+        usage: watts * quantity * hours,
       },
     ]);
 
+    setFormError("");
     closeModal();
   };
 
+  const validateBeforeProposal = () => {
+    if (QUOTE_ENGINE_CONFIG.view.showPropertyClassification && !selectedProperty) {
+      return "Please select a property classification.";
+    }
+
+    if (quoteMode === "with-bill") {
+      if (monthlyBill < QUOTE_ENGINE_CONFIG.validation.minMonthlyBill) {
+        return "Average monthly bill is required.";
+      }
+      if (
+        electricRate < QUOTE_ENGINE_CONFIG.validation.minElectricRate ||
+        electricRate > QUOTE_ENGINE_CONFIG.validation.maxElectricRate
+      ) {
+        return "Typical electricity rate is required.";
+      }
+      return "";
+    }
+
+    if (appliances.length === 0) {
+      return "Please add at least one appliance or load profile.";
+    }
+
+    return "";
+  };
+
+  const handleOpenProposal = () => {
+    const error = validateBeforeProposal();
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    setModal("request-proposal");
+  };
+
   const handleSubmitProposal = async (proposalForm?: ProposalFormData) => {
+    const error = validateBeforeProposal();
+    if (error) {
+      setFormError(error);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const payload = buildQuotationPayload({
+        quoteMode,
         selectedProperty,
         monthlyBill,
         electricRate,
@@ -360,21 +453,15 @@ export default function ASQuotationEngine() {
       });
 
       const formData = new FormData();
-
       formData.append("payload", JSON.stringify(payload));
-
-      if (uploadedBill?.file) {
-        formData.append("billAttachment", uploadedBill.file);
-      }
+      if (uploadedBill?.file) formData.append("billAttachment", uploadedBill.file);
 
       const response = await fetch("/api/quotation/request-proposal", {
         method: "POST",
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to submit quotation request.");
-      }
+      if (!response.ok) throw new Error("Failed to submit quotation request.");
 
       setModal("submitted");
     } catch (error) {
@@ -385,225 +472,311 @@ export default function ASQuotationEngine() {
     }
   };
 
+  /* ---------- render --------------------------------------- */
+
+  const sectionIndex = {
+    consumption: "02",
+    rate: "03",
+    load: quoteMode === "with-bill" ? "04" : "02",
+  };
+
   return (
     <section className="as-quote-page">
       <div className="as-quote-container">
+
         <header className="as-quote-header">
           <h1>Technical Quotation Engine</h1>
           <p>Configure your institutional-grade solar system.</p>
+
+          <div className="as-quote-mode-toggle">
+            <button
+              type="button"
+              className={quoteMode === "with-bill" ? "is-active" : ""}
+              onClick={() => {
+                setQuoteMode("with-bill");
+                setFormError("");
+              }}
+            >
+              I have a bill
+            </button>
+
+            <button
+              type="button"
+              className={quoteMode === "no-bill" ? "is-active" : ""}
+              onClick={() => {
+                setQuoteMode("no-bill");
+                setFormError("");
+              }}
+            >
+              No bill yet
+            </button>
+          </div>
         </header>
 
         <div className="as-quote-layout">
           <main className="as-quote-main">
-            <div className="as-form-section">
-              <div className="as-section-label">
-                <span>01</span>
-                <p>Property Classification</p>
-              </div>
 
-              <div className="as-property-grid">
-                {propertyTypes.map((item) => (
-                  <button
-                    key={item.title}
-                    className={`as-property-card ${
-                      selectedProperty === item.title ? "is-selected" : ""
-                    }`}
-                    onClick={() => setSelectedProperty(item.title)}
-                    type="button"
-                  >
-                    <span className="as-property-icon">⌂</span>
-                    <h3>{item.title}</h3>
-                    <p>{item.description}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="as-form-section">
-              <div className="as-section-label">
-                <span>02</span>
-                <p>Typical Electricity Rate</p>
-              </div>
-
-              <div className="as-rate-wrapper">
-                <input
-                  type="range"
-                  min="5"
-                  max="22"
-                  step="0.01"
-                  value={electricRate}
-                  onChange={(e) => handleElectricRateChange(e.target.value)}
-                />
-                <div className="as-rate-value">
-                  ₱{electricRate.toFixed(2)} / kWh
-                </div>
-              </div>
-            </div>
-
-            <div className="as-form-section">
-              <div className="as-section-label">
-                <span>03</span>
-                <p>
-                  Consumption Data <small>(Optional)</small>
-                </p>
-              </div>
-
-              <div className="as-consumption-grid">
-                <div className="as-input-card">
-                  <label>Average Monthly Bill</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="₱ 0.00"
-                    value={monthlyBill || ""}
-                    onChange={(e) => handleMonthlyBillChange(e.target.value)}
-                  />
-                  <p>
-                    {quoteSummary.monthlyKwh.toLocaleString("en-US")} kWh
-                    estimated monthly usage.
-                  </p>
+            {/* ── 01 Property Classification ─────────────── */}
+            {QUOTE_ENGINE_CONFIG.view.showPropertyClassification && (
+              <div className="as-form-section">
+                <div className="as-section-label">
+                  <span>01</span>
+                  <p>Property Classification</p>
                 </div>
 
-                <div
-                  className="as-upload-card"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
-                    hidden
-                    onChange={(e) => handleFileUpload(e.target.files?.[0])}
-                  />
-
-                  <div className="as-upload-icon">☁</div>
-
-                  {uploadedBill ? (
-                    <>
-                      <p>
-                        {uploadedBill.name}{" "}
-                        <span>{formatFileSize(uploadedBill.size)}</span>
-                      </p>
-                      <small>Click to replace uploaded bill</small>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveUploadedBill();
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Upload your bill here <span>or drag and drop</span>
-                      </p>
-                      <small>PDF, PNG, JPG max 10MB</small>
-                    </>
-                  )}
-
-                  {uploadError && <small>{uploadError}</small>}
+                <div className="as-property-grid">
+                  {visiblePropertyTypes.map((item) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      className={`as-property-card ${selectedProperty === item.title ? "is-selected" : ""
+                        }`}
+                      onClick={() => setSelectedProperty(item.title)}
+                    >
+                      <span className="as-property-icon">
+                        <img src={item.icon} alt={item.title} />
+                      </span>                      <span className="as-property-check" />
+                      <h3>{item.title}</h3>
+                      <p>{item.description}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
+            {/* ── 02 & 03 — Bill mode only ────────────────── */}
+            {quoteMode === "with-bill" && (
+              <>
+                {/* 02 Consumption Data */}
+                <div className="as-form-section">
+                  <div className="as-section-label">
+                    <span>{sectionIndex.consumption}</span>
+                    <p>Consumption Data</p>
+                  </div>
+
+                  <div className="as-consumption-grid">
+                    {/* Upload card */}
+                    <div
+                      className="as-upload-card"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                        hidden
+                        onChange={(e) => handleFileUpload(e.target.files?.[0])}
+                      />
+
+                      <div className="as-upload-icon">☁</div>
+
+                      {uploadedBill ? (
+                        <>
+                          <p>
+                            {uploadedBill.name}{" "}
+                            <span>{formatFileSize(uploadedBill.size)}</span>
+                          </p>
+                          <small>Click to replace uploaded bill</small>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveUploadedBill();
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            <span className="upload-highlight">
+                              Upload your electricity bill
+                            </span>{" "}
+                            or drag and drop
+                          </p>
+                          <small>PDF, PNG, JPG up to 10MB</small>
+                        </>
+                      )}
+
+                      {uploadError && (
+                        <small className="as-form-error">{uploadError}</small>
+                      )}
+                    </div>
+
+                    {/* Monthly bill input */}
+                    <div className="as-input-card">
+                      <label>Average Monthly Bill</label>
+
+                      <div className="as-currency-input">
+                        <span>₱</span>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0.00"
+                          value={monthlyBill || ""}
+                          onChange={(e) => handleMonthlyBillChange(e.target.value)}
+                        />
+                        <small>PHP</small>
+                      </div>
+
+                      <p>Based on your recent electricity bill.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 03 Typical Electricity Rate */}
+                <div className="as-form-section">
+                  <div className="as-section-label">
+                    <span>{sectionIndex.rate}</span>
+                    <p>Typical Electricity Rate</p>
+                  </div>
+
+                  {/*
+                    Layout (≥ 821px): [slider — flex:1] [value box + unit label]
+                    Layout (≤ 820px): slider on top, value box below (full-width row)
+                  */}
+                  <div className="as-rate-wrapper">
+
+                    {/* Slider track */}
+                    <div className="as-rate-slider-area">
+                      <div className="as-rate-labels">
+                        <span>₱{QUOTE_ENGINE_CONFIG.validation.minElectricRate}</span>
+                        <span>₱{QUOTE_ENGINE_CONFIG.validation.maxElectricRate}</span>
+                      </div>
+
+                      <input
+                        type="range"
+                        min={QUOTE_ENGINE_CONFIG.validation.minElectricRate}
+                        max={QUOTE_ENGINE_CONFIG.validation.maxElectricRate}
+                        step="0.01"
+                        value={electricRate}
+                        onChange={(e) => handleElectricRateChange(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Value box + unit */}
+                    <div className="as-rate-input-group">
+                      <div className="as-rate-value">
+                        <span>₱</span>
+                        <input
+                          type="number"
+                          min={QUOTE_ENGINE_CONFIG.validation.minElectricRate}
+                          max={QUOTE_ENGINE_CONFIG.validation.maxElectricRate}
+                          step="0.01"
+                          value={electricRate}
+                          onChange={(e) => handleElectricRateChange(e.target.value)}
+                        />
+                      </div>
+                      <small>/ kWh</small>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── Load Profile ────────────────────────────── */}
             <div className="as-form-section">
               <div className="as-load-header">
                 <div className="as-section-label">
-                  <span>04</span>
+                  <span>{sectionIndex.load}</span>
                   <p>
-                    Detailed Load Profile <small>(Optional)</small>
+                    Detailed Load Profile{" "}
+                    {quoteMode === "with-bill" && <small>(Optional)</small>}
                   </p>
                 </div>
 
                 <button
+                  type="button"
                   className="as-add-btn"
                   onClick={() => setModal("add-appliance")}
-                  type="button"
                 >
                   + Add Appliance
                 </button>
               </div>
 
               <div className="as-load-table">
-                <div className="as-load-row as-load-head">
-                  <span>Appliance / Load Name</span>
-                  <span>Watts</span>
-                  <span>Qty</span>
-                  <span>Hours</span>
-                  <span>Usage</span>
-                  <span></span>
-                </div>
-
-                {appliances.length === 0 ? (
-                  <div className="as-load-row">
-                    <span>
-                      <strong>No appliances added yet</strong>
-                      <small>Add appliances to create a detailed load profile.</small>
-                    </span>
-                    <span>-</span>
-                    <span>-</span>
-                    <span>-</span>
-                    <span>-</span>
-                    <span></span>
+                <div className="as-load-table-inner">
+                  {/* Header row */}
+                  <div className="as-load-row as-load-head">
+                    <span>Appliance / Load Name</span>
+                    <span>Rating (Watts)</span>
+                    <span>Qty</span>
+                    <span>Hrs/Day</span>
+                    <span>Daily Wh</span>
+                    <span />
                   </div>
-                ) : (
-                  appliances.map((item) => (
-                    <div className="as-load-row" key={item.id}>
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>Estimated appliance usage</small>
-                      </span>
-                      <span>{formatNumber(item.watts)}</span>
-                      <span>{item.quantity}</span>
-                      <span>{item.hours}</span>
-                      <span>{formatNumber(item.usage)}</span>
-                      <span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAppliance(item.id)}
-                        >
-                          ×
-                        </button>
-                      </span>
+
+                  {appliances.length === 0 ? (
+                    <div className="as-load-empty">
+                      Add appliances to create a detailed load profile.
                     </div>
-                  ))
-                )}
+                  ) : (
+                    <>
+                      {appliances.map((item) => (
+                        <div className="as-load-row" key={item.id}>
+                          <span>
+                            <strong>{item.name}</strong>
+                            <small>{item.schedule}</small>
+                          </span>
+                          <span>{formatNumber(item.watts)}</span>
+                          <span>
+                            <b>{item.quantity}</b>
+                          </span>
+                          <span>{item.hours}</span>
+                          <span>{formatNumber(item.usage)}</span>
+                          <span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAppliance(item.id)}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        </div>
+                      ))}
+
+                      <div className="as-load-total">
+                        <span>Total Watt-Hours</span>
+                        <strong>{formatNumber(quoteSummary.totalDailyUsageWh)}</strong>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* ── Form error ──────────────────────────────── */}
+            {formError && <div className="as-page-error">{formError}</div>}
           </main>
 
+          {/* ── Summary sidebar ─────────────────────────── */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p>Estimated System Size</p>
+              <p>Recommended System</p>
               <h2>
-                {formattedSystemSize.value}
-                {formattedSystemSize.unit}
+                ~{formattedSystemSize.value} {formattedSystemSize.unit} Grid-Tie
               </h2>
 
-              <p>Configuration</p>
-              <h2>
-                +{formattedSystemSize.value} {formattedSystemSize.unit} Grid-Tie
-              </h2>
+              <p>Monthly Savings</p>
+              <h2>{formatCompactPeso(quoteSummary.estimatedMonthlySavings)}</h2>
 
-              <p>Estimated Annual Savings</p>
-              <h2>₱ {formatNumber(quoteSummary.annualSavings)} / year</h2>
+              <p>Estimated Savings in 10 Years</p>
+              <h2>{formatCompactPeso(quoteSummary.tenYearSavings)}</h2>
 
               <button
-                onClick={() => setModal("request-proposal")}
-                disabled={isSubmitting}
                 type="button"
+                onClick={handleOpenProposal}
+                disabled={isSubmitting}
               >
                 {isSubmitting ? "Submitting..." : "Request Proposal →"}
               </button>
@@ -612,6 +785,7 @@ export default function ASQuotationEngine() {
         </div>
       </div>
 
+      {/* ── Modals ─────────────────────────────────────── */}
       {modal === "add-appliance" && (
         <AddApplianceModal onClose={closeModal} onSubmit={handleAddAppliance} />
       )}

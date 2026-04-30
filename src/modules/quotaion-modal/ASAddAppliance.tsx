@@ -5,6 +5,8 @@ type AddApplianceFormData = {
   watts: number;
   quantity: number;
   hours: number;
+  schedule: string;
+  usageType: string;
 };
 
 type AddApplianceModalProps = {
@@ -20,8 +22,10 @@ export default function AddApplianceModal({
   const [watts, setWatts] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [hours, setHours] = useState("");
-  const [frequency, setFrequency] = useState("Daily");
-  const [usage, setUsage] = useState("Regular");
+  const [schedule, setSchedule] = useState(
+    "8-9:30am, 12:15pm-2:20pm, 4:30pm-8:45pm"
+  );
+  const [usageType, setUsageType] = useState("Regular");
   const [error, setError] = useState("");
 
   const estimatedUsage = useMemo(() => {
@@ -42,12 +46,18 @@ export default function AddApplianceModal({
 
   const handleSubmit = () => {
     const cleanName = name.trim();
+    const cleanSchedule = schedule.trim();
     const wattsValue = Number(watts);
     const quantityValue = Number(quantity);
     const hoursValue = Number(hours);
 
     if (!cleanName) {
       setError("Please enter an appliance name.");
+      return;
+    }
+
+    if (cleanName.length > 80) {
+      setError("Appliance name must not exceed 80 characters.");
       return;
     }
 
@@ -66,32 +76,36 @@ export default function AddApplianceModal({
       return;
     }
 
+    if (!cleanSchedule) {
+      setError("Please enter the appliance usage schedule.");
+      return;
+    }
+
     onSubmit({
       name: cleanName,
       watts: wattsValue,
       quantity: quantityValue,
       hours: hoursValue,
+      schedule: cleanSchedule,
+      usageType,
     });
   };
 
   return (
     <div className="as-modal-backdrop">
-      <div className="as-modal">
+      <div className="as-modal as-appliance-modal">
         <button className="as-modal-close" onClick={onClose} type="button">
           ×
         </button>
 
         <h2>Add Appliance</h2>
-        <p>
-          Add a specific appliance to calculate your load profile more
-          accurately.
-        </p>
+        <p>Add an appliance or electrical load to estimate daily consumption.</p>
 
         <div className="as-modal-form">
           <label>
             Appliance / Load Name
             <input
-              placeholder="e.g. Air Conditioner"
+              placeholder="Air Conditioning Unit (2.0 HP)"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -106,7 +120,7 @@ export default function AddApplianceModal({
               <input
                 type="number"
                 min="1"
-                placeholder="1000"
+                placeholder="1500"
                 value={watts}
                 onChange={(e) => {
                   setWatts(e.target.value);
@@ -120,7 +134,7 @@ export default function AddApplianceModal({
               <input
                 type="number"
                 min="1"
-                placeholder="1"
+                placeholder="2"
                 value={quantity}
                 onChange={(e) => {
                   setQuantity(e.target.value);
@@ -132,7 +146,7 @@ export default function AddApplianceModal({
 
           <div className="as-modal-grid">
             <label>
-              Hours in Use
+              Hours / Day
               <input
                 type="number"
                 min="1"
@@ -148,7 +162,7 @@ export default function AddApplianceModal({
             </label>
 
             <label>
-              Estimated Usage
+              Daily Wh
               <input
                 value={`${estimatedUsage.toLocaleString("en-US")} Wh/day`}
                 readOnly
@@ -156,30 +170,36 @@ export default function AddApplianceModal({
             </label>
           </div>
 
-          <div className="as-modal-grid">
-            <label>
-              Frequency
-              <select
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-              >
-                <option>Daily</option>
-                <option>Weekly</option>
-                <option>Monthly</option>
-              </select>
-            </label>
+          <label>
+            Usage Schedule
+            <input
+              placeholder="8-9:30am, 12:15pm-2:20pm, 4:30pm-8:45pm"
+              value={schedule}
+              onChange={(e) => {
+                setSchedule(e.target.value);
+                setError("");
+              }}
+            />
+          </label>
 
-            <label>
-              Usage
-              <select value={usage} onChange={(e) => setUsage(e.target.value)}>
-                <option>Regular</option>
-                <option>Heavy</option>
-                <option>Light</option>
-              </select>
-            </label>
-          </div>
+          <label>
+            Usage Type
+            <select
+              value={usageType}
+              onChange={(e) => {
+                setUsageType(e.target.value);
+                setError("");
+              }}
+            >
+              <option>Regular</option>
+              <option>Heavy</option>
+              <option>Light</option>
+              <option>Standby</option>
+              <option>Intermittent</option>
+            </select>
+          </label>
 
-          {error && <small>{error}</small>}
+          {error && <small className="as-field-error">{error}</small>}
         </div>
 
         <div className="as-modal-actions">

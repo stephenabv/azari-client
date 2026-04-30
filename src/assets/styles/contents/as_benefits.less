@@ -13,6 +13,24 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.06);
+  transition:
+    opacity 1s ease,
+    transform 1.2s ease,
+    visibility 0s linear 1s;
+}
+
+.as-benefits-video.is-video-shown {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  transition:
+    opacity 1s ease,
+    transform 1.2s ease,
+    visibility 0s;
 }
 
 .as-benefits-overlay {
