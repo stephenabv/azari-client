@@ -1,7 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
+import { getCollectionData } from "../services/ASFirestore";
+import { StatCard } from "../modules/rolling-card/ASRollingCard";
 
-const steps = [
+type ProcessStep = {
+  number: string;
+  title: string;
+  description: string;
+};
+
+type ASProcessData = {
+  id: string;
+  process_steps?: Record<string, ProcessStep>;
+  steps_delay?: number;
+};
+
+const DEFAULT_STEPS: ProcessStep[] = [
   {
     number: "01",
     title: "Consumption Audit",
@@ -22,16 +36,41 @@ const steps = [
   },
 ];
 
+const DEFAULT_STEPS_DELAY = 800;
+
 export default function ASProcessSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
 
   const [activeStep, setActiveStep] = useState(-1);
   const [showFooter, setShowFooter] = useState(false);
+  const [steps, setSteps] = useState<ProcessStep[]>(DEFAULT_STEPS);
+  const [stepsDelay, setStepsDelay] = useState(DEFAULT_STEPS_DELAY);
+
+  useEffect(() => {
+    const unsubscribe = getCollectionData<ASProcessData>("ASProcess", (data) => {
+      const item = data[0];
+
+      if (!item?.process_steps) {
+        setSteps(DEFAULT_STEPS);
+        setStepsDelay(DEFAULT_STEPS_DELAY);
+        return;
+      }
+
+      const firestoreSteps = Object.values(item.process_steps)
+        .filter((step) => step?.number && step?.title && step?.description)
+        .sort((a, b) => Number(a.number) - Number(b.number));
+
+      setSteps(firestoreSteps.length ? firestoreSteps : DEFAULT_STEPS);
+      setStepsDelay(item.steps_delay ?? DEFAULT_STEPS_DELAY);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;
-    if (!el) return;
+    if (!el || !steps.length) return;
 
     const timeouts: number[] = [];
 
@@ -45,14 +84,14 @@ export default function ASProcessSection() {
           timeouts.push(
             window.setTimeout(() => {
               setActiveStep(index);
-            }, (index + 1) * 800)
+            }, (index + 1) * stepsDelay)
           );
         });
 
         timeouts.push(
           window.setTimeout(() => {
             setShowFooter(true);
-          }, (steps.length + 1) * 500)
+          }, (steps.length + 1) * stepsDelay)
         );
 
         observer.disconnect();
@@ -66,7 +105,7 @@ export default function ASProcessSection() {
       observer.disconnect();
       timeouts.forEach(clearTimeout);
     };
-  }, []);
+  }, [steps, stepsDelay]);
 
   const progressWidth =
     activeStep < 0 ? 0 : ((activeStep + 1) / steps.length) * 100;

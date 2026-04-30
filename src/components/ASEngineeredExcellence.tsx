@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState } from "react";
+import { getCollectionData } from "../services/ASFirestore";
 
-const excellenceItems = [
+type ExcellenceItem = {
+  number: string;
+  title: string;
+  description: string;
+};
+
+type ASEngineeredData = {
+  id: string;
+  item_one?: ExcellenceItem;
+  item_two?: ExcellenceItem;
+  item_three?: ExcellenceItem;
+  item_four?: ExcellenceItem;
+};
+
+const DEFAULT_EXCELLENCE_ITEMS: ExcellenceItem[] = [
   {
     number: "01",
     title: "Zero-Bill Future",
@@ -33,10 +48,44 @@ export default function ASEngineeredExcellence() {
 
   const [showLeft, setShowLeft] = useState(false);
   const [visibleCards, setVisibleCards] = useState(-1);
+  const [excellenceItems, setExcellenceItems] = useState<ExcellenceItem[]>(
+    DEFAULT_EXCELLENCE_ITEMS
+  );
+
+  useEffect(() => {
+    const unsubscribe = getCollectionData<ASEngineeredData>(
+      "ASEngineeredForExcellence",
+      (data) => {
+        const item = data[0];
+
+        if (!item) {
+          setExcellenceItems(DEFAULT_EXCELLENCE_ITEMS);
+          return;
+        }
+
+        const firestoreItems = Object.entries(item)
+          .filter(([key]) => key !== "id")
+          .map(([, value]) => value)
+          .filter(
+            (value): value is ExcellenceItem =>
+              !!value?.number && !!value?.title && !!value?.description
+          )
+          .sort((a, b) => Number(a.number) - Number(b.number));
+
+        setExcellenceItems(
+          firestoreItems.length ? firestoreItems : DEFAULT_EXCELLENCE_ITEMS
+        );
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const el = sectionRef.current;
-    if (!el) return;
+    if (!el || !excellenceItems.length) return;
+
+    const timeouts: number[] = [];
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -46,9 +95,11 @@ export default function ASEngineeredExcellence() {
         setShowLeft(true);
 
         excellenceItems.forEach((_, index) => {
-          window.setTimeout(() => {
-            setVisibleCards(index);
-          }, (index + 1) * 250);
+          timeouts.push(
+            window.setTimeout(() => {
+              setVisibleCards(index);
+            }, (index + 1) * 250)
+          );
         });
 
         observer.disconnect();
@@ -61,8 +112,11 @@ export default function ASEngineeredExcellence() {
 
     observer.observe(el);
 
-    return () => observer.disconnect();
-  }, []);
+    return () => {
+      observer.disconnect();
+      timeouts.forEach(clearTimeout);
+    };
+  }, [excellenceItems]);
 
   return (
     <section ref={sectionRef} className="as-engineered">
@@ -82,8 +136,9 @@ export default function ASEngineeredExcellence() {
       <div className="as-engineered-grid">
         {excellenceItems.map((item, index) => (
           <div
-            className={`as-engineered-card ${index <= visibleCards ? "is-shown" : ""
-              }`}
+            className={`as-engineered-card ${
+              index <= visibleCards ? "is-shown" : ""
+            }`}
             key={item.number}
           >
             <div className="as-engineered-head">
