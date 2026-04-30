@@ -1,24 +1,54 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getCollectionData } from "../services/ASFirestore";
 
-const IMPACT_CALCULATOR_CONFIG = {
+type CalculatorRangeConfig = {
+  min: number;
+  max: number;
+  step: number;
+  defaultValue: number;
+};
+
+type CalculatorLabels = {
+  monthlyBillMin: string;
+  monthlyBillMax: string;
+  electricRateMin: string;
+  electricRateMax: string;
+};
+
+type CalculatorFormula = {
+  averageSolarProductionPerKwp: number;
+  estimatedSavingsRate: number;
+  projectionYears: number;
+  monthsPerYear: number;
+};
+
+type ASCalculatorData = {
+  id: string;
+  monthly_bill?: CalculatorRangeConfig;
+  electric_rate?: CalculatorRangeConfig;
+  labels?: CalculatorLabels;
+  formula?: CalculatorFormula;
+};
+
+const DEFAULT_CONFIG = {
   monthlyBill: {
-    min: 3000,
+    min: 500,
     max: 200000,
-    step: 1,
+    step: 0.1,
     defaultValue: 1000,
   },
   electricRate: {
-    min: 8,
+    min: 1.1,
     max: 20,
     step: 0.01,
-    defaultValue: 11.07,
+    defaultValue: 11.25,
   },
   formula: {
     averageSolarProductionPerKwp: 120,
     estimatedSavingsRate: 0.87,
-    projectionYears: 10,
-    monthsPerYear: 12,
+    projectionYears: 12,
+    monthsPerYear: 0,
   },
   labels: {
     monthlyBillMin: "₱3k",
@@ -45,7 +75,41 @@ function formatSystemSize(value: number) {
   };
 }
 
-function useInitialRollingNumber(targetValue: number, shouldAnimate: boolean) {
+function getProjectionLabel(projectionYears: number) {
+  if (projectionYears <= 1) return "1-MONTH SAVINGS";
+  if (projectionYears < 12) return `${projectionYears}-MONTH SAVINGS`;
+
+  const years = projectionYears / 12;
+
+  if (years === 1) return "1-YEAR SAVINGS";
+
+  return `${Number.isInteger(years) ? years : years.toFixed(1)}-YEAR SAVINGS`;
+}
+
+function getProjectionDescription(projectionYears: number) {
+  if (projectionYears <= 1) return "1-month";
+  if (projectionYears < 12) return `${projectionYears}-month`;
+
+  const years = projectionYears / 12;
+
+  if (years === 1) return "1-year";
+
+  return `${Number.isInteger(years) ? years : years.toFixed(1)}-year`;
+}
+
+function normalizeDecimalInput(value: string) {
+  let cleaned = value.replace(/[^\d.]/g, "");
+  cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
+  cleaned = cleaned.replace(/^0+(?=\d)/, "");
+
+  return cleaned;
+}
+
+function useInitialRollingNumber(
+  targetValue: number,
+  shouldAnimate: boolean,
+  duration: number
+) {
   const [displayValue, setDisplayValue] = useState(0);
   const hasRolled = useRef(false);
 
@@ -66,12 +130,7 @@ function useInitialRollingNumber(targetValue: number, shouldAnimate: boolean) {
 
     const animate = (currentTime: number) => {
       const elapsed = currentTime - startTime;
-
-      const progress = Math.min(
-        elapsed / IMPACT_CALCULATOR_CONFIG.animation.duration,
-        1
-      );
-
+      const progress = Math.min(elapsed / duration, 1);
       const easedProgress = 1 - Math.pow(1 - progress, 3);
       const nextValue = startValue + difference * easedProgress;
 
@@ -87,7 +146,7 @@ function useInitialRollingNumber(targetValue: number, shouldAnimate: boolean) {
     animationFrame = requestAnimationFrame(animate);
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [targetValue, shouldAnimate]);
+  }, [targetValue, shouldAnimate, duration]);
 
   return displayValue;
 }
@@ -97,23 +156,71 @@ export default function ASImpactCalculator() {
 
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
-  const [isShown, setIsShown] = useState(false);
 
+  const [isShown, setIsShown] = useState(false);
   const [monthlyBillError, setMonthlyBillError] = useState("");
   const [electricRateError, setElectricRateError] = useState("");
+
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+  const [monthlyBill, setMonthlyBill] = useState(
+    DEFAULT_CONFIG.monthlyBill.defaultValue
+  );
+
+  const [electricRate, setElectricRate] = useState(
+    DEFAULT_CONFIG.electricRate.defaultValue
+  );
+
+  const [monthlyBillInput, setMonthlyBillInput] = useState(
+    String(DEFAULT_CONFIG.monthlyBill.defaultValue)
+  );
+
+  const [electricRateInput, setElectricRateInput] = useState(
+    String(DEFAULT_CONFIG.electricRate.defaultValue)
+  );
 
   const clampValue = (value: number, min: number, max: number) => {
     return Math.min(max, Math.max(min, value));
   };
 
+  useEffect(() => {
+    const unsubscribe = getCollectionData<ASCalculatorData>(
+      "ASCalculator",
+      (data) => {
+        const item = data[0];
+
+        if (!item) {
+          setConfig(DEFAULT_CONFIG);
+          return;
+        }
+
+        const nextConfig = {
+          monthlyBill: item.monthly_bill ?? DEFAULT_CONFIG.monthlyBill,
+          electricRate: item.electric_rate ?? DEFAULT_CONFIG.electricRate,
+          labels: item.labels ?? DEFAULT_CONFIG.labels,
+          formula: item.formula ?? DEFAULT_CONFIG.formula,
+          animation: DEFAULT_CONFIG.animation,
+        };
+
+        setConfig(nextConfig);
+
+        setMonthlyBill(nextConfig.monthlyBill.defaultValue);
+        setElectricRate(nextConfig.electricRate.defaultValue);
+
+        setMonthlyBillInput(String(nextConfig.monthlyBill.defaultValue));
+        setElectricRateInput(String(nextConfig.electricRate.defaultValue));
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const handleMonthlyBillInput = (value: string) => {
-    // remove non-numeric characters
-    let cleaned = value.replace(/[^\d]/g, "");
+    const cleaned = normalizeDecimalInput(value);
 
-    // remove leading zeros
-    cleaned = cleaned.replace(/^0+(?=\d)/, "");
+    setMonthlyBillInput(cleaned);
 
-    if (cleaned === "") {
+    if (cleaned === "" || cleaned === ".") {
       setMonthlyBill(0);
       return;
     }
@@ -122,16 +229,16 @@ export default function ASImpactCalculator() {
 
     setMonthlyBill(numericValue);
 
-    if (numericValue < IMPACT_CALCULATOR_CONFIG.monthlyBill.min) {
+    if (numericValue < config.monthlyBill.min) {
       setMonthlyBillError(
-        `Minimum value is ₱${IMPACT_CALCULATOR_CONFIG.monthlyBill.min.toLocaleString()}`
+        `Minimum value is ₱${config.monthlyBill.min.toLocaleString()}`
       );
       return;
     }
 
-    if (numericValue > IMPACT_CALCULATOR_CONFIG.monthlyBill.max) {
+    if (numericValue > config.monthlyBill.max) {
       setMonthlyBillError(
-        `Maximum value is ₱${IMPACT_CALCULATOR_CONFIG.monthlyBill.max.toLocaleString()}`
+        `Maximum value is ₱${config.monthlyBill.max.toLocaleString()}`
       );
       return;
     }
@@ -140,16 +247,11 @@ export default function ASImpactCalculator() {
   };
 
   const handleElectricRateInput = (value: string) => {
-    // allow decimal but restrict format
-    let cleaned = value.replace(/[^\d.]/g, "");
+    const cleaned = normalizeDecimalInput(value);
 
-    // prevent multiple dots
-    cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
+    setElectricRateInput(cleaned);
 
-    // remove leading zeros (but allow "0.x")
-    cleaned = cleaned.replace(/^0+(?=\d)/, "");
-
-    if (cleaned === "") {
+    if (cleaned === "" || cleaned === ".") {
       setElectricRate(0);
       return;
     }
@@ -158,30 +260,18 @@ export default function ASImpactCalculator() {
 
     setElectricRate(numericValue);
 
-    if (numericValue < IMPACT_CALCULATOR_CONFIG.electricRate.min) {
-      setElectricRateError(
-        `Minimum value is ₱${IMPACT_CALCULATOR_CONFIG.electricRate.min}`
-      );
+    if (numericValue < config.electricRate.min) {
+      setElectricRateError(`Minimum value is ₱${config.electricRate.min}`);
       return;
     }
 
-    if (numericValue > IMPACT_CALCULATOR_CONFIG.electricRate.max) {
-      setElectricRateError(
-        `Maximum value is ₱${IMPACT_CALCULATOR_CONFIG.electricRate.max}`
-      );
+    if (numericValue > config.electricRate.max) {
+      setElectricRateError(`Maximum value is ₱${config.electricRate.max}`);
       return;
     }
 
     setElectricRateError("");
   };
-
-  const [monthlyBill, setMonthlyBill] = useState(
-    IMPACT_CALCULATOR_CONFIG.monthlyBill.defaultValue
-  );
-
-  const [electricRate, setElectricRate] = useState(
-    IMPACT_CALCULATOR_CONFIG.electricRate.defaultValue
-  );
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -204,53 +294,56 @@ export default function ASImpactCalculator() {
   }, []);
 
   const results = useMemo(() => {
-    const monthlyKwh = monthlyBill / electricRate;
+    const safeElectricRate = electricRate || config.electricRate.defaultValue;
 
     const systemSize =
-      monthlyKwh /
-      IMPACT_CALCULATOR_CONFIG.formula.averageSolarProductionPerKwp;
+      monthlyBill /
+      (safeElectricRate * config.formula.averageSolarProductionPerKwp);
 
     const roundedSystemSize = Math.max(1, Number(systemSize.toFixed(1)));
 
     const estimatedMonthlySavings =
-      monthlyBill * IMPACT_CALCULATOR_CONFIG.formula.estimatedSavingsRate;
+      monthlyBill * config.formula.estimatedSavingsRate;
 
-    const annualSavings =
-      estimatedMonthlySavings *
-      IMPACT_CALCULATOR_CONFIG.formula.monthsPerYear;
-
-    const tenYearSavings =
-      annualSavings * IMPACT_CALCULATOR_CONFIG.formula.projectionYears;
+    const projectedSavings =
+      estimatedMonthlySavings * config.formula.projectionYears;
 
     return {
-      monthlyKwh: Math.round(monthlyKwh),
+      monthlyKwh: Math.round(monthlyBill / safeElectricRate),
       systemSize: roundedSystemSize,
       estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
-      annualSavings: Math.round(annualSavings),
-      tenYearSavings: Math.round(tenYearSavings),
+      projectedSavings: Math.round(projectedSavings),
     };
-  }, [monthlyBill, electricRate]);
+  }, [monthlyBill, electricRate, config]);
 
-  const rollingSystemSize = useInitialRollingNumber(results.systemSize, isShown);
+  const rollingSystemSize = useInitialRollingNumber(
+    results.systemSize,
+    isShown,
+    config.animation.duration
+  );
 
-  const rollingTenYearSavings = useInitialRollingNumber(
-    results.tenYearSavings,
-    isShown
+  const rollingProjectedSavings = useInitialRollingNumber(
+    results.projectedSavings,
+    isShown,
+    config.animation.duration
   );
 
   const formattedSystemSize = formatSystemSize(rollingSystemSize);
 
   const monthlyBillProgress =
-    ((monthlyBill - IMPACT_CALCULATOR_CONFIG.monthlyBill.min) /
-      (IMPACT_CALCULATOR_CONFIG.monthlyBill.max -
-        IMPACT_CALCULATOR_CONFIG.monthlyBill.min)) *
+    ((monthlyBill - config.monthlyBill.min) /
+      (config.monthlyBill.max - config.monthlyBill.min)) *
     100;
 
   const electricRateProgress =
-    ((electricRate - IMPACT_CALCULATOR_CONFIG.electricRate.min) /
-      (IMPACT_CALCULATOR_CONFIG.electricRate.max -
-        IMPACT_CALCULATOR_CONFIG.electricRate.min)) *
+    ((electricRate - config.electricRate.min) /
+      (config.electricRate.max - config.electricRate.min)) *
     100;
+
+  const projectionLabel = getProjectionLabel(config.formula.projectionYears);
+  const projectionDescription = getProjectionDescription(
+    config.formula.projectionYears
+  );
 
   const handleGetQuote = () => {
     navigate("/quotation-engine", {
@@ -260,8 +353,8 @@ export default function ASImpactCalculator() {
         monthlyKwh: results.monthlyKwh,
         systemSize: results.systemSize,
         estimatedMonthlySavings: results.estimatedMonthlySavings,
-        annualSavings: results.annualSavings,
-        tenYearSavings: results.tenYearSavings,
+        projectedSavings: results.projectedSavings,
+        projectionMonths: config.formula.projectionYears,
       },
     });
   };
@@ -277,8 +370,8 @@ export default function ASImpactCalculator() {
         <div className="as-impact-heading">
           <h2>Calculate Your Savings</h2>
           <p>
-            See how much you could save over the 10-year warrantied lifespan of
-            your system.
+            See how much you could save over the {projectionDescription} projected
+            lifespan of your system.
           </p>
         </div>
 
@@ -289,21 +382,24 @@ export default function ASImpactCalculator() {
             </p>
 
             <div className="as-slider-labels">
-              <span>{IMPACT_CALCULATOR_CONFIG.labels.monthlyBillMin}</span>
-              <span>{IMPACT_CALCULATOR_CONFIG.labels.monthlyBillMax}</span>
+              <span>{config.labels.monthlyBillMin}</span>
+              <span>{config.labels.monthlyBillMax}</span>
             </div>
+
             <input
               type="range"
-              min={IMPACT_CALCULATOR_CONFIG.monthlyBill.min}
-              max={IMPACT_CALCULATOR_CONFIG.monthlyBill.max}
-              step={IMPACT_CALCULATOR_CONFIG.monthlyBill.step}
+              min={config.monthlyBill.min}
+              max={config.monthlyBill.max}
+              step={config.monthlyBill.step}
               value={clampValue(
                 monthlyBill,
-                IMPACT_CALCULATOR_CONFIG.monthlyBill.min,
-                IMPACT_CALCULATOR_CONFIG.monthlyBill.max
+                config.monthlyBill.min,
+                config.monthlyBill.max
               )}
               onChange={(e) => {
-                setMonthlyBill(Number(e.target.value));
+                const value = Number(e.target.value);
+                setMonthlyBill(value);
+                setMonthlyBillInput(String(value));
                 setMonthlyBillError("");
               }}
               className="as-range"
@@ -313,6 +409,7 @@ export default function ASImpactCalculator() {
                 } as React.CSSProperties
               }
             />
+
             <div className="as-current-value">
               <div className="as-current-row">
                 <span className="as-prefix">₱</span>
@@ -320,8 +417,8 @@ export default function ASImpactCalculator() {
                 <div className="as-current-input-box">
                   <input
                     type="text"
-                    inputMode="numeric"
-                    value={monthlyBill === 0 ? "" : monthlyBill}
+                    inputMode="decimal"
+                    value={monthlyBillInput}
                     onChange={(e) => handleMonthlyBillInput(e.target.value)}
                   />
                 </div>
@@ -341,22 +438,24 @@ export default function ASImpactCalculator() {
             </p>
 
             <div className="as-slider-labels">
-              <span>{IMPACT_CALCULATOR_CONFIG.labels.electricRateMin}</span>
-              <span>{IMPACT_CALCULATOR_CONFIG.labels.electricRateMax}</span>
+              <span>{config.labels.electricRateMin}</span>
+              <span>{config.labels.electricRateMax}</span>
             </div>
 
             <input
               type="range"
-              min={IMPACT_CALCULATOR_CONFIG.electricRate.min}
-              max={IMPACT_CALCULATOR_CONFIG.electricRate.max}
-              step={IMPACT_CALCULATOR_CONFIG.electricRate.step}
+              min={config.electricRate.min}
+              max={config.electricRate.max}
+              step={config.electricRate.step}
               value={clampValue(
                 electricRate,
-                IMPACT_CALCULATOR_CONFIG.electricRate.min,
-                IMPACT_CALCULATOR_CONFIG.electricRate.max
+                config.electricRate.min,
+                config.electricRate.max
               )}
               onChange={(e) => {
-                setElectricRate(Number(e.target.value));
+                const value = Number(e.target.value);
+                setElectricRate(value);
+                setElectricRateInput(String(value));
                 setElectricRateError("");
               }}
               className="as-range"
@@ -375,7 +474,7 @@ export default function ASImpactCalculator() {
                   <input
                     type="text"
                     inputMode="decimal"
-                    value={electricRate === 0 ? "" : electricRate}
+                    value={electricRateInput}
                     onChange={(e) => handleElectricRateInput(e.target.value)}
                   />
                 </div>
@@ -395,15 +494,16 @@ export default function ASImpactCalculator() {
             <div>
               <p className="as-result-label">ESTIMATED SYSTEM SIZE</p>
               <p className="as-system-size">
-                {formattedSystemSize.value} <span>{formattedSystemSize.unit}</span>
+                {formattedSystemSize.value}{" "}
+                <span>{formattedSystemSize.unit}</span>
               </p>
             </div>
 
             <div>
-              <p className="as-result-label">10-YEAR SAVINGS</p>
+              <p className="as-result-label">{projectionLabel}</p>
               <p className="as-savings">
                 ₱{" "}
-                {Math.round(rollingTenYearSavings).toLocaleString("en-US", {
+                {Math.round(rollingProjectedSavings).toLocaleString("en-US", {
                   maximumFractionDigits: 0,
                 })}
               </p>

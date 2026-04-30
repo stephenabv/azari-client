@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { getCollectionData } from "../services/ASFirestore";
 
 type ProjectCategory =
   | "All Projects"
@@ -7,9 +8,21 @@ type ProjectCategory =
   | "Commercial Projects"
   | "Industrial Projects";
 
+type ProjectType = "Residential" | "Commercial" | "Industrial";
+
+type FirestoreProject = {
+  id: number | string;
+  category?: ProjectType;
+  title?: string;
+  system?: string;
+  savings?: string;
+  image?: string;
+  filter?: ProjectCategory[];
+};
+
 type Project = {
-  id: number;
-  category: "Residential" | "Commercial" | "Industrial";
+  id: number | string;
+  category: ProjectType;
   filter: ProjectCategory[];
   title: string;
   system: string;
@@ -25,95 +38,57 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
-// const PROJECTS_DATA: Project[] = [];
+const DEFAULT_PROJECTS_DATA: Project[] = [];
 
-const PROJECTS_DATA: Project[] = [
-  {
-    id: 1,
-    category: "Industrial",
-    filter: ["All Projects", "Industrial Projects", "Recent Projects"],
-    title: "Batangas Cold Storage",
-    system: "3.2 MWp",
-    savings: "₱12.4M",
-    image: "/images/projects/project1.jpg",
-  },
-  {
-    id: 2,
-    category: "Industrial",
-    filter: ["All Projects", "Industrial Projects", "Recent Projects"],
-    title: "Makati Retail & Office",
-    system: "850 kWp",
-    savings: "₱4.2M",
-    image: "/images/projects/project2.jpg",
-  },
-  {
-    id: 3,
-    category: "Industrial",
-    filter: ["All Projects", "Industrial Projects"],
-    title: "Nuvali High-Efficiency",
-    system: "7.5 kWp",
-    savings: "₱385K",
-    image: "/images/projects/project3.jpg",
-  },
-  {
-    id: 4,
-    category: "Industrial",
-    filter: ["All Projects", "Industrial Projects"],
-    title: "Tarlac Poultry Farm",
-    system: "100 kWp",
-    savings: "₱2.8M",
-    image: "/images/projects/project4.jpg",
-  },
-  {
-    id: 5,
-    category: "Residential",
-    filter: ["All Projects", "Residential Projects", "Recent Projects"],
-    title: "Tagaytay Glass House",
-    system: "5.4 kWp",
-    savings: "₱310K",
-    image: "/images/projects/project5.jpg",
-  },
-  {
-    id: 6,
-    category: "Commercial",
-    filter: ["All Projects", "Commercial Projects"],
-    title: "Cebu IT Park Office",
-    system: "450 kWp",
-    savings: "₱5.1M",
-    image: "/images/projects/project6.jpg",
-  },
-  {
-    id: 7,
-    category: "Residential",
-    filter: ["All Projects", "Residential Projects"],
-    title: "Cavite Net-Zero Subdivision",
-    system: "12 kWp",
-    savings: "₱680K",
-    image: "/images/projects/project7.jpg",
-  },
-  {
-    id: 8,
-    category: "Commercial",
-    filter: ["All Projects", "Commercial Projects", "Recent Projects"],
-    title: "Pasig Lifestyle Retail",
-    system: "620 kWp",
-    savings: "₱7.4M",
-    image: "/images/projects/project8.jpg",
-  },
-  {
-    id: 9,
-    category: "Industrial",
-    filter: ["All Projects", "Industrial Projects"],
-    title: "Davao Cold Chain Logistics",
-    system: "1.5 MWp",
-    savings: "₱10.2M",
-    image: "/images/projects/project9.jpg",
-  },
-];
+function getProjectImagePath(image?: string) {
+  if (!image) return "/images/projects/project-placeholder.jpg";
+
+  if (image.startsWith("/") || image.startsWith("http")) {
+    return image;
+  }
+
+  return `/${image}`;
+}
+
+function getProjectFilters(project: FirestoreProject): ProjectCategory[] {
+  if (project.filter?.length) {
+    return project.filter;
+  }
+
+  const generatedFilters: ProjectCategory[] = ["All Projects", "Recent Projects"];
+
+  if (project.category === "Residential") {
+    generatedFilters.push("Residential Projects");
+  }
+
+  if (project.category === "Commercial") {
+    generatedFilters.push("Commercial Projects");
+  }
+
+  if (project.category === "Industrial") {
+    generatedFilters.push("Industrial Projects");
+  }
+
+  return generatedFilters;
+}
+
+function normalizeProject(project: FirestoreProject): Project {
+  return {
+    id: project.id,
+    category: project.category ?? "Industrial",
+    filter: getProjectFilters(project),
+    title: project.title ?? "Untitled Project",
+    system: project.system ?? "0",
+    savings: project.savings ?? "₱0",
+    image: getProjectImagePath(project.image),
+  };
+}
 
 export default function ASProjects() {
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
+
+  const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS_DATA);
 
   const activeIndex = filters.indexOf(activeFilter);
 
@@ -122,6 +97,27 @@ export default function ASProjects() {
     width: 0,
     x: 0,
   });
+
+  useEffect(() => {
+    const unsubscribe = getCollectionData<FirestoreProject>(
+      "ASProjects",
+      (data) => {
+        if (!data.length) {
+          setProjects(DEFAULT_PROJECTS_DATA);
+          return;
+        }
+
+        const firestoreProjects = data
+          .filter((project) => project?.title && project?.system && project?.savings)
+          .map(normalizeProject)
+          .sort((a, b) => Number(a.id) - Number(b.id));
+
+        setProjects(firestoreProjects.length ? firestoreProjects : DEFAULT_PROJECTS_DATA);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   useLayoutEffect(() => {
     const activeButton = filterRefs.current[activeIndex];
@@ -135,10 +131,8 @@ export default function ASProjects() {
   }, [activeIndex]);
 
   const filteredProjects = useMemo(() => {
-    return PROJECTS_DATA.filter((project) =>
-      project.filter.includes(activeFilter)
-    );
-  }, [activeFilter]);
+    return projects.filter((project) => project.filter.includes(activeFilter));
+  }, [projects, activeFilter]);
 
   return (
     <section className="as-projects-section">
