@@ -7,25 +7,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test-ssh:
+  azari-production-build:
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: 20
-      #     cache: npm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-      # - name: Install dependencies
-      #   run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      # - name: Build project
-      #   run: npm run build
+      - name: Build project
+        run: npm run build
 
       - name: Prepare SSH private key
         run: |
@@ -43,9 +43,9 @@ jobs:
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "echo 'SSH connection successful' && hostname"
 
-      # - name: Deploy dist to VM
-      #   run: |
-      #     rsync -avz --delete \
-      #       -e "ssh -i ~/.ssh/vm_key" \
-      #       dist/ \
-      #       ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
+      - name: Deploy dist to VM
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/vm_key" \
+            dist/ \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
