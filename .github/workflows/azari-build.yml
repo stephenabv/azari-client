@@ -1,0 +1,51 @@
+name: Build and Deploy to VM
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-test-ssh:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      # - name: Checkout repository
+      #   uses: actions/checkout@v4
+
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      #     cache: npm
+
+      # - name: Install dependencies
+      #   run: npm ci
+
+      # - name: Build project
+      #   run: npm run build
+
+      - name: Prepare SSH private key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/vm_key
+          chmod 600 ~/.ssh/vm_key
+
+      - name: Add VM to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Test SSH connection to VM
+        run: |
+          ssh -i ~/.ssh/vm_key \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "echo 'SSH connection successful' && hostname"
+
+      # - name: Deploy dist to VM
+      #   run: |
+      #     rsync -avz --delete \
+      #       -e "ssh -i ~/.ssh/vm_key" \
+      #       dist/ \
+      #       ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
