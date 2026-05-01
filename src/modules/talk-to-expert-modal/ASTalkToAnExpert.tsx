@@ -17,9 +17,20 @@ type ASFooterConfig = {
   subtext?: string;
 };
 
-type ASAddressConfig = {
-  province?: string[];
-  cities?: Record<string, string[]>;
+type ASAddressFirestoreConfig = {
+  id?: string;
+  provinces?: Record<
+    string,
+    {
+      city?: string[];
+      cities?: string[];
+    }
+  >;
+};
+
+type AddressConfig = {
+  provinces: string[];
+  cities: Record<string, string[]>;
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
@@ -32,8 +43,8 @@ const DEFAULT_CONFIG: ASFooterConfig = {
     "Bringing the power of the sun to every Filipino home. We handle the hard parts—the permits, the engineering, and the utility sync—so you can just enjoy the savings.",
 };
 
-const FALLBACK_ADDRESS: ASAddressConfig = {
-  province: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
+const FALLBACK_ADDRESS: AddressConfig = {
+  provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
   cities: {
     Bohol: ["Tagbilaran", "Panglao", "Loboc"],
     Cebu: ["Cebu City", "Mandaue", "Lapu-Lapu"],
@@ -50,15 +61,25 @@ export default function ASTalkToAnExpert({
   const [config, setConfig] = useState<ASFooterConfig>(DEFAULT_CONFIG);
 
   const [addressConfig, setAddressConfig] =
-    useState<ASAddressConfig>(FALLBACK_ADDRESS);
+    useState<AddressConfig>(FALLBACK_ADDRESS);
 
   const [selectedProvince, setSelectedProvince] = useState(
-    FALLBACK_ADDRESS.province?.[0] || ""
+    FALLBACK_ADDRESS.provinces[0]
   );
 
   const [selectedCity, setSelectedCity] = useState(
-    FALLBACK_ADDRESS.cities?.[selectedProvince]?.[0] || ""
+    FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
   );
+
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    inquiryType: "general",
+    message: "",
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const unsubscribe = getCollectionData<ASFooterConfig>(
@@ -85,24 +106,46 @@ export default function ASTalkToAnExpert({
   }, []);
 
   useEffect(() => {
-    const unsubscribe = getCollectionData<ASAddressConfig>(
+    const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
       "ASAddress",
       (data) => {
-        const item = data[0];
+        const item =
+          data.find((doc) => doc.id === "places_config") || data[0];
 
-        if (!item || !item.province || !item.cities) {
+        if (!item?.provinces) {
           setAddressConfig(FALLBACK_ADDRESS);
           return;
         }
 
+        const provinces = Object.keys(item.provinces);
+
+        if (provinces.length === 0) {
+          setAddressConfig(FALLBACK_ADDRESS);
+          return;
+        }
+
+        const cities = provinces.reduce<Record<string, string[]>>(
+          (acc, province) => {
+            acc[province] =
+              item.provinces?.[province]?.city ||
+              item.provinces?.[province]?.cities ||
+              [];
+
+            return acc;
+          },
+          {}
+        );
+
+        const firstProvince = provinces[0];
+        const firstCity = cities[firstProvince]?.[0] || "";
+
         setAddressConfig({
-          province: item.province,
-          cities: item.cities,
+          provinces,
+          cities,
         });
 
-        const firstProvince = item.province[0];
         setSelectedProvince(firstProvince);
-        setSelectedCity(item.cities[firstProvince]?.[0] || "");
+        setSelectedCity(firstCity);
       }
     );
 
@@ -145,8 +188,51 @@ export default function ASTalkToAnExpert({
     }, 220);
   };
 
-  const availableCities =
-    addressConfig.cities?.[selectedProvince] || [];
+  const availableCities = addressConfig.cities[selectedProvince] || [];
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch("/api/talk/send", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          city: selectedCity,
+          province: selectedProvince,
+          inquiryType: form.inquiryType,
+          message: form.message,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send message.");
+      }
+
+      setForm({
+        name: "",
+        email: "",
+        phone: "",
+        inquiryType: "general",
+        message: "",
+      });
+
+      handleClose();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -182,7 +268,10 @@ export default function ASTalkToAnExpert({
 
               <p className="as-talk-intro">{config.intro}</p>
 
-              <a href={`mailto:${config.contact_email}`} className="as-talk-email">
+              <a
+                href={`mailto:${config.contact_email}`}
+                className="as-talk-email"
+              >
                 {config.contact_email}
               </a>
             </div>
@@ -193,16 +282,62 @@ export default function ASTalkToAnExpert({
             </div>
           </div>
 
-          <form className="as-talk-form">
+          <form className="as-talk-form" onSubmit={handleSubmit}>
             <div className="as-talk-row">
               <label className="as-talk-field">
                 <span>How should we address you?</span>
-                <input type="text" placeholder="Ex. John" />
+                <input
+                  type="text"
+                  placeholder="Ex. John"
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm({ ...form, name: e.target.value })
+                  }
+                />
               </label>
 
               <label className="as-talk-field">
+                <span>Email Address</span>
+                <input
+                  type="email"
+                  placeholder="Ex. john@email.com"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm({ ...form, email: e.target.value })
+                  }
+                />
+              </label>
+            </div>
+
+            <div className="as-talk-row">
+              <label className="as-talk-field">
                 <span>Mobile Number</span>
-                <input type="tel" placeholder="Ex. +63 961 618 3436" />
+                <input
+                  type="tel"
+                  placeholder="Ex. +63 961 618 3436"
+                  value={form.phone}
+                  onChange={(e) =>
+                    setForm({ ...form, phone: e.target.value })
+                  }
+                />
+              </label>
+
+              <label className="as-talk-field">
+                <span>Province</span>
+                <select
+                  value={selectedProvince}
+                  onChange={(e) => {
+                    const province = e.target.value;
+                    setSelectedProvince(province);
+                    setSelectedCity(addressConfig.cities[province]?.[0] || "");
+                  }}
+                >
+                  {addressConfig.provinces.map((province) => (
+                    <option key={province} value={province}>
+                      {province}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -222,43 +357,33 @@ export default function ASTalkToAnExpert({
               </label>
 
               <label className="as-talk-field">
-                <span>Province</span>
+                <span>How can we help?</span>
                 <select
-                  value={selectedProvince}
-                  onChange={(e) => {
-                    const province = e.target.value;
-                    setSelectedProvince(province);
-
-                    const firstCity =
-                      addressConfig.cities?.[province]?.[0] || "";
-                    setSelectedCity(firstCity);
-                  }}
+                  value={form.inquiryType}
+                  onChange={(e) =>
+                    setForm({ ...form, inquiryType: e.target.value })
+                  }
                 >
-                  {addressConfig.province?.map((province) => (
-                    <option key={province} value={province}>
-                      {province}
-                    </option>
-                  ))}
+                  <option value="general">
+                    I have some general questions about solar.
+                  </option>
+                  <option value="quote">I want to request a quotation.</option>
+                  <option value="consultation">
+                    I want to schedule a consultation.
+                  </option>
                 </select>
               </label>
             </div>
 
             <label className="as-talk-field">
-              <span>How can we help?</span>
-              <select defaultValue="general">
-                <option value="general">
-                  I have some general questions about solar.
-                </option>
-                <option value="quote">I want to request a quotation.</option>
-                <option value="consultation">
-                  I want to schedule a consultation.
-                </option>
-              </select>
-            </label>
-
-            <label className="as-talk-field">
               <span>Message</span>
-              <textarea placeholder="Tell us what's on your mind." />
+              <textarea
+                placeholder="Tell us what's on your mind."
+                value={form.message}
+                onChange={(e) =>
+                  setForm({ ...form, message: e.target.value })
+                }
+              />
             </label>
 
             <div className="as-talk-actions">
@@ -270,8 +395,12 @@ export default function ASTalkToAnExpert({
                 Cancel
               </button>
 
-              <button type="submit" className="as-talk-send">
-                Send Message
+              <button
+                type="submit"
+                className="as-talk-send"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Sending..." : "Send Message"}
               </button>
             </div>
           </form>
