@@ -32,20 +32,6 @@ type ASAddressFirestoreConfig = {
 type AddressConfig = {
   provinces: string[];
   cities: Record<string, string[]>;
-type ASAddressFirestoreConfig = {
-  id?: string;
-  provinces?: Record<
-    string,
-    {
-      city?: string[];
-      cities?: string[];
-    }
-  >;
-};
-
-type AddressConfig = {
-  provinces: string[];
-  cities: Record<string, string[]>;
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
@@ -58,8 +44,6 @@ const DEFAULT_CONFIG: ASFooterConfig = {
     "Bringing the power of the sun to every Filipino home. We handle the hard parts—the permits, the engineering, and the utility sync—so you can just enjoy the savings.",
 };
 
-const FALLBACK_ADDRESS: AddressConfig = {
-  provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
 const FALLBACK_ADDRESS: AddressConfig = {
   provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
   cities: {
@@ -76,18 +60,14 @@ export default function ASTalkToAnExpert({
 }: ASTalkToAnExpertProps) {
   const [isClosing, setIsClosing] = useState(false);
   const [config, setConfig] = useState<ASFooterConfig>(DEFAULT_CONFIG);
-
   const [addressConfig, setAddressConfig] =
-    useState<AddressConfig>(FALLBACK_ADDRESS);
     useState<AddressConfig>(FALLBACK_ADDRESS);
 
   const [selectedProvince, setSelectedProvince] = useState(
     FALLBACK_ADDRESS.provinces[0]
-    FALLBACK_ADDRESS.provinces[0]
   );
 
   const [selectedCity, setSelectedCity] = useState(
-    FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
     FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
   );
 
@@ -128,48 +108,30 @@ export default function ASTalkToAnExpert({
 
   useEffect(() => {
     const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
-    const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
       "ASAddress",
       (data) => {
         const item =
           data.find((doc) => doc.id === "places_config") || data[0];
-        const item =
-          data.find((doc) => doc.id === "places_config") || data[0];
 
         if (!item?.provinces) {
           setAddressConfig(FALLBACK_ADDRESS);
+          setSelectedProvince(FALLBACK_ADDRESS.provinces[0]);
+          setSelectedCity(
+            FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
+          );
           return;
         }
 
-        const provinces = Object.keys(item.provinces);
-
-        if (provinces.length === 0) {
-        if (!item?.provinces) {
-          setAddressConfig(FALLBACK_ADDRESS);
-          return;
-        }
-
-        const provinces = Object.keys(item.provinces);
+        const provinces = Object.keys(item.provinces).filter(Boolean);
 
         if (provinces.length === 0) {
           setAddressConfig(FALLBACK_ADDRESS);
+          setSelectedProvince(FALLBACK_ADDRESS.provinces[0]);
+          setSelectedCity(
+            FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
+          );
           return;
         }
-
-        const cities = provinces.reduce<Record<string, string[]>>(
-          (acc, province) => {
-            acc[province] =
-              item.provinces?.[province]?.city ||
-              item.provinces?.[province]?.cities ||
-              [];
-
-            return acc;
-          },
-          {}
-        );
-
-        const firstProvince = provinces[0];
-        const firstCity = cities[firstProvince]?.[0] || "";
 
         const cities = provinces.reduce<Record<string, string[]>>(
           (acc, province) => {
@@ -189,12 +151,9 @@ export default function ASTalkToAnExpert({
         setAddressConfig({
           provinces,
           cities,
-          provinces,
-          cities,
         });
 
         setSelectedProvince(firstProvince);
-        setSelectedCity(firstCity);
         setSelectedCity(firstCity);
       }
     );
@@ -333,10 +292,6 @@ export default function ASTalkToAnExpert({
                 href={`mailto:${config.contact_email}`}
                 className="as-talk-email"
               >
-              <a
-                href={`mailto:${config.contact_email}`}
-                className="as-talk-email"
-              >
                 {config.contact_email}
               </a>
             </div>
@@ -348,16 +303,16 @@ export default function ASTalkToAnExpert({
           </div>
 
           <form className="as-talk-form" onSubmit={handleSubmit}>
-          <form className="as-talk-form" onSubmit={handleSubmit}>
             <div className="as-talk-row">
               <label className="as-talk-field">
                 <span>How should we address you?</span>
                 <input
                   type="text"
                   value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
+                  onChange={(event) =>
+                    setForm({ ...form, name: event.target.value })
                   }
+                  required
                 />
               </label>
 
@@ -366,9 +321,10 @@ export default function ASTalkToAnExpert({
                 <input
                   type="email"
                   value={form.email}
-                  onChange={(e) =>
-                    setForm({ ...form, email: e.target.value })
+                  onChange={(event) =>
+                    setForm({ ...form, email: event.target.value })
                   }
+                  required
                 />
               </label>
             </div>
@@ -379,9 +335,10 @@ export default function ASTalkToAnExpert({
                 <input
                   type="tel"
                   value={form.phone}
-                  onChange={(e) =>
-                    setForm({ ...form, phone: e.target.value })
+                  onChange={(event) =>
+                    setForm({ ...form, phone: event.target.value })
                   }
+                  required
                 />
               </label>
 
@@ -389,11 +346,12 @@ export default function ASTalkToAnExpert({
                 <span>Province</span>
                 <select
                   value={selectedProvince}
-                  onChange={(e) => {
-                    const province = e.target.value;
+                  onChange={(event) => {
+                    const province = event.target.value;
                     setSelectedProvince(province);
                     setSelectedCity(addressConfig.cities[province]?.[0] || "");
                   }}
+                  required
                 >
                   {addressConfig.provinces.map((province) => (
                     <option key={province} value={province}>
@@ -409,24 +367,29 @@ export default function ASTalkToAnExpert({
                 <span>City</span>
                 <select
                   value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
+                  onChange={(event) => setSelectedCity(event.target.value)}
+                  required
                 >
-                  {availableCities.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
-                    </option>
-                  ))}
+                  {availableCities.length > 0 ? (
+                    availableCities.map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No city available</option>
+                  )}
                 </select>
               </label>
 
               <label className="as-talk-field">
                 <span>How can we help?</span>
-                <span>How can we help?</span>
                 <select
                   value={form.inquiryType}
-                  onChange={(e) =>
-                    setForm({ ...form, inquiryType: e.target.value })
+                  onChange={(event) =>
+                    setForm({ ...form, inquiryType: event.target.value })
                   }
+                  required
                 >
                   <option value="general">General inquiry</option>
                   <option value="quote">Request quotation</option>
@@ -439,9 +402,10 @@ export default function ASTalkToAnExpert({
               <span>Message</span>
               <textarea
                 value={form.message}
-                onChange={(e) =>
-                  setForm({ ...form, message: e.target.value })
+                onChange={(event) =>
+                  setForm({ ...form, message: event.target.value })
                 }
+                required
               />
             </label>
 
