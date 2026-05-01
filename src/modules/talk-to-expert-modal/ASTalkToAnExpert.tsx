@@ -32,6 +32,20 @@ type ASAddressFirestoreConfig = {
 type AddressConfig = {
   provinces: string[];
   cities: Record<string, string[]>;
+type ASAddressFirestoreConfig = {
+  id?: string;
+  provinces?: Record<
+    string,
+    {
+      city?: string[];
+      cities?: string[];
+    }
+  >;
+};
+
+type AddressConfig = {
+  provinces: string[];
+  cities: Record<string, string[]>;
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
@@ -44,6 +58,8 @@ const DEFAULT_CONFIG: ASFooterConfig = {
     "Bringing the power of the sun to every Filipino home. We handle the hard parts—the permits, the engineering, and the utility sync—so you can just enjoy the savings.",
 };
 
+const FALLBACK_ADDRESS: AddressConfig = {
+  provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
 const FALLBACK_ADDRESS: AddressConfig = {
   provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
   cities: {
@@ -63,12 +79,15 @@ export default function ASTalkToAnExpert({
 
   const [addressConfig, setAddressConfig] =
     useState<AddressConfig>(FALLBACK_ADDRESS);
+    useState<AddressConfig>(FALLBACK_ADDRESS);
 
   const [selectedProvince, setSelectedProvince] = useState(
+    FALLBACK_ADDRESS.provinces[0]
     FALLBACK_ADDRESS.provinces[0]
   );
 
   const [selectedCity, setSelectedCity] = useState(
+    FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
     FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
   );
 
@@ -109,11 +128,22 @@ export default function ASTalkToAnExpert({
 
   useEffect(() => {
     const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
+    const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
       "ASAddress",
       (data) => {
         const item =
           data.find((doc) => doc.id === "places_config") || data[0];
+        const item =
+          data.find((doc) => doc.id === "places_config") || data[0];
 
+        if (!item?.provinces) {
+          setAddressConfig(FALLBACK_ADDRESS);
+          return;
+        }
+
+        const provinces = Object.keys(item.provinces);
+
+        if (provinces.length === 0) {
         if (!item?.provinces) {
           setAddressConfig(FALLBACK_ADDRESS);
           return;
@@ -141,12 +171,30 @@ export default function ASTalkToAnExpert({
         const firstProvince = provinces[0];
         const firstCity = cities[firstProvince]?.[0] || "";
 
+        const cities = provinces.reduce<Record<string, string[]>>(
+          (acc, province) => {
+            acc[province] =
+              item.provinces?.[province]?.city ||
+              item.provinces?.[province]?.cities ||
+              [];
+
+            return acc;
+          },
+          {}
+        );
+
+        const firstProvince = provinces[0];
+        const firstCity = cities[firstProvince]?.[0] || "";
+
         setAddressConfig({
+          provinces,
+          cities,
           provinces,
           cities,
         });
 
         setSelectedProvince(firstProvince);
+        setSelectedCity(firstCity);
         setSelectedCity(firstCity);
       }
     );
@@ -285,6 +333,10 @@ export default function ASTalkToAnExpert({
                 href={`mailto:${config.contact_email}`}
                 className="as-talk-email"
               >
+              <a
+                href={`mailto:${config.contact_email}`}
+                className="as-talk-email"
+              >
                 {config.contact_email}
               </a>
             </div>
@@ -295,6 +347,7 @@ export default function ASTalkToAnExpert({
             </div>
           </div>
 
+          <form className="as-talk-form" onSubmit={handleSubmit}>
           <form className="as-talk-form" onSubmit={handleSubmit}>
             <div className="as-talk-row">
               <label className="as-talk-field">
@@ -368,6 +421,7 @@ export default function ASTalkToAnExpert({
 
               <label className="as-talk-field">
                 <span>How can we help?</span>
+                <span>How can we help?</span>
                 <select
                   value={form.inquiryType}
                   onChange={(e) =>
@@ -400,8 +454,12 @@ export default function ASTalkToAnExpert({
                 Cancel
               </button>
 
-              <button type="submit" className="as-talk-send">
-                Send Message
+              <button
+                type="submit"
+                className="as-talk-send"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Sending..." : "Send Message"}
               </button>
             </div>
           </form>
