@@ -35,7 +35,7 @@ type AddressConfig = {
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
-  contact_email: "hello@azari.solar",
+  contact_email: "sales@azari.solar",
   headline: "Let’s Connect.",
   intro:
     "Have questions about solar? Whether you're curious about savings or just want to know if your roof is ready, we’re here to help. No technical jargon, just honest advice.",
@@ -60,6 +60,7 @@ export default function ASTalkToAnExpert({
 }: ASTalkToAnExpertProps) {
   const [isClosing, setIsClosing] = useState(false);
   const [config, setConfig] = useState<ASFooterConfig>(DEFAULT_CONFIG);
+
   const [addressConfig, setAddressConfig] =
     useState<AddressConfig>(FALLBACK_ADDRESS);
 
@@ -79,8 +80,90 @@ export default function ASTalkToAnExpert({
     message: "",
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSystemError, setShowSystemError] = useState(false);
+
+  const validateField = (
+    field: string,
+    value: string,
+    province = selectedProvince,
+    city = selectedCity
+  ) => {
+    switch (field) {
+      case "name":
+        return value.trim() ? "" : "Please enter your name.";
+
+      case "email":
+        if (!value.trim()) return "Please enter your email address.";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          return "Please enter a valid email address.";
+        }
+        return "";
+
+      case "phone": {
+        const cleanPhone = value.replace(/\s/g, "");
+
+        if (!cleanPhone) return "Please enter your mobile number.";
+        if (!/^(09|\+639)\d{9}$/.test(cleanPhone)) {
+          return "Please enter a valid Philippine mobile number.";
+        }
+
+        return "";
+      }
+
+      case "province":
+        return province ? "" : "Please select a province.";
+
+      case "city":
+        return city ? "" : "Please select a city.";
+
+      case "message":
+        if (!value.trim()) return "Please enter your message.";
+        if (value.trim().length < 10) {
+          return "Message must be at least 10 characters.";
+        }
+        return "";
+
+      default:
+        return "";
+    }
+  };
+
+  const handleFieldChange = (field: keyof typeof form, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [field]: validateField(field, value),
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {
+      name: validateField("name", form.name),
+      email: validateField("email", form.email),
+      phone: validateField("phone", form.phone),
+      province: validateField("province", "", selectedProvince, selectedCity),
+      city: validateField("city", "", selectedProvince, selectedCity),
+      message: validateField("message", form.message),
+    };
+
+    Object.keys(newErrors).forEach((key) => {
+      if (!newErrors[key]) {
+        delete newErrors[key];
+      }
+    });
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  
 
   useEffect(() => {
     const unsubscribe = getCollectionData<ASFooterConfig>(
@@ -203,6 +286,7 @@ export default function ASTalkToAnExpert({
     event.preventDefault();
 
     if (isSubmitting) return;
+    if (!validateForm()) return;
 
     try {
       setIsSubmitting(true);
@@ -245,6 +329,7 @@ export default function ASTalkToAnExpert({
         message: "",
       });
 
+      setErrors({});
       handleClose();
     } catch (error) {
       console.error("System error:", error);
@@ -302,56 +387,85 @@ export default function ASTalkToAnExpert({
             </div>
           </div>
 
-          <form className="as-talk-form" onSubmit={handleSubmit}>
+          <form className="as-talk-form" onSubmit={handleSubmit} noValidate>
             <div className="as-talk-row">
               <label className="as-talk-field">
                 <span>How should we address you?</span>
+
                 <input
                   type="text"
                   value={form.name}
                   onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
+                    handleFieldChange("name", event.target.value)
                   }
-                  required
+                  className={errors.name ? "has-warning" : ""}
                 />
+
+                {errors.name && (
+                  <small className="as-talk-warning">{errors.name}</small>
+                )}
               </label>
 
               <label className="as-talk-field">
                 <span>Email Address</span>
+
                 <input
                   type="email"
                   value={form.email}
                   onChange={(event) =>
-                    setForm({ ...form, email: event.target.value })
+                    handleFieldChange("email", event.target.value)
                   }
-                  required
+                  className={errors.email ? "has-warning" : ""}
                 />
+
+                {errors.email && (
+                  <small className="as-talk-warning">{errors.email}</small>
+                )}
               </label>
             </div>
 
             <div className="as-talk-row">
               <label className="as-talk-field">
                 <span>Mobile Number</span>
+
                 <input
                   type="tel"
                   value={form.phone}
                   onChange={(event) =>
-                    setForm({ ...form, phone: event.target.value })
+                    handleFieldChange("phone", event.target.value)
                   }
-                  required
+                  className={errors.phone ? "has-warning" : ""}
                 />
+
+                {errors.phone && (
+                  <small className="as-talk-warning">{errors.phone}</small>
+                )}
               </label>
 
               <label className="as-talk-field">
                 <span>Province</span>
+
                 <select
                   value={selectedProvince}
                   onChange={(event) => {
                     const province = event.target.value;
+                    const city = addressConfig.cities[province]?.[0] || "";
+
                     setSelectedProvince(province);
-                    setSelectedCity(addressConfig.cities[province]?.[0] || "");
+                    setSelectedCity(city);
+
+                    setErrors((prev) => ({
+                      ...prev,
+                      province: validateField(
+                        "province",
+                        "",
+                        province,
+                        city
+                      ),
+                      city: validateField("city", "", province, city),
+                    }));
                   }}
-                  required
+                  className={errors.province ? "has-warning" : ""}
                 >
                   {addressConfig.provinces.map((province) => (
                     <option key={province} value={province}>
@@ -359,16 +473,35 @@ export default function ASTalkToAnExpert({
                     </option>
                   ))}
                 </select>
+
+                {errors.province && (
+                  <small className="as-talk-warning">{errors.province}</small>
+                )}
               </label>
             </div>
 
             <div className="as-talk-row">
               <label className="as-talk-field">
                 <span>City</span>
+
                 <select
                   value={selectedCity}
-                  onChange={(event) => setSelectedCity(event.target.value)}
-                  required
+                  onChange={(event) => {
+                    const city = event.target.value;
+
+                    setSelectedCity(city);
+
+                    setErrors((prev) => ({
+                      ...prev,
+                      city: validateField(
+                        "city",
+                        "",
+                        selectedProvince,
+                        city
+                      ),
+                    }));
+                  }}
+                  className={errors.city ? "has-warning" : ""}
                 >
                   {availableCities.length > 0 ? (
                     availableCities.map((city) => (
@@ -380,16 +513,20 @@ export default function ASTalkToAnExpert({
                     <option value="">No city available</option>
                   )}
                 </select>
+
+                {errors.city && (
+                  <small className="as-talk-warning">{errors.city}</small>
+                )}
               </label>
 
               <label className="as-talk-field">
                 <span>How can we help?</span>
+
                 <select
                   value={form.inquiryType}
                   onChange={(event) =>
-                    setForm({ ...form, inquiryType: event.target.value })
+                    handleFieldChange("inquiryType", event.target.value)
                   }
-                  required
                 >
                   <option value="general">General inquiry</option>
                   <option value="quote">Request quotation</option>
@@ -400,13 +537,18 @@ export default function ASTalkToAnExpert({
 
             <label className="as-talk-field">
               <span>Message</span>
+
               <textarea
                 value={form.message}
                 onChange={(event) =>
-                  setForm({ ...form, message: event.target.value })
+                  handleFieldChange("message", event.target.value)
                 }
-                required
+                className={errors.message ? "has-warning" : ""}
               />
+
+              {errors.message && (
+                <small className="as-talk-warning">{errors.message}</small>
+              )}
             </label>
 
             <div className="as-talk-actions">

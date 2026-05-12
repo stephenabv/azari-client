@@ -1,51 +1,56 @@
-name: Build and Deploy to VM
+name: Build, Test Connection and Deploy to VM
 
 on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 jobs:
-  azari-production-build:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
-      # - name: Checkout repository
-      #   uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: 20
-      #     cache: npm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-      # - name: Install dependencies
-      #   run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      # - name: Build project
-      #   run: npm run build
+      - name: Build project
+        run: npm run build
 
-      - name: Prepare SSH private key
+      - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/vm_key
-          chmod 600 ~/.ssh/vm_key
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-      - name: Add VM to known hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.VM_PORT }} ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Test SSH connection to VM
+      - name: Test SSH Connection
         run: |
-          ssh -i ~/.ssh/vm_key \
+          ssh -o StrictHostKeyChecking=no \
+            -p ${{ secrets.VM_PORT }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "echo 'SSH connection successful' && hostname"
+            "echo 'SSH Connection Successful'"
 
-      # - name: Deploy dist to VM
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${{ secrets.VM_PORT }}" \
+            dist/ \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
+
+      # - name: Restart Nginx
       #   run: |
-      #     rsync -avz --delete \
-      #       -e "ssh -i ~/.ssh/vm_key" \
-      #       dist/ \
-      #       ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
+      #     ssh -p ${{ secrets.VM_PORT }} \
+      #       ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+      #       "sudo systemctl restart nginx"

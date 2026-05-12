@@ -4,32 +4,20 @@
   isolation: isolate;
   border-radius: inherit;
 
-  /* CLEAR transparent surface */
-  background:
-    linear-gradient(180deg,
-      fade(#ffffff, 18%) 0%,
-      fade(#ffffff, 10%) 35%,
-      fade(#ffffff, 6%) 100%);
+  background: fade(#ffffff, 16%);
 
-  /* crisp edge lighting */
-  border: 1px solid fade(#ffffff, 28%);
-  border-top-color: fade(#ffffff, 65%);
-  border-left-color: fade(#ffffff, 40%);
-  border-right-color: fade(#ffffff, 20%);
-  border-bottom-color: fade(#ffffff, 14%);
+  border: 1px solid fade(#ffffff, 0.25%);
 
-  /* 🔥 VERY LOW blur (almost clear) */
-  backdrop-filter: blur(4px) saturate(140%) brightness(1.06);
-  -webkit-backdrop-filter: blur(4px) saturate(140%) brightness(1.06);
+  backdrop-filter:
+    blur(3px) saturate(180%) brightness(1.25);
 
-  /* clean, non-smoky depth */
   box-shadow:
-    inset 0 1px 0 fade(#ffffff, 70%),
-    inset 0 -1px 0 fade(#ffffff, 10%),
-    0 6px 18px fade(#000000, 10%),
-    0 1px 4px fade(#000000, 6%);
+    0 10px 24px fade(#000000, 50%),
+    inset 0 4px 18px fade(#ffffff, 2%),
+    inset 0 -8px 14px fade(#ffffff, 10%),
+    inset -10px -8px 0 -11px fade(#ffffff, 12%),
+    inset 0 -9px 0 -8px fade(#ffffff, 12%);
 
-  /* top glossy reflection */
   &::before {
     content: "";
     position: absolute;
@@ -40,13 +28,13 @@
 
     background:
       linear-gradient(180deg,
-        fade(#ffffff, 55%) 0%,
-        fade(#ffffff, 22%) 12%,
-        fade(#ffffff, 8%) 25%,
-        transparent 45%);
+        fade(#ffffff, 32%) 0%,
+        fade(#ffffff, 12%) 28%,
+        transparent 100%);
+
+    opacity: 0.75;
   }
 
-  /* subtle light streak (liquid feel) */
   &::after {
     content: "";
     position: absolute;
@@ -55,16 +43,23 @@
     pointer-events: none;
     z-index: 3;
 
-    background:
-      linear-gradient(120deg,
-        transparent 30%,
-        fade(#ffffff, 20%) 45%,
-        fade(#ffffff, 10%) 50%,
-        transparent 65%);
+    background: fade(#ffffff, 8%);
 
-    opacity: 0.6;
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+
+    box-shadow:
+      inset -10px -8px 0 -11px fade(#ffffff, 100%),
+      inset 0 -9px 0 -8px fade(#ffffff, 90%);
+
+    opacity: 0.55;
+    filter:
+      blur(1px) drop-shadow(8px 4px 6px fade(#000000, 26%)) brightness(1.12);
   }
 
-  transition:
-    all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-};
+  transition: transform 0.25s ease,
+  box-shadow 0.25s ease,
+  backdrop-filter 0.25s ease;
+}
+
+;
