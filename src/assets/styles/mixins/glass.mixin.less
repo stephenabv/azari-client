@@ -3,21 +3,27 @@
   overflow: hidden;
   isolation: isolate;
 
-  background: fade(#ffffff, 5%);
+  /* clearer glossy glass */
+  background: fade(#ffffff, 6%);
 
-  border: 1px solid fade(#ffffff, 7%);
+  border: 1px solid fade(#ffffff, 16%);
 
   backdrop-filter:
-    blur(3px) saturate(120%) brightness(1.02);
+    blur(10px)
+    saturate(155%)
+    brightness(1.08);
+
   -webkit-backdrop-filter:
-    blur(6px) saturate(120%) brightness(1.02);
+    blur(10px)
+    saturate(155%)
+    brightness(1.08);
 
   box-shadow:
-    0 8px 22px fade(#000000, 30%),
-    0 0 0 1px fade(#ffffff, 1%),
-    inset 0 1px 0 fade(#ffffff, 7%),
-    inset 0 -1px 0 fade(#ffffff, 3%),
-    inset 0 0 12px fade(#ffffff, 2%);
+    0 10px 30px fade(#000000, 24%),
+    0 0 0 1px fade(#ffffff, 3%),
+    inset 0 1px 0 fade(#ffffff, 28%),
+    inset 0 -1px 0 fade(#ffffff, 8%),
+    inset 0 0 20px fade(#ffffff, 5%);
 
   &::before {
     content: "";
@@ -27,13 +33,17 @@
     pointer-events: none;
     z-index: 2;
 
+    /* glossy top reflection */
     background:
-      linear-gradient(180deg,
-        fade(#ffffff, 8%) 0%,
-        fade(#ffffff, 3%) 34%,
-        transparent 70%);
+      linear-gradient(
+        180deg,
+        fade(#ffffff, 38%) 0%,
+        fade(#ffffff, 14%) 18%,
+        fade(#ffffff, 5%) 40%,
+        transparent 72%
+      );
 
-    opacity: 0.32;
+    opacity: 0.9;
   }
 
   &::after {
@@ -44,18 +54,21 @@
     pointer-events: none;
     z-index: 3;
 
+    /* curved shiny highlight */
     background:
-      radial-gradient(circle at 50% 0%,
-        fade(#ffffff, 6%) 0%,
-        fade(#ffffff, 2%) 30%,
-        transparent 66%);
+      radial-gradient(
+        circle at 50% -20%,
+        fade(#ffffff, 40%) 0%,
+        fade(#ffffff, 10%) 28%,
+        transparent 65%
+      );
 
     box-shadow:
-      inset 0 0 0 1px fade(#ffffff, 3%),
-      inset 0 -5px 10px fade(#ffffff, 2%);
+      inset 0 0 0 1px fade(#ffffff, 8%),
+      inset 0 -8px 14px fade(#ffffff, 4%);
 
-    opacity: 0.35;
-    filter: blur(0.25px);
+    opacity: 0.85;
+    filter: blur(0.2px);
   }
 
   transition:
