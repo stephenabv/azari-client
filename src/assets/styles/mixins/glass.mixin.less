@@ -3,35 +3,36 @@
   overflow: hidden;
   isolation: isolate;
 
-  /* iOS liquid glass */
+  /* ultra-clear iOS liquid glass */
   background:
     linear-gradient(
       180deg,
-      fade(#ffffff, 13%) 0%,
-      fade(#ffffff, 7%) 42%,
-      fade(#ffffff, 5%) 100%
+      fade(#ffffff, 12%) 0%,
+      fade(#ffffff, 6%) 40%,
+      fade(#ffffff, 4%) 100%
     );
 
   border: 1px solid fade(#ffffff, 22%);
 
-  /* slightly blurrier glass */
+  /* soft transparent blur */
   backdrop-filter:
-    blur(24px)
-    saturate(170%)
+    blur(32px)
+    saturate(165%)
     brightness(1.08);
 
   -webkit-backdrop-filter:
-    blur(24px)
-    saturate(170%)
+    blur(18px)
+    saturate(165%)
     brightness(1.08);
 
+  /* smooth floating depth */
   box-shadow:
     0 10px 30px fade(#000000, 14%),
-    inset 0 1px 0 fade(#ffffff, 30%),
-    inset 0 -1px 0 fade(#ffffff, 7%),
-    inset 0 0 12px fade(#ffffff, 4%);
+    inset 0 1px 0 fade(#ffffff, 28%),
+    inset 0 -1px 0 fade(#ffffff, 6%),
+    inset 0 0 10px fade(#ffffff, 3%);
 
-  /* glossy top reflection */
+  /* top glossy shine */
   &::before {
     content: "";
     position: absolute;
@@ -43,13 +44,13 @@
     background:
       linear-gradient(
         180deg,
-        fade(#ffffff, 58%) 0%,
-        fade(#ffffff, 22%) 12%,
-        fade(#ffffff, 7%) 30%,
-        transparent 60%
+        fade(#ffffff, 55%) 0%,
+        fade(#ffffff, 20%) 12%,
+        fade(#ffffff, 6%) 28%,
+        transparent 58%
       );
 
-    opacity: 0.72;
+    opacity: 0.75;
   }
 
   /* side liquid reflection */
@@ -57,7 +58,7 @@
     content: "";
     position: absolute;
     top: -30%;
-    right: 8%;
+    right: 10%;
     width: 38%;
     height: 180%;
     border-radius: 50%;
@@ -69,17 +70,18 @@
       linear-gradient(
         90deg,
         transparent 0%,
-        fade(#ffffff, 12%) 45%,
-        fade(#ffffff, 42%) 50%,
-        fade(#ffffff, 10%) 56%,
+        fade(#ffffff, 16%) 48%,
+        fade(#ffffff, 40%) 50%,
+        fade(#ffffff, 10%) 54%,
         transparent 100%
       );
 
-    transform: rotate(12deg);
+    transform:
+      rotate(12deg);
 
-    filter: blur(10px);
+    filter: blur(8px);
 
-    opacity: 0.65;
+    opacity: 0.7;
   }
 
   transition:
