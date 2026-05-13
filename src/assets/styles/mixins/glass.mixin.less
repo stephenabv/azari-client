@@ -3,35 +3,31 @@
   overflow: hidden;
   isolation: isolate;
 
-  /* deep transparent blue glass */
+  /* ultra-clear iOS liquid glass */
   background:
     linear-gradient(
       180deg,
-      fade(#ffffff, 10%) 0%,
-      fade(#6f7cff, 6%) 38%,
-      fade(#243bff, 10%) 100%
+      fade(#ffffff, 12%) 0%,
+      fade(#ffffff, 6%) 40%,
+      fade(#ffffff, 4%) 100%
     );
 
-  border: 1px solid fade(#ffffff, 20%);
+  border: 1px solid fade(#ffffff, 22%);
 
-  /* stronger smooth blur like image */
+  /* soft transparent blur */
   backdrop-filter:
-    blur(28px)
-    saturate(180%)
-    brightness(1.04);
+    blur(45px)
+    saturate(200%)
+    brightness(1.08);
 
-  -webkit-backdrop-filter:
-    blur(28px)
-    saturate(180%)
-    brightness(1.04);
-
+  /* smooth floating depth */
   box-shadow:
-    0 10px 24px fade(#000000, 18%),
-    inset 0 1px 0 fade(#ffffff, 24%),
+    0 10px 30px fade(#000000, 14%),
+    inset 0 1px 0 fade(#ffffff, 28%),
     inset 0 -1px 0 fade(#ffffff, 6%),
-    inset 0 0 14px fade(#ffffff, 4%);
+    inset 0 0 10px fade(#ffffff, 3%);
 
-  /* soft top gloss */
+  /* top glossy shine */
   &::before {
     content: "";
     position: absolute;
@@ -43,23 +39,23 @@
     background:
       linear-gradient(
         180deg,
-        fade(#ffffff, 45%) 0%,
-        fade(#ffffff, 14%) 16%,
-        fade(#ffffff, 4%) 34%,
-        transparent 62%
+        fade(#ffffff, 55%) 0%,
+        fade(#ffffff, 20%) 12%,
+        fade(#ffffff, 6%) 28%,
+        transparent 58%
       );
 
-    opacity: 0.7;
+    opacity: 0.75;
   }
 
-  /* subtle side reflection */
+  /* side liquid reflection */
   &::after {
     content: "";
     position: absolute;
-    top: -40%;
-    right: 12%;
-    width: 30%;
-    height: 200%;
+    top: -30%;
+    right: 10%;
+    width: 38%;
+    height: 180%;
     border-radius: 50%;
 
     pointer-events: none;
@@ -69,17 +65,18 @@
       linear-gradient(
         90deg,
         transparent 0%,
-        fade(#ffffff, 8%) 46%,
-        fade(#ffffff, 26%) 50%,
-        fade(#ffffff, 6%) 56%,
+        fade(#ffffff, 16%) 48%,
+        fade(#ffffff, 40%) 50%,
+        fade(#ffffff, 10%) 54%,
         transparent 100%
       );
 
-    transform: rotate(10deg);
+    transform:
+      rotate(12deg);
 
-    filter: blur(12px);
+    filter: blur(8px);
 
-    opacity: 0.45;
+    opacity: 0.7;
   }
 
   transition:
@@ -91,7 +88,7 @@
     transform: translateY(-1px);
 
     box-shadow:
-      0 14px 34px fade(#000000, 22%),
-      inset 0 1px 0 fade(#ffffff, 28%);
+      0 14px 36px fade(#000000, 16%),
+      inset 0 1px 0 fade(#ffffff, 34%);
   }
 };
