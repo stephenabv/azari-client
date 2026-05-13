@@ -3,25 +3,35 @@
   overflow: hidden;
   isolation: isolate;
 
-  /* clear glossy glass */
-  background: fade(#ffffff, 5%);
+  /* iOS liquid glass base */
+  background:
+    linear-gradient(
+      180deg,
+      fade(#ffffff, 10%) 0%,
+      fade(#ffffff, 6%) 45%,
+      fade(#ffffff, 4%) 100%
+    );
 
-  border: 1px solid fade(#ffffff, 18%);
+  border: 1px solid fade(#ffffff, 20%);
 
-  /* remove strong refraction */
+  /* soft iOS blur */
   backdrop-filter:
-    blur(3px)
-    brightness(1.04);
+    blur(14px)
+    saturate(160%)
+    brightness(1.06);
 
   -webkit-backdrop-filter:
-    blur(3px)
-    brightness(1.04);
+    blur(14px)
+    saturate(160%)
+    brightness(1.06);
 
+  /* smooth floating depth */
   box-shadow:
-    0 8px 24px fade(#000000, 18%),
-    0 0 0 1px fade(#ffffff, 3%),
-    inset 0 1px 0 fade(#ffffff, 35%),
-    inset 0 -1px 0 fade(#ffffff, 8%);
+    0 10px 30px fade(#000000, 16%),
+    0 1px 0 fade(#ffffff, 22%),
+    inset 0 1px 0 fade(#ffffff, 30%),
+    inset 0 -1px 0 fade(#ffffff, 8%),
+    inset 0 0 12px fade(#ffffff, 4%);
 
   &::before {
     content: "";
@@ -31,17 +41,17 @@
     pointer-events: none;
     z-index: 2;
 
-    /* clean glossy reflection */
+    /* glossy liquid reflection */
     background:
       linear-gradient(
         180deg,
-        fade(#ffffff, 45%) 0%,
-        fade(#ffffff, 18%) 20%,
-        fade(#ffffff, 5%) 42%,
-        transparent 70%
+        fade(#ffffff, 55%) 0%,
+        fade(#ffffff, 18%) 16%,
+        fade(#ffffff, 6%) 34%,
+        transparent 60%
       );
 
-    opacity: 0.95;
+    opacity: 0.9;
   }
 
   &::after {
@@ -52,19 +62,33 @@
     pointer-events: none;
     z-index: 3;
 
-    /* subtle curved shine */
+    /* soft curved inner glow */
     background:
       radial-gradient(
-        circle at 50% -30%,
-        fade(#ffffff, 28%) 0%,
-        fade(#ffffff, 8%) 30%,
-        transparent 68%
+        circle at 50% -20%,
+        fade(#ffffff, 38%) 0%,
+        fade(#ffffff, 10%) 30%,
+        transparent 70%
       );
 
-    opacity: 0.7;
+    box-shadow:
+      inset 0 0 0 1px fade(#ffffff, 6%);
+
+    opacity: 0.75;
+    filter: blur(0.2px);
   }
 
   transition:
     transform 0.25s ease,
-    box-shadow 0.25s ease;
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+
+    box-shadow:
+      0 14px 34px fade(#000000, 18%),
+      0 1px 0 fade(#ffffff, 24%),
+      inset 0 1px 0 fade(#ffffff, 34%);
+  }
 };
