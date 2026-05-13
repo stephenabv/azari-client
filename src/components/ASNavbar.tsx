@@ -28,9 +28,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const tabRoutes: Record<string, string> = {
     Home: "/",
     Projects: "/projects",
-    Components: "/components",
     Technology: "/technology",
-    About: "/about",
   };
 
   const updateIndicator = (tab: string) => {
