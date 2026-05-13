@@ -3,21 +3,21 @@
   overflow: hidden;
   isolation: isolate;
 
-  background: fade(#ffffff, 7%);
+  background: fade(#ffffff, 5%);
 
-  border: 1px solid fade(#ffffff, 9%);
+  border: 1px solid fade(#ffffff, 7%);
 
   backdrop-filter:
-    blur(4px) saturate(145%) brightness(1.05);
+    blur(3px) saturate(120%) brightness(1.02);
   -webkit-backdrop-filter:
-    blur(8px) saturate(145%) brightness(1.05);
+    blur(6px) saturate(120%) brightness(1.02);
 
   box-shadow:
-    0 10px 28px fade(#000000, 38%),
+    0 8px 22px fade(#000000, 30%),
     0 0 0 1px fade(#ffffff, 1%),
-    inset 0 1px 0 fade(#ffffff, 10%),
-    inset 0 -1px 0 fade(#ffffff, 5%),
-    inset 0 0 18px fade(#ffffff, 3%);
+    inset 0 1px 0 fade(#ffffff, 7%),
+    inset 0 -1px 0 fade(#ffffff, 3%),
+    inset 0 0 12px fade(#ffffff, 2%);
 
   &::before {
     content: "";
@@ -29,11 +29,11 @@
 
     background:
       linear-gradient(180deg,
-        fade(#ffffff, 14%) 0%,
-        fade(#ffffff, 5%) 36%,
-        transparent 72%);
+        fade(#ffffff, 8%) 0%,
+        fade(#ffffff, 3%) 34%,
+        transparent 70%);
 
-    opacity: 0.45;
+    opacity: 0.32;
   }
 
   &::after {
@@ -46,21 +46,20 @@
 
     background:
       radial-gradient(circle at 50% 0%,
-        fade(#ffffff, 10%) 0%,
-        fade(#ffffff, 4%) 32%,
-        transparent 68%);
+        fade(#ffffff, 6%) 0%,
+        fade(#ffffff, 2%) 30%,
+        transparent 66%);
 
     box-shadow:
-      inset 0 0 0 1px fade(#ffffff, 5%),
-      inset 0 -6px 12px fade(#ffffff, 3%);
+      inset 0 0 0 1px fade(#ffffff, 3%),
+      inset 0 -5px 10px fade(#ffffff, 2%);
 
-    opacity: 0.5;
-    filter: blur(0.35px);
+    opacity: 0.35;
+    filter: blur(0.25px);
   }
 
-  transition: transform 0.25s ease,
-  box-shadow 0.25s ease,
-  backdrop-filter 0.25s ease;
-}
-
-;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    backdrop-filter 0.25s ease;
+};
