@@ -23,7 +23,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
-  const tabs = ["Home", "Projects", "Components", "Technology", "About"];
+  const tabs = ["Home", "Projects", "Technology"];
 
   const tabRoutes: Record<string, string> = {
     Home: "/",
