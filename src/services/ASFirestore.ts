@@ -10,22 +10,23 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../config/firebase";
+import type { FirestoreDocument } from "../models/firestore";
 
-export async function getCollection<T = any>(
+export async function getCollection<T extends object = Record<string, unknown>>(
   collectionName: string
-): Promise<T[]> {
+): Promise<Array<FirestoreDocument<T>>> {
   const snapshot = await getDocs(collection(db, collectionName));
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-  })) as T[];
+  })) as Array<FirestoreDocument<T>>;
 }
 
-export async function getDocument<T = any>(
+export async function getDocument<T extends object = Record<string, unknown>>(
   collectionName: string,
   id: string
-): Promise<T | null> {
+): Promise<FirestoreDocument<T> | null> {
   const ref = doc(db, collectionName, id);
   const snapshot = await getDoc(ref);
 
@@ -34,25 +35,25 @@ export async function getDocument<T = any>(
   return {
     id: snapshot.id,
     ...snapshot.data(),
-  } as T;
+  } as FirestoreDocument<T>;
 }
 
-export async function queryCollection<T = any>(
+export async function queryCollection<T extends object = Record<string, unknown>>(
   collectionName: string,
   constraints: QueryConstraint[] = []
-): Promise<T[]> {
+): Promise<Array<FirestoreDocument<T>>> {
   const q = query(collection(db, collectionName), ...constraints);
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-  })) as T[];
+  })) as Array<FirestoreDocument<T>>;
 }
 
-export function getCollectionData<T = any>(
+export function getCollectionData<T extends object = Record<string, unknown>>(
   collectionName: string,
-  callback: (data: T[]) => void,
+  callback: (data: Array<FirestoreDocument<T>>) => void,
   constraints: QueryConstraint[] = [],
   onError?: (error: Error) => void
 ): Unsubscribe {
@@ -65,7 +66,7 @@ export function getCollectionData<T = any>(
       const data = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      })) as T[];
+      })) as Array<FirestoreDocument<T>>;
 
       callback(data);
     },

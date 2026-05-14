@@ -4,6 +4,14 @@ import { createPortal } from "react-dom";
 import "./as_talktoexpert.less";
 import { getCollectionData } from "../../services/ASFirestore";
 import ASSystemError from "../system-error/ASSystemError";
+import {
+  buildTalkToExpertPayload,
+  validateTalkToExpertField,
+  validateTalkToExpertForm,
+  type AddressConfig,
+  type TalkInquiryType,
+  type TalkToExpertFormData,
+} from "../../models/talk-to-expert";
 
 type ASTalkToAnExpertProps = {
   isOpen: boolean;
@@ -27,11 +35,6 @@ type ASAddressFirestoreConfig = {
       cities?: string[];
     }
   >;
-};
-
-type AddressConfig = {
-  provinces: string[];
-  cities: Record<string, string[]>;
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
@@ -72,7 +75,7 @@ export default function ASTalkToAnExpert({
     FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
   );
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<TalkToExpertFormData>({
     name: "",
     email: "",
     phone: "",
@@ -80,83 +83,41 @@ export default function ASTalkToAnExpert({
     message: "",
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof TalkToExpertFormData | "province" | "city", string>>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSystemError, setShowSystemError] = useState(false);
 
-  const validateField = (
-    field: string,
-    value: string,
-    province = selectedProvince,
-    city = selectedCity
+  const handleFieldChange = (
+    field: keyof TalkToExpertFormData,
+    value: string
   ) => {
-    switch (field) {
-      case "name":
-        return value.trim() ? "" : "Please enter your name.";
-
-      case "email":
-        if (!value.trim()) return "Please enter your email address.";
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-          return "Please enter a valid email address.";
-        }
-        return "";
-
-      case "phone": {
-        const cleanPhone = value.replace(/\s/g, "");
-
-        if (!cleanPhone) return "Please enter your mobile number.";
-        if (!/^(09|\+639)\d{9}$/.test(cleanPhone)) {
-          return "Please enter a valid Philippine mobile number.";
-        }
-
-        return "";
-      }
-
-      case "province":
-        return province ? "" : "Please select a province.";
-
-      case "city":
-        return city ? "" : "Please select a city.";
-
-      case "message":
-        if (!value.trim()) return "Please enter your message.";
-        if (value.trim().length < 10) {
-          return "Message must be at least 10 characters.";
-        }
-        return "";
-
-      default:
-        return "";
-    }
-  };
-
-  const handleFieldChange = (field: keyof typeof form, value: string) => {
     setForm((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: field === "inquiryType" ? (value as TalkInquiryType) : value,
     }));
 
     setErrors((prev) => ({
       ...prev,
-      [field]: validateField(field, value),
+      [field]:
+        field === "inquiryType"
+          ? ""
+          : validateTalkToExpertField(
+              field,
+              value,
+              selectedProvince,
+              selectedCity
+            ),
     }));
   };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {
-      name: validateField("name", form.name),
-      email: validateField("email", form.email),
-      phone: validateField("phone", form.phone),
-      province: validateField("province", "", selectedProvince, selectedCity),
-      city: validateField("city", "", selectedProvince, selectedCity),
-      message: validateField("message", form.message),
-    };
-
-    Object.keys(newErrors).forEach((key) => {
-      if (!newErrors[key]) {
-        delete newErrors[key];
-      }
-    });
+    const newErrors = validateTalkToExpertForm(
+      form,
+      selectedProvince,
+      selectedCity
+    );
 
     setErrors(newErrors);
 
@@ -297,15 +258,9 @@ export default function ASTalkToAnExpert({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone,
-          city: selectedCity,
-          province: selectedProvince,
-          inquiryType: form.inquiryType,
-          message: form.message,
-        }),
+        body: JSON.stringify(
+          buildTalkToExpertPayload(form, selectedProvince, selectedCity)
+        ),
       });
 
       const data = await response.json().catch(() => null);
@@ -456,13 +411,18 @@ export default function ASTalkToAnExpert({
 
                     setErrors((prev) => ({
                       ...prev,
-                      province: validateField(
+                      province: validateTalkToExpertField(
                         "province",
                         "",
                         province,
                         city
                       ),
-                      city: validateField("city", "", province, city),
+                      city: validateTalkToExpertField(
+                        "city",
+                        "",
+                        province,
+                        city
+                      ),
                     }));
                   }}
                   className={errors.province ? "has-warning" : ""}
@@ -493,7 +453,7 @@ export default function ASTalkToAnExpert({
 
                     setErrors((prev) => ({
                       ...prev,
-                      city: validateField(
+                      city: validateTalkToExpertField(
                         "city",
                         "",
                         selectedProvince,
@@ -525,7 +485,10 @@ export default function ASTalkToAnExpert({
                 <select
                   value={form.inquiryType}
                   onChange={(event) =>
-                    handleFieldChange("inquiryType", event.target.value)
+                    handleFieldChange(
+                      "inquiryType",
+                      event.target.value as TalkInquiryType
+                    )
                   }
                 >
                   <option value="general">General inquiry</option>

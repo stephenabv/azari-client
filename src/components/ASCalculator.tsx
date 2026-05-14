@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCollectionData } from "../services/ASFirestore";
+import {
+  calculateSolarEstimate,
+  formatProjectionDescription,
+  formatProjectionLabel,
+  getProjectionMonths,
+} from "../models/calculation";
 
 type CalculatorRangeConfig = {
   min: number;
@@ -73,28 +79,6 @@ function formatSystemSize(value: number) {
     value: value.toFixed(1),
     unit: "kWp",
   };
-}
-
-function getProjectionLabel(projectionYears: number) {
-  if (projectionYears <= 1) return "1-MONTH SAVINGS";
-  if (projectionYears < 12) return `${projectionYears}-MONTH SAVINGS`;
-
-  const years = projectionYears / 12;
-
-  if (years === 1) return "1-YEAR SAVINGS";
-
-  return `${Number.isInteger(years) ? years : years.toFixed(1)}-YEAR SAVINGS`;
-}
-
-function getProjectionDescription(projectionYears: number) {
-  if (projectionYears <= 1) return "1-month";
-  if (projectionYears < 12) return `${projectionYears}-month`;
-
-  const years = projectionYears / 12;
-
-  if (years === 1) return "1-year";
-
-  return `${Number.isInteger(years) ? years : years.toFixed(1)}-year`;
 }
 
 function normalizeDecimalInput(value: string) {
@@ -294,26 +278,13 @@ export default function ASImpactCalculator() {
   }, []);
 
   const results = useMemo(() => {
-    const safeElectricRate = electricRate || config.electricRate.defaultValue;
-
-    const systemSize =
-      monthlyBill /
-      (safeElectricRate * config.formula.averageSolarProductionPerKwp);
-
-    const roundedSystemSize = Math.max(1, Number(systemSize.toFixed(1)));
-
-    const estimatedMonthlySavings =
-      monthlyBill * config.formula.estimatedSavingsRate;
-
-    const projectedSavings =
-      estimatedMonthlySavings * config.formula.projectionYears;
-
-    return {
-      monthlyKwh: Math.round(monthlyBill / safeElectricRate),
-      systemSize: roundedSystemSize,
-      estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
-      projectedSavings: Math.round(projectedSavings),
-    };
+    return calculateSolarEstimate({
+      mode: "with-bill",
+      monthlyBill,
+      electricRate,
+      totalDailyUsageWh: 0,
+      formula: config.formula,
+    });
   }, [monthlyBill, electricRate, config]);
 
   const rollingSystemSize = useInitialRollingNumber(
@@ -340,10 +311,9 @@ export default function ASImpactCalculator() {
       (config.electricRate.max - config.electricRate.min)) *
     100;
 
-  const projectionLabel = getProjectionLabel(config.formula.projectionYears);
-  const projectionDescription = getProjectionDescription(
-    config.formula.projectionYears
-  );
+  const projectionMonths = getProjectionMonths(config.formula);
+  const projectionLabel = formatProjectionLabel(projectionMonths);
+  const projectionDescription = formatProjectionDescription(projectionMonths);
 
   const handleGetQuote = () => {
     navigate("/quotation-engine", {
@@ -354,7 +324,7 @@ export default function ASImpactCalculator() {
         systemSize: results.systemSize,
         estimatedMonthlySavings: results.estimatedMonthlySavings,
         projectedSavings: results.projectedSavings,
-        projectionMonths: config.formula.projectionYears,
+        projectionMonths,
       },
     });
   };

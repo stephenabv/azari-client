@@ -1,9 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import ASMainLayout from "../layout/ASMainLayout";
 import ASDashboard from "../pages/ASDashboard";
-import ASComingSoon from "../components/ASComingSoon";
 import ASQuotationEngine from "../components/ASQuotationEngine";
 import ASProjects from "../components/ASProjects";
+import ASNotFound from "../components/ASNotFound";
 
 export const ASAppRoute = createBrowserRouter([
   {
@@ -24,7 +24,7 @@ export const ASAppRoute = createBrowserRouter([
       },
       {
         path: "*",
-        element: <ASComingSoon />
+        element: <ASNotFound />
       }
     ]
   },

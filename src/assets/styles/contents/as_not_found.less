@@ -1,0 +1,398 @@
+.as-not-found {
+  min-height: 100vh;
+  padding: 120px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(252, 97, 90, 0.16), transparent 32%),
+    radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.05), transparent 30%);
+}
+
+.as-not-found-card {
+  width: min(100%, 720px);
+  padding: 56px 48px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+  text-align: center;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+}
+
+.as-not-found-visual {
+  position: relative;
+  width: min(100%, 360px);
+  height: 190px;
+  margin: 0 auto 26px;
+}
+
+.as-not-found-sun {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 95, 95, 0.12);
+  display: grid;
+  place-items: center;
+  animation: asNotFoundSunPulse 3.2s ease-in-out infinite;
+}
+
+.as-not-found-sun span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #ff5f5f;
+  box-shadow: 0 0 26px rgba(255, 95, 95, 0.65);
+}
+
+.as-not-found-orbit {
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 95, 95, 0.22);
+  transform: translateX(-50%);
+}
+
+.as-not-found-orbit-one {
+  top: 10px;
+  width: 88px;
+  height: 88px;
+  animation: asNotFoundOrbit 3.2s linear infinite;
+}
+
+.as-not-found-orbit-two {
+  top: -2px;
+  width: 112px;
+  height: 112px;
+  animation: asNotFoundOrbit 3.2s linear 1.1s infinite;
+}
+
+.as-not-found-energy-path {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  width: 2px;
+  height: 74px;
+  background: linear-gradient(180deg, rgba(255, 95, 95, 0.5), rgba(255, 95, 95, 0));
+  transform: translateX(-50%);
+}
+
+.as-not-found-energy-dot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffd36b;
+  transform: translateX(-50%);
+  animation: asNotFoundEnergyFlow 1.8s ease-in-out infinite;
+}
+
+.as-not-found-panel-array {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  width: 154px;
+  height: 78px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 95, 95, 0.22), rgba(63, 20, 18, 0.88));
+  transform: translateX(-50%) perspective(320px) rotateX(30deg);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.18);
+}
+
+.as-not-found-panel-array i {
+  display: block;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: asNotFoundPanelGlow 2.4s ease-in-out infinite;
+}
+
+.as-not-found-panel-array i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.as-not-found-panel-array i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.as-not-found-panel-array i:nth-child(4) {
+  animation-delay: 0.6s;
+}
+
+.as-not-found-storage-unit {
+  position: absolute;
+  right: 42px;
+  bottom: 38px;
+  width: 34px;
+  height: 62px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.as-not-found-storage-cap {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 14px;
+  height: 5px;
+  border-radius: 4px 4px 0 0;
+  background: #ff5f5f;
+  transform: translateX(-50%);
+}
+
+.as-not-found-storage-level {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  height: 54%;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffd36b 0%, #ff5f5f 100%);
+  animation: asNotFoundCharge 2.2s ease-in-out infinite;
+}
+
+.as-not-found-home-link {
+  position: absolute;
+  left: 42px;
+  bottom: 34px;
+  width: 54px;
+  height: 54px;
+}
+
+.as-not-found-home-roof {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 34px;
+  height: 34px;
+  border-top: 2px solid rgba(255, 255, 255, 0.55);
+  border-left: 2px solid rgba(255, 255, 255, 0.55);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.as-not-found-home-body {
+  position: absolute;
+  left: 14px;
+  bottom: 4px;
+  width: 28px;
+  height: 26px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+}
+
+.as-not-found-home-window {
+  position: absolute;
+  left: 24px;
+  bottom: 13px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(255, 211, 107, 0.82);
+  box-shadow: 0 0 12px rgba(255, 211, 107, 0.35);
+}
+
+.as-not-found-eyebrow {
+  margin: 0 0 10px;
+  color: #ff5f5f;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.as-not-found-card h1 {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(36px, 5vw, 60px);
+  line-height: 1.04;
+  color: #ffffff;
+}
+
+.as-not-found-card p {
+  max-width: 560px;
+  margin: 18px auto 0;
+  font-family: "Inter", sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.as-not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.as-not-found-actions button {
+  min-height: 48px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: #ff5f5f;
+  color: #ffffff;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.as-not-found-actions button.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.light-theme .as-not-found {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(252, 97, 90, 0.1), transparent 32%),
+    radial-gradient(circle at 80% 10%, rgba(0, 0, 0, 0.06), transparent 30%),
+    #ffffff;
+}
+
+.light-theme .as-not-found-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.1);
+}
+
+.light-theme .as-not-found-orbit {
+  border-color: rgba(217, 48, 37, 0.18);
+}
+
+.light-theme .as-not-found-energy-path {
+  background: linear-gradient(180deg, rgba(217, 48, 37, 0.45), rgba(217, 48, 37, 0));
+}
+
+.light-theme .as-not-found-panel-array {
+  background: linear-gradient(145deg, rgba(255, 95, 95, 0.18), rgba(255, 255, 255, 0.96));
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.08);
+}
+
+.light-theme .as-not-found-panel-array i {
+  background: rgba(11, 11, 11, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(11, 11, 11, 0.06);
+}
+
+.light-theme .as-not-found-storage-unit {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light-theme .as-not-found-home-roof,
+.light-theme .as-not-found-home-body {
+  border-color: rgba(11, 11, 11, 0.4);
+}
+
+.light-theme .as-not-found-card h1 {
+  color: #0b0b0b;
+}
+
+.light-theme .as-not-found-card p {
+  color: rgba(14, 14, 14, 0.72);
+}
+
+.light-theme .as-not-found-actions button.secondary {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #0b0b0b;
+}
+
+@media (max-width: 640px) {
+  .as-not-found {
+    padding: 96px 16px;
+  }
+
+  .as-not-found-card {
+    padding: 42px 22px;
+    border-radius: 22px;
+  }
+
+  .as-not-found-visual {
+    width: 100%;
+    max-width: 300px;
+    height: 170px;
+  }
+
+  .as-not-found-storage-unit {
+    right: 20px;
+  }
+
+  .as-not-found-home-link {
+    left: 20px;
+  }
+}
+
+@keyframes asNotFoundSunPulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+@keyframes asNotFoundOrbit {
+  0% {
+    opacity: 0.65;
+    transform: translateX(-50%) scale(0.88);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.2);
+  }
+}
+
+@keyframes asNotFoundEnergyFlow {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 62px);
+  }
+}
+
+@keyframes asNotFoundPanelGlow {
+  0%,
+  100% {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  50% {
+    background: rgba(255, 255, 255, 0.24);
+  }
+}
+
+@keyframes asNotFoundCharge {
+  0%,
+  100% {
+    height: 42%;
+  }
+
+  50% {
+    height: 58%;
+  }
+}

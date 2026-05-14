@@ -134,6 +134,15 @@ export default function ASProjects() {
     return projects.filter((project) => project.filter.includes(activeFilter));
   }, [projects, activeFilter]);
 
+  const hasProjectData = projects.length > 0;
+  const emptyTitle = hasProjectData
+    ? "Nothing in this view yet"
+    : "Portfolio updates incoming";
+
+  const emptyDescription = hasProjectData
+    ? "Try a different filter to see other completed installations, savings snapshots, and system details."
+    : "Project records have not been published yet. When the portfolio is available, this section will show completed installations, estimated savings, and system details.";
+
   return (
     <section className="as-projects-section">
       <div className="as-projects-header">
@@ -210,26 +219,42 @@ export default function ASProjects() {
         </div>
       ) : (
         <div className="as-projects-empty">
-          <div className="as-empty-visual">
-            <div className="as-empty-sun" />
-            <div className="as-empty-orbit" />
-            <div className="as-empty-orbit delay" />
-
-            <div className="as-empty-panels">
-              <span />
-              <span />
+          <div className="as-projects-empty-visual" aria-hidden="true">
+            <div className="as-projects-empty-sun">
               <span />
             </div>
 
-            <div className="as-empty-flow" />
+            <div className="as-projects-empty-line">
+              <span className="as-projects-empty-line-pulse" />
+            </div>
+
+            <div className="as-projects-empty-panels">
+              <i />
+              <i />
+              <i />
+            </div>
+
+            <div className="as-projects-empty-storage">
+              <span className="as-projects-empty-storage-cap" />
+              <span className="as-projects-empty-storage-level" />
+            </div>
           </div>
 
-          <h3>Solar systems loading</h3>
+          <p className="as-projects-empty-eyebrow">Azari Solar</p>
 
-          <p>
-            We’re preparing real installation data, performance metrics, and
-            savings insights. This section will be powered soon.
-          </p>
+          <h3>{emptyTitle}</h3>
+
+          <p>{emptyDescription}</p>
+
+          {hasProjectData && activeFilter !== "All Projects" && (
+            <button
+              type="button"
+              className="as-projects-empty-action"
+              onClick={() => setActiveFilter("All Projects")}
+            >
+              Show all projects
+            </button>
+          )}
         </div>
       )}
     </section>

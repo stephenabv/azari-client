@@ -1,6 +1,8 @@
 import { logEvent } from "firebase/analytics";
 import { analytics } from "../config/firebase";
 
+type AnalyticsParams = Record<string, string | number | boolean | null | undefined>;
+
 export function trackPageView(path: string) {
   if (!analytics) return;
 
@@ -11,7 +13,7 @@ export function trackPageView(path: string) {
 
 export function trackEvent(
   eventName: string,
-  params?: Record<string, any>
+  params?: AnalyticsParams
 ) {
   if (!analytics) return;
 

@@ -1,17 +1,9 @@
 import { useMemo, useState } from "react";
-
-type AddApplianceFormData = {
-  name: string;
-  watts: number;
-  quantity: number;
-  hours: number;
-  schedule: string;
-  usageType: string;
-};
+import type { QuotationAppliance } from "../../models/quotation";
 
 type AddApplianceModalProps = {
   onClose: () => void;
-  onSubmit: (item: AddApplianceFormData) => void;
+  onSubmit: (item: Omit<QuotationAppliance, "id" | "usage">) => void;
 };
 
 type ScheduleItem = {

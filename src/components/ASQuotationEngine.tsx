@@ -6,6 +6,16 @@ import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitte
 import { getCollectionData } from "../services/ASFirestore";
 import { sendQuotationRequest } from "../modules/quotationbuilder";
 import ASSystemError from "../modules/system-error/ASSystemError";
+import {
+  calculateSolarEstimate,
+  getProjectionMonths,
+} from "../models/calculation";
+import type {
+  QuoteMode,
+  QuotationAppliance,
+  UploadedBill,
+  ProposalRequestFormData,
+} from "../models/quotation";
 
 import residentialIcon from "../assets/icons/icon-resident.svg";
 import commercialIcon from "../assets/icons/icon-commercial.svg";
@@ -17,7 +27,6 @@ type ModalType =
   | "submitted"
   | "system-error"
   | null;
-type QuoteMode = "with-bill" | "no-bill";
 
 type QuoteNavigationState = {
   monthlyBill?: number;
@@ -44,34 +53,6 @@ type ASCalculatorData = {
   electric_rate?: CalculatorRangeConfig;
   formula?: CalculatorFormula;
 };
-
-type Appliance = {
-  id: string;
-  name: string;
-  watts: number;
-  quantity: number;
-  hours: number;
-  schedule: string;
-  usageType: string;
-  usage: number;
-};
-
-type UploadedBill = {
-  file: File;
-  name: string;
-  type: string;
-  size: number;
-};
-
-type ProposalFormData = {
-  fullName?: string;
-  location?: string;
-  email?: string;
-  phone?: string;
-  message?: string;
-};
-
-
 
 const DEFAULT_CALCULATOR_CONFIG = {
   monthlyBill: {
@@ -212,7 +193,7 @@ export default function ASQuotationEngine() {
   const [formError, setFormError] = useState("");
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [appliances, setAppliances] = useState<Appliance[]>([]);
+  const [appliances, setAppliances] = useState<QuotationAppliance[]>([]);
 
   const [selectedProperty, setSelectedProperty] = useState(
     QUOTE_ENGINE_CONFIG.defaults.selectedProperty
@@ -309,45 +290,22 @@ export default function ASQuotationEngine() {
       0
     );
 
-    const safeElectricRate =
-      electricRate || calculatorConfig.electricRate.defaultValue;
-
-    const loadProfileMonthlyKwh = (totalDailyUsageWh * 30) / 1000;
-    const billMonthlyKwh = safeElectricRate > 0 ? monthlyBill / safeElectricRate : 0;
-
-    const monthlyKwh =
-      quoteMode === "with-bill" ? billMonthlyKwh : loadProfileMonthlyKwh;
-
-    const rawSystemSize =
-      quoteMode === "with-bill"
-        ? monthlyBill /
-        (safeElectricRate *
-          calculatorConfig.formula.averageSolarProductionPerKwp)
-        : monthlyKwh / calculatorConfig.formula.averageSolarProductionPerKwp;
-
-    const systemSize =
-      rawSystemSize > 0 ? Math.max(1, Number(rawSystemSize.toFixed(1))) : 0;
-
-    const estimatedMonthlySavings =
-      quoteMode === "with-bill"
-        ? monthlyBill * calculatorConfig.formula.estimatedSavingsRate
-        : monthlyKwh *
-        safeElectricRate *
-        calculatorConfig.formula.estimatedSavingsRate;
-
-    const projectedSavings =
-      estimatedMonthlySavings * calculatorConfig.formula.projectionYears;
+    const estimate = calculateSolarEstimate({
+      mode: quoteMode,
+      monthlyBill,
+      electricRate,
+      totalDailyUsageWh,
+      formula: calculatorConfig.formula,
+    });
 
     return {
-      monthlyKwh: Math.round(monthlyKwh),
-      systemSize,
-      estimatedMonthlySavings: Math.round(estimatedMonthlySavings),
-      projectedSavings: Math.round(projectedSavings),
+      ...estimate,
       totalDailyUsageWh,
     };
   }, [appliances, electricRate, monthlyBill, quoteMode, calculatorConfig]);
 
   const formattedSystemSize = formatSystemSize(quoteSummary.systemSize);
+  const projectionMonths = getProjectionMonths(calculatorConfig.formula);
 
   const handleMonthlyBillChange = (value: string) => {
     const cleaned = normalizeDecimalInput(value);
@@ -448,7 +406,9 @@ export default function ASQuotationEngine() {
     setAppliances((current) => current.filter((item) => item.id !== id));
   };
 
-  const handleAddAppliance = (item: Omit<Appliance, "id" | "usage">) => {
+  const handleAddAppliance = (
+    item: Omit<QuotationAppliance, "id" | "usage">
+  ) => {
     const watts = Number(item.watts);
     const quantity = Number(item.quantity);
     const hours = Number(item.hours);
@@ -537,7 +497,9 @@ export default function ASQuotationEngine() {
     setFormError("");
   };
 
-  const handleSubmitProposal = async (proposalForm?: ProposalFormData) => {
+  const handleSubmitProposal = async (
+    proposalForm?: ProposalRequestFormData
+  ) => {
     const error = validateBeforeProposal();
 
     if (error) {
@@ -553,7 +515,7 @@ export default function ASQuotationEngine() {
         selectedProperty,
         monthlyBill,
         electricRate,
-        projectionMonths: calculatorConfig.formula.projectionYears,
+        projectionMonths,
         quoteSummary,
         formattedSystemSize,
         appliances,
@@ -580,7 +542,7 @@ export default function ASQuotationEngine() {
   };
 
   const projectedSavingsLabel = getProjectionDisplay(
-    calculatorConfig.formula.projectionYears
+    projectionMonths
   );
 
   return (

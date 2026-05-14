@@ -1,113 +1,25 @@
 import { useState } from "react";
-
-type ProposalFormData = {
-  fullName: string;
-  location: string;
-  email: string;
-  phone: string;
-  message: string;
-};
-
-type FormErrors = Partial<Record<keyof ProposalFormData, string>>;
+import {
+  sanitizeProposalRequestForm,
+  validateProposalRequestField,
+  validateProposalRequestForm,
+  type ProposalRequestFormData,
+  type ProposalRequestField,
+} from "../../models/quotation";
+import type { FieldErrors } from "../../models/common";
 
 type RequestProposalModalProps = {
   onClose: () => void;
-  onSubmit: (formData: ProposalFormData) => void | Promise<void>;
+  onSubmit: (formData: ProposalRequestFormData) => void | Promise<void>;
   isSubmitting?: boolean;
 };
-
-const blockedEmailDomains = [
-  "mailinator.com",
-  "tempmail.com",
-  "10minutemail.com",
-  "guerrillamail.com",
-  "yopmail.com",
-  "fakeinbox.com",
-];
-
-const nameRegex = /^[A-Za-z0-9 .-]+$/;
-const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-const locationRegex = /^[A-Za-z0-9Ññ .,'#/()-]+$/;
-const phoneRegex = /^((\+63|0)9\d{9}|(\+63|0)?[2-8]\d{6,9})$/;
-
-function validateField(
-  field: keyof ProposalFormData,
-  value: string
-): string {
-  const trimmedValue = value.trim();
-
-  if (field === "fullName") {
-    if (!trimmedValue) return "Name is required.";
-    if (trimmedValue.length < 2) return "Name must be at least 2 characters.";
-    if (trimmedValue.length > 80) return "Name must not exceed 80 characters.";
-    if (!nameRegex.test(trimmedValue)) {
-      return "Name can only contain letters, numbers, spaces, hyphen, and period.";
-    }
-  }
-
-  if (field === "location") {
-    if (!trimmedValue) return "Location is required.";
-    if (trimmedValue.length < 3) {
-      return "Location must be at least 3 characters.";
-    }
-    if (trimmedValue.length > 160) {
-      return "Location must not exceed 160 characters.";
-    }
-    if (!locationRegex.test(trimmedValue)) {
-      return "Location contains invalid characters.";
-    }
-  }
-
-  if (field === "email") {
-    const email = trimmedValue.toLowerCase();
-    const emailDomain = email.split("@")[1];
-
-    if (!email) return "Email address is required.";
-    if (email.length > 120) return "Email must not exceed 120 characters.";
-    if (!emailRegex.test(email)) return "Please enter a valid email address.";
-    if (blockedEmailDomains.includes(emailDomain)) {
-      return "Disposable or temporary email domains are not allowed.";
-    }
-  }
-
-  if (field === "phone") {
-    const phone = trimmedValue.replace(/[\s-]/g, "");
-
-    if (!phone) return "Phone number is required.";
-    if (!phoneRegex.test(phone)) {
-      return "Enter a valid telephone or cellphone number. Example: +639123456789, 09123456789, or 0381234567.";
-    }
-  }
-
-  if (field === "message") {
-    if (trimmedValue.length > 500) {
-      return "Additional notes must not exceed 500 characters.";
-    }
-  }
-
-  return "";
-}
-
-function validateForm(data: ProposalFormData) {
-  const newErrors: FormErrors = {};
-
-  Object.entries(data).forEach(([field, value]) => {
-    const error = validateField(field as keyof ProposalFormData, value);
-
-    if (error) {
-      newErrors[field as keyof ProposalFormData] = error;
-    }
-  });
-
-  return newErrors;
-}
 
 export default function RequestProposalModal({
   onClose,
   onSubmit,
   isSubmitting = false,
 }: RequestProposalModalProps) {
-  const [formData, setFormData] = useState<ProposalFormData>({
+  const [formData, setFormData] = useState<ProposalRequestFormData>({
     fullName: "",
     location: "",
     email: "",
@@ -115,9 +27,9 @@ export default function RequestProposalModal({
     message: "",
   });
 
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [errors, setErrors] = useState<FieldErrors<ProposalRequestField>>({});
 
-  const handleChange = (field: keyof ProposalFormData, value: string) => {
+  const handleChange = (field: ProposalRequestField, value: string) => {
     if (field === "message" && value.length > 500) return;
 
     const updatedFormData = {
@@ -129,25 +41,19 @@ export default function RequestProposalModal({
 
     setErrors((current) => ({
       ...current,
-      [field]: validateField(field, value),
+      [field]: validateProposalRequestField(field, value),
     }));
   };
 
   const handleSubmit = async () => {
-    const validationErrors = validateForm(formData);
+    const validationErrors = validateProposalRequestForm(formData);
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
-    const sanitizedData: ProposalFormData = {
-      fullName: formData.fullName.trim(),
-      location: formData.location.trim(),
-      email: formData.email.trim().toLowerCase(),
-      phone: formData.phone.trim().replace(/[\s-]/g, ""),
-      message: formData.message.trim(),
-    };
+    const sanitizedData = sanitizeProposalRequestForm(formData);
 
     await onSubmit(sanitizedData);
   };

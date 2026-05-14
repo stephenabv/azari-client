@@ -1,0 +1,285 @@
+import type { FieldErrors } from "./common";
+
+export type QuoteMode = "with-bill" | "no-bill";
+
+export type QuotationAppliance = {
+  id: string;
+  name: string;
+  watts: number;
+  quantity: number;
+  hours: number;
+  schedule: string;
+  usageType: string;
+  usage: number;
+};
+
+export type UploadedBill = {
+  file: File;
+  name: string;
+  type: string;
+  size: number;
+};
+
+export type ProposalRequestFormData = {
+  fullName: string;
+  location: string;
+  email: string;
+  phone: string;
+  message: string;
+};
+
+export type ProposalRequestField = keyof ProposalRequestFormData;
+
+export type QuoteSummary = {
+  monthlyKwh: number;
+  systemSize: number;
+  estimatedMonthlySavings: number;
+  projectedSavings: number;
+  totalDailyUsageWh: number;
+};
+
+export type FormattedSystemSize = {
+  value: string;
+  unit: string;
+};
+
+export type QuotationRequestPayload = {
+  type: "quotation_request";
+  submittedAt: string;
+  quoteMode: QuoteMode;
+  customer: ProposalRequestFormData;
+  property: {
+    classification: string;
+  };
+  consumption: {
+    averageMonthlyBillPhp: number;
+    electricRatePhpPerKwh: number;
+    estimatedMonthlyKwh: number;
+  };
+  solarEstimate: {
+    estimatedSystemSize: {
+      rawKwp: number;
+      displayValue: string;
+      displayUnit: string;
+      displayText: string;
+    };
+    configuration: string;
+    estimatedMonthlySavingsPhp: number;
+    estimatedProjectedSavingsPhp: number;
+    projectionMonths: number;
+    totalDailyUsageWh: number;
+  };
+  loadProfile: Array<{
+    name: string;
+    watts: number;
+    quantity: number;
+    hoursPerDay: number;
+    schedule: string;
+    usageType: string;
+    estimatedUsageWhPerDay: number;
+  }>;
+  billAttachment: {
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    sizeDisplay: string;
+  } | null;
+};
+
+export type QuotationBuilderParams = {
+  quoteMode: QuoteMode;
+  selectedProperty: string;
+  monthlyBill: number;
+  electricRate: number;
+  projectionMonths: number;
+  quoteSummary: QuoteSummary;
+  formattedSystemSize: FormattedSystemSize;
+  appliances: QuotationAppliance[];
+  uploadedBill: UploadedBill | null;
+  proposalForm?: ProposalRequestFormData;
+};
+
+export type QuotationSubmissionResult = {
+  success: boolean;
+  isRealSuccess: boolean;
+};
+
+const blockedEmailDomains = [
+  "mailinator.com",
+  "tempmail.com",
+  "10minutemail.com",
+  "guerrillamail.com",
+  "yopmail.com",
+  "fakeinbox.com",
+];
+
+const nameRegex = /^[A-Za-z0-9 .-]+$/;
+const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const locationRegex = /^[A-Za-z0-9Ññ .,'#/()-]+$/;
+const phoneRegex = /^((\+63|0)9\d{9}|(\+63|0)?[2-8]\d{6,9})$/;
+
+function formatFileSize(bytes: number) {
+  return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
+}
+
+export function sanitizeProposalRequestForm(
+  formData: ProposalRequestFormData
+): ProposalRequestFormData {
+  return {
+    fullName: formData.fullName.trim(),
+    location: formData.location.trim(),
+    email: formData.email.trim().toLowerCase(),
+    phone: formData.phone.trim().replace(/[\s-]/g, ""),
+    message: formData.message.trim(),
+  };
+}
+
+export function validateProposalRequestField(
+  field: ProposalRequestField,
+  value: string
+): string {
+  const trimmedValue = value.trim();
+
+  if (field === "fullName") {
+    if (!trimmedValue) return "Name is required.";
+    if (trimmedValue.length < 2) return "Name must be at least 2 characters.";
+    if (trimmedValue.length > 80) return "Name must not exceed 80 characters.";
+    if (!nameRegex.test(trimmedValue)) {
+      return "Name can only contain letters, numbers, spaces, hyphen, and period.";
+    }
+  }
+
+  if (field === "location") {
+    if (!trimmedValue) return "Location is required.";
+    if (trimmedValue.length < 3) {
+      return "Location must be at least 3 characters.";
+    }
+    if (trimmedValue.length > 160) {
+      return "Location must not exceed 160 characters.";
+    }
+    if (!locationRegex.test(trimmedValue)) {
+      return "Location contains invalid characters.";
+    }
+  }
+
+  if (field === "email") {
+    const email = trimmedValue.toLowerCase();
+    const emailDomain = email.split("@")[1];
+
+    if (!email) return "Email address is required.";
+    if (email.length > 120) return "Email must not exceed 120 characters.";
+    if (!emailRegex.test(email)) return "Please enter a valid email address.";
+    if (emailDomain && blockedEmailDomains.includes(emailDomain)) {
+      return "Disposable or temporary email domains are not allowed.";
+    }
+  }
+
+  if (field === "phone") {
+    const phone = trimmedValue.replace(/[\s-]/g, "");
+
+    if (!phone) return "Phone number is required.";
+    if (!phoneRegex.test(phone)) {
+      return "Enter a valid telephone or cellphone number. Example: +639123456789, 09123456789, or 0381234567.";
+    }
+  }
+
+  if (field === "message") {
+    if (trimmedValue.length > 500) {
+      return "Additional notes must not exceed 500 characters.";
+    }
+  }
+
+  return "";
+}
+
+export function validateProposalRequestForm(
+  data: ProposalRequestFormData
+): FieldErrors<ProposalRequestField> {
+  const errors: FieldErrors<ProposalRequestField> = {};
+
+  (Object.entries(data) as Array<[ProposalRequestField, string]>).forEach(
+    ([field, value]) => {
+      const error = validateProposalRequestField(field, value);
+
+      if (error) {
+        errors[field] = error;
+      }
+    }
+  );
+
+  return errors;
+}
+
+export function buildQuotationRequestPayload(
+  params: QuotationBuilderParams
+): QuotationRequestPayload {
+  const proposalForm = params.proposalForm
+    ? sanitizeProposalRequestForm(params.proposalForm)
+    : {
+        fullName: "",
+        location: "",
+        email: "",
+        phone: "",
+        message: "",
+      };
+
+  return {
+    type: "quotation_request",
+    submittedAt: new Date().toISOString(),
+    quoteMode: params.quoteMode,
+    customer: proposalForm,
+    property: {
+      classification: params.selectedProperty,
+    },
+    consumption: {
+      averageMonthlyBillPhp: params.monthlyBill,
+      electricRatePhpPerKwh: params.electricRate,
+      estimatedMonthlyKwh: params.quoteSummary.monthlyKwh,
+    },
+    solarEstimate: {
+      estimatedSystemSize: {
+        rawKwp: params.quoteSummary.systemSize,
+        displayValue: params.formattedSystemSize.value,
+        displayUnit: params.formattedSystemSize.unit,
+        displayText: `${params.formattedSystemSize.value} ${params.formattedSystemSize.unit}`,
+      },
+      configuration: `~${params.formattedSystemSize.value} ${params.formattedSystemSize.unit} Grid-Tie`,
+      estimatedMonthlySavingsPhp: params.quoteSummary.estimatedMonthlySavings,
+      estimatedProjectedSavingsPhp: params.quoteSummary.projectedSavings,
+      projectionMonths: params.projectionMonths,
+      totalDailyUsageWh: params.quoteSummary.totalDailyUsageWh,
+    },
+    loadProfile: params.appliances.map((item) => ({
+      name: item.name,
+      watts: item.watts,
+      quantity: item.quantity,
+      hoursPerDay: item.hours,
+      schedule: item.schedule,
+      usageType: item.usageType,
+      estimatedUsageWhPerDay: item.usage,
+    })),
+    billAttachment: params.uploadedBill
+      ? {
+          fileName: params.uploadedBill.name,
+          mimeType: params.uploadedBill.type,
+          sizeBytes: params.uploadedBill.size,
+          sizeDisplay: formatFileSize(params.uploadedBill.size),
+        }
+      : null,
+  };
+}
+
+export function buildQuotationRequestFormData(
+  params: QuotationBuilderParams
+): FormData {
+  const payload = buildQuotationRequestPayload(params);
+  const formData = new FormData();
+
+  formData.append("payload", JSON.stringify(payload));
+
+  if (params.uploadedBill?.file) {
+    formData.append("billAttachment", params.uploadedBill.file);
+  }
+
+  return formData;
+}

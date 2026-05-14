@@ -56,7 +56,7 @@ export default function ASMainLayout() {
       <div className="layout-content">
         <div className="layout-page-body">
           <div className={`page-container ${isHeroPage ? "no-offset" : ""}`}>
-            <div className="route-page">
+            <div className="route-page" key={location.pathname}>
               <Outlet context={{ theme }} />
             </div>
           </div>
