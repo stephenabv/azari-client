@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { StatCard } from "../modules/rolling-card/ASRollingCard";
-import { getCollectionData } from "../services/ASFirestore";
+import { useContent } from "../hooks/useContent";
 
 type MetricItem = {
   value: string;
@@ -8,60 +8,29 @@ type MetricItem = {
   order: number;
 };
 
-type ASMetricsData = {
-  id: string;
-  metrics?: Record<string, MetricItem>;
-  performance_rating?: number;
+type MetricsContent = {
+  items: MetricItem[];
 };
 
-const DEFAULT_METRICS: MetricItem[] = [
-  {
-    value: "0",
-    label: "INSTALLED",
-    order: 1,
-  },
-  {
-    value: "0",
-    label: "ACTIVE CLIENTS",
-    order: 2,
-  },
-  {
-    value: "0",
-    label: "CERTIFIED COMPLIANT",
-    order: 3,
-  },
-  {
-    value: "0",
-    label: "PERFORMANCE WARRANTY",
-    order: 4,
-  },
-];
+const DEFAULT_METRICS_CONTENT: MetricsContent = {
+  items: [
+    { value: "0", label: "INSTALLED", order: 1 },
+    { value: "0", label: "ACTIVE CLIENTS", order: 2 },
+    { value: "0", label: "CERTIFIED COMPLIANT", order: 3 },
+    { value: "0", label: "PERFORMANCE WARRANTY", order: 4 },
+  ],
+};
 
 export default function ASMetrics() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
 
   const [visibleCards, setVisibleCards] = useState(-1);
-  const [metrics, setMetrics] = useState<MetricItem[]>(DEFAULT_METRICS);
+  const content = useContent<MetricsContent>("metrics", DEFAULT_METRICS_CONTENT);
 
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASMetricsData>("ASMetrics", (data) => {
-      const firestoreMetrics = data[0]?.metrics;
-
-      if (!firestoreMetrics) {
-        setMetrics(DEFAULT_METRICS);
-        return;
-      }
-
-      const sortedMetrics = Object.values(firestoreMetrics)
-        .filter((item) => item?.label && item?.value)
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-      setMetrics(sortedMetrics.length ? sortedMetrics : DEFAULT_METRICS);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const metrics = [...content.items]
+    .filter((item) => item?.label && item?.value)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   useEffect(() => {
     const el = sectionRef.current;

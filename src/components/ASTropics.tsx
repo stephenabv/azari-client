@@ -1,5 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import ASTropicsCards from "./ASTropicsCards";
+import { useContent } from "../hooks/useContent";
+
+type TropicsContent = {
+  header: string;
+  subtext: string;
+};
+
+const DEFAULT_TROPICS: TropicsContent = {
+  header: "Solar Energy for the Tropics",
+  subtext:
+    "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+};
 
 export default function ASTropicsSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -7,6 +19,7 @@ export default function ASTropicsSection() {
 
   const [visibleCards, setVisibleCards] = useState(-1);
   const [showText, setShowText] = useState(false);
+  const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -45,16 +58,9 @@ export default function ASTropicsSection() {
       <ASTropicsCards visibleCards={visibleCards} />
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
-        <p className="header">
-          Solar Energy for the <br />
-          Tropics
-        </p>
+        <p className="header">{tropics.header}</p>
 
-        <p className="subtext">
-          Standard solar systems are often not equipped to handle the unique
-          challenges of the tropics. At <span>azari.solar</span> we bridge the
-          ‘Trust Gap’ with resilient design for the philippine archipelago.
-        </p>
+        <p className="subtext">{tropics.subtext}</p>
       </div>
     </section>
   );

@@ -19,18 +19,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Validate secrets
         run: |
           test -n "${{ secrets.VM_HOST }}" || (echo "VM_HOST is missing" && exit 1)
           test -n "${{ secrets.VM_USER }}" || (echo "VM_USER is missing" && exit 1)
-          test -n "${{ secrets.VM_PORT }}" || (echo "VM_PORT is missing" && exit 1)
-          test -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" || (echo "VM_SSH_PRIVATE_KEY is missing" && exit 1)
+          test -n "${{ secrets.VM_SSH_KEY }}" || (echo "VM_SSH_KEY is missing" && exit 1)
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build project
         run: npm run build
@@ -38,27 +37,27 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          ssh-keyscan -p ${{ secrets.VM_PORT }} ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p ${{ secrets.VM_PORT || '22' }} ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Test SSH Connection
         run: |
           ssh -o StrictHostKeyChecking=no \
-            -p ${{ secrets.VM_PORT }} \
+            -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "echo 'SSH Connection Successful'"
 
       - name: Deploy via rsync
         run: |
           rsync -avz --delete \
-            -e "ssh -p ${{ secrets.VM_PORT }}" \
+            -e "ssh -p ${{ secrets.VM_PORT || '22' }}" \
             dist/ \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
 
-      # - name: Restart Nginx
-      #   run: |
-      #     ssh -p ${{ secrets.VM_PORT }} \
-      #       ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-      #       "sudo systemctl restart nginx"
+      - name: Restart Nginx
+        run: |
+          ssh -p ${{ secrets.VM_PORT || '22' }} \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "sudo systemctl restart nginx"

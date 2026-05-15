@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
-import { getCollectionData } from "../services/ASFirestore";
+import { useContent } from "../hooks/useContent";
 
 type ProcessStep = {
   number: string;
@@ -8,34 +8,34 @@ type ProcessStep = {
   description: string;
 };
 
-type ASProcessData = {
-  id: string;
-  process_steps?: Record<string, ProcessStep>;
-  steps_delay?: number;
+type ProcessContent = {
+  stepsDelay: number;
+  steps: ProcessStep[];
 };
 
-const DEFAULT_STEPS: ProcessStep[] = [
-  {
-    number: "01",
-    title: "Consumption Audit",
-    description:
-      "We don't guess; we calculate. Our engineers analyze your historical electricity bill data to build a custom ROI map tailored to your specific energy habits. You'll know exactly how much you'll save before we even touch your roof.",
-  },
-  {
-    number: "02",
-    title: "Resilient Engineering",
-    description:
-      "A Licensed Professional Electrical Engineer (PEE) conducts a 100-point structural and shading audit. We design your system to withstand 250 kph winds and maintain peak yield in 40°C+ tropical heat using Global Tier-1 components.",
-  },
-  {
-    number: "03",
-    title: "Turnkey Activation",
-    description:
-      "From Barangay clearances to energy providers Net-Metering permits, we handle the bureaucracy. Our certified in-house teams manage the full installation and grid interconnection, leaving you with nothing to do but flip the switch.",
-  },
-];
-
-const DEFAULT_STEPS_DELAY = 800;
+const DEFAULT_PROCESS_CONTENT: ProcessContent = {
+  stepsDelay: 800,
+  steps: [
+    {
+      number: "01",
+      title: "Consumption Audit",
+      description:
+        "We don't guess; we calculate. Our engineers analyze your historical electricity bill data to build a custom ROI map tailored to your specific energy habits. You'll know exactly how much you'll save before we even touch your roof.",
+    },
+    {
+      number: "02",
+      title: "Resilient Engineering",
+      description:
+        "A Licensed Professional Electrical Engineer (PEE) conducts a 100-point structural and shading audit. We design your system to withstand 250 kph winds and maintain peak yield in 40°C+ tropical heat using Global Tier-1 components.",
+    },
+    {
+      number: "03",
+      title: "Turnkey Activation",
+      description:
+        "From Barangay clearances to energy providers Net-Metering permits, we handle the bureaucracy. Our certified in-house teams manage the full installation and grid interconnection, leaving you with nothing to do but flip the switch.",
+    },
+  ],
+};
 
 export default function ASProcessSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
@@ -43,29 +43,10 @@ export default function ASProcessSection() {
 
   const [activeStep, setActiveStep] = useState(-1);
   const [showFooter, setShowFooter] = useState(false);
-  const [steps, setSteps] = useState<ProcessStep[]>(DEFAULT_STEPS);
-  const [stepsDelay, setStepsDelay] = useState(DEFAULT_STEPS_DELAY);
+  const content = useContent<ProcessContent>("process", DEFAULT_PROCESS_CONTENT);
 
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASProcessData>("ASProcess", (data) => {
-      const item = data[0];
-
-      if (!item?.process_steps) {
-        setSteps(DEFAULT_STEPS);
-        setStepsDelay(DEFAULT_STEPS_DELAY);
-        return;
-      }
-
-      const firestoreSteps = Object.values(item.process_steps)
-        .filter((step) => step?.number && step?.title && step?.description)
-        .sort((a, b) => Number(a.number) - Number(b.number));
-
-      setSteps(firestoreSteps.length ? firestoreSteps : DEFAULT_STEPS);
-      setStepsDelay(item.steps_delay ?? DEFAULT_STEPS_DELAY);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const steps = [...content.steps].sort((a, b) => Number(a.number) - Number(b.number));
+  const stepsDelay = content.stepsDelay ?? 800;
 
   useEffect(() => {
     const el = sectionRef.current;

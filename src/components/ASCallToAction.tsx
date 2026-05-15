@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
+import { useContent } from "../hooks/useContent";
 
+type CtaContent = {
+  title: string;
+  description: string;
+  primaryCta: string;
+  secondaryCta: string;
+};
+
+const DEFAULT_CTA: CtaContent = {
+  title: "Ready to engineer your energy independence?",
+  description:
+    "Take control of your energy bills. Get a free quote or talk to an expert",
+  primaryCta: "Get a free Quote ↗",
+  secondaryCta: "Talk to an Expert",
+};
 
 export default function ASCallToAction() {
   const navigate = useNavigate();
@@ -9,6 +24,7 @@ export default function ASCallToAction() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
+  const cta = useContent<CtaContent>("cta", DEFAULT_CTA);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -39,13 +55,10 @@ export default function ASCallToAction() {
         className={`as-cta-section ${isShown ? "is-shown" : ""}`}
       >
         <h2 className="as-cta-title">
-          Ready to engineer your <br />
-          <span>energy independence?</span>
+          {cta.title}
         </h2>
 
-        <p className="as-cta-description">
-          Take control of your energy bills. Get a free quote or talk to an expert
-        </p>
+        <p className="as-cta-description">{cta.description}</p>
 
         <div className="as-cta-actions">
           <button
@@ -53,7 +66,7 @@ export default function ASCallToAction() {
             className="as-cta-primary"
             onClick={() => navigate("/quotation-engine")}
           >
-            Get a free Quote ↗
+            {cta.primaryCta}
           </button>
 
           <button
@@ -61,7 +74,7 @@ export default function ASCallToAction() {
             className="as-cta-secondary"
             onClick={() => setIsModalOpen(true)}
           >
-            Talk to an Expert
+            {cta.secondaryCta}
           </button>
         </div>
       </section>

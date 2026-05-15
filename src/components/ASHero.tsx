@@ -2,15 +2,33 @@ import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
+import { useContent } from "../hooks/useContent";
 
 type LayoutContext = {
   theme: "light-theme" | "dark-theme";
+};
+
+type HeroContent = {
+  headerPart1: string;
+  headerPart2: string;
+  subtext: string;
+  primaryCta: string;
+  secondaryCta: string;
+};
+
+const DEFAULT_HERO: HeroContent = {
+  headerPart1: "Affordable",
+  headerPart2: "Solar Power for Every Filipino Home and Business",
+  subtext: "We Provide Solar Solutions Tailored For Your Home And Business",
+  primaryCta: "Calculate Your Savings",
+  secondaryCta: "View Projects",
 };
 
 export default function ASHero() {
   const [show, setShow] = useState(false);
   const navigate = useNavigate();
   const { theme } = useOutletContext<LayoutContext>();
+  const hero = useContent<HeroContent>("hero", DEFAULT_HERO);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -51,13 +69,11 @@ export default function ASHero() {
       <div className="hero_banner_overlay">
         <div className="hero_text">
           <p className={`hero_header_text ${show ? "animate-in delay-1" : ""}`}>
-            <span>Affordable</span> Solar Power for Every
-            <br className="hero_desktop_break" />
-            <span> Filipino</span> Home and Business
+            <span>{hero.headerPart1}</span> {hero.headerPart2}
           </p>
 
           <p className={`hero_subtext ${show ? "animate-in delay-2" : ""}`}>
-            We Provide Solar Solutions Tailored For Your Home And Business
+            {hero.subtext}
           </p>
 
           <div
@@ -69,7 +85,7 @@ export default function ASHero() {
               className="btn btn-primary"
               onClick={handleScrollToCalculator}
             >
-              Calculate Your Savings
+              {hero.primaryCta}
             </button>
 
             <button
@@ -77,7 +93,7 @@ export default function ASHero() {
               className="btn btn-outline view_projects"
               onClick={handleViewProjects}
             >
-              View Projects
+              {hero.secondaryCta}
             </button>
           </div>
         </div>

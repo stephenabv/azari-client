@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { getCollectionData } from "../services/ASFirestore";
+import { useContent } from "../hooks/useContent";
 
 type ExcellenceItem = {
   number: string;
@@ -7,51 +7,37 @@ type ExcellenceItem = {
   description: string;
 };
 
-type ASEngineeredData = {
-  id: string;
-  item_one?: ExcellenceItem;
-  item_two?: ExcellenceItem;
-  item_three?: ExcellenceItem;
-  item_four?: ExcellenceItem;
+type ExcellenceContent = {
+  items: ExcellenceItem[];
 };
 
-const DEFAULT_EXCELLENCE_ITEMS: ExcellenceItem[] = [
-  {
-    number: "01",
-    title: "Zero-Bill Future",
-    description:
-      "Eliminate your dependency on fluctuating grid prices. Our net-metering optimized systems turn your roof into a revenue-generating asset that pays you back.",
-  },
-  {
-    number: "02",
-    title: "Global Tier-1 Standards",
-    description:
-      "We exclusively deploy Tier-1 components like SMA inverters and mounting structures tested for typhoons up to 280kph. Built to last 25+ years.",
-  },
-  {
-    number: "03",
-    title: "Full Compliance",
-    description:
-      "Navigating local bureaucracy is our headache, not yours. We handle all permits, ERC compliance, and utility interconnection paperwork end-to-end.",
-  },
-  {
-    number: "04",
-    title: "Smart Monitoring",
-    description:
-      "Real-time data visualization of your energy harvest and consumption. Control your home's power flow from anywhere in the world.",
-  },
-];
-
-const isExcellenceItem = (value: unknown): value is ExcellenceItem => {
-  if (!value || typeof value !== "object") return false;
-
-  const item = value as Partial<ExcellenceItem>;
-
-  return (
-    typeof item.number === "string" &&
-    typeof item.title === "string" &&
-    typeof item.description === "string"
-  );
+const DEFAULT_EXCELLENCE_CONTENT: ExcellenceContent = {
+  items: [
+    {
+      number: "01",
+      title: "Zero-Bill Future",
+      description:
+        "Eliminate your dependency on fluctuating grid prices. Our net-metering optimized systems turn your roof into a revenue-generating asset that pays you back.",
+    },
+    {
+      number: "02",
+      title: "Global Tier-1 Standards",
+      description:
+        "We exclusively deploy Tier-1 components like SMA inverters and mounting structures tested for typhoons up to 280kph. Built to last 25+ years.",
+    },
+    {
+      number: "03",
+      title: "Full Compliance",
+      description:
+        "Navigating local bureaucracy is our headache, not yours. We handle all permits, ERC compliance, and utility interconnection paperwork end-to-end.",
+    },
+    {
+      number: "04",
+      title: "Smart Monitoring",
+      description:
+        "Real-time data visualization of your energy harvest and consumption. Control your home's power flow from anywhere in the world.",
+    },
+  ],
 };
 
 export default function ASEngineeredExcellence() {
@@ -60,33 +46,14 @@ export default function ASEngineeredExcellence() {
 
   const [showLeft, setShowLeft] = useState(false);
   const [visibleCards, setVisibleCards] = useState(-1);
-  const [excellenceItems, setExcellenceItems] = useState<ExcellenceItem[]>(
-    DEFAULT_EXCELLENCE_ITEMS
+  const content = useContent<ExcellenceContent>(
+    "excellence",
+    DEFAULT_EXCELLENCE_CONTENT
   );
 
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASEngineeredData>(
-      "ASEngineeredForExcellence",
-      (data) => {
-        const item = data[0];
-
-        if (!item) {
-          setExcellenceItems(DEFAULT_EXCELLENCE_ITEMS);
-          return;
-        }
-
-        const firestoreItems = Object.values(item)
-          .filter(isExcellenceItem)
-          .sort((a, b) => Number(a.number) - Number(b.number));
-
-        setExcellenceItems(
-          firestoreItems.length ? firestoreItems : DEFAULT_EXCELLENCE_ITEMS
-        );
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+  const excellenceItems = [...content.items].sort(
+    (a, b) => Number(a.number) - Number(b.number)
+  );
 
   useEffect(() => {
     const el = sectionRef.current;

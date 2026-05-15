@@ -4,30 +4,58 @@ import iconDurability from "../assets/icons/icon-durability.svg";
 import iconBulb from "../assets/icons/icon-bulb.svg";
 import iconLeaf from "../assets/icons/icon-leaf.svg";
 import iconPeace from "../assets/icons/icon-peace.svg";
+import { useContent } from "../hooks/useContent";
 
-const benefitsData = [
+type BenefitItem = {
+  title: string;
+  description: string;
+  order: number;
+};
+
+type BenefitsContent = {
+  items: BenefitItem[];
+};
+
+const DEFAULT_BENEFITS_CONTENT: BenefitsContent = {
+  items: [
+    {
+      title: "Long-Term Durability",
+      description: "25-YEAR WARRANTY",
+      order: 1,
+    },
+    {
+      title: "Lower Monthly Bills",
+      description: "CUT YOUR ENERGY COSTS",
+      order: 2,
+    },
+    {
+      title: "Monitoring",
+      description: "TRACK YOUR ENERGY & SAVINGS",
+      order: 3,
+    },
+    {
+      title: "Peace of Mind",
+      description: "WORRY-FREE ENERGY SINCE DAY ONE",
+      order: 4,
+    },
+  ],
+};
+
+const BENEFIT_VISUALS = [
   {
     icon: iconDurability,
-    title: "Long-Term Durability",
-    description: "25-YEAR WARRANTY",
     className: "benefit-one",
   },
   {
     icon: iconBulb,
-    title: "Lower Monthly Bills",
-    description: "CUT YOUR ENERGY COSTS",
     className: "benefit-two",
   },
   {
     icon: iconLeaf,
-    title: "Monitoring",
-    description: "TRACK YOUR ENERGY & SAVINGS",
     className: "benefit-three",
   },
   {
     icon: iconPeace,
-    title: "Peace of Mind",
-    description: "WORRY-FREE ENERGY SINCE DAY ONE",
     className: "benefit-four",
   },
 ];
@@ -37,6 +65,15 @@ export default function ASBenefitsBanner() {
   const hasAnimated = useRef(false);
   const [visibleItems, setVisibleItems] = useState(-1);
   const [isVideoShown, setIsVideoShown] = useState(false);
+  const content = useContent<BenefitsContent>("benefits", DEFAULT_BENEFITS_CONTENT);
+
+  const benefitsData = [...content.items]
+    .sort((a, b) => a.order - b.order)
+    .map((item, index) => ({
+      ...item,
+      icon: BENEFIT_VISUALS[index]?.icon ?? iconDurability,
+      className: BENEFIT_VISUALS[index]?.className ?? "benefit-one",
+    }));
 
   useEffect(() => {
     const el = sectionRef.current;
