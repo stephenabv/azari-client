@@ -7,7 +7,7 @@ type ASTropicsCardsProps = {
 };
 
 const DEFAULT_ASSETS_DEPLOYED = "0";
-const DEFAULT_PERFORMANCE_RATING = 0;
+const DEFAULT_PERFORMANCE_RATING = 87;
 
 const cards = [
   {
