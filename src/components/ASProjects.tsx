@@ -1,4 +1,5 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { fetchProjects, type ApiProject } from "../services/ASContent";
 
 type ProjectCategory =
   | "All Projects"
@@ -27,13 +28,23 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
-const DEFAULT_PROJECTS_DATA: Project[] = [];
+function apiToProject(p: ApiProject): Project {
+  const filter: ProjectCategory[] = ["All Projects", `${p.category} Projects` as ProjectCategory];
+  if (p.isRecent) filter.push("Recent Projects");
+  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: p.imageUrl, filter };
+}
 
 export default function ASProjects() {
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
-  const projects = DEFAULT_PROJECTS_DATA;
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    fetchProjects().then((data) => {
+      setProjects(data.map(apiToProject));
+    });
+  }, []);
 
   const activeIndex = filters.indexOf(activeFilter);
 

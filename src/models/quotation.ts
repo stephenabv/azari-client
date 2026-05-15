@@ -1,4 +1,7 @@
 import type { FieldErrors } from "./common";
+import type { SystemPurpose, SystemType, EngineResult } from "./calculation";
+
+export type { SystemPurpose, SystemType };
 
 export type QuoteMode = "with-bill" | "no-bill";
 
@@ -8,9 +11,13 @@ export type QuotationAppliance = {
   watts: number;
   quantity: number;
   hours: number;
+  dayHours: number;
+  nightHours: number;
   schedule: string;
   usageType: string;
   usage: number;
+  dayUsage: number;
+  nightUsage: number;
 };
 
 export type UploadedBill = {
@@ -46,15 +53,20 @@ export type FormattedSystemSize = {
 export type QuotationRequestPayload = {
   type: "quotation_request";
   submittedAt: string;
-  quoteMode: QuoteMode;
+  systemPurpose: SystemPurpose;
+  systemType: SystemType;
   customer: ProposalRequestFormData;
   property: {
     classification: string;
   };
   consumption: {
     averageMonthlyBillPhp: number;
+    monthlySavingsTargetPhp: number;
     electricRatePhpPerKwh: number;
     estimatedMonthlyKwh: number;
+    peakPowerKw: number;
+    allowedGridPowerKw: number;
+    peakDurationHours: number;
   };
   solarEstimate: {
     estimatedSystemSize: {
@@ -63,17 +75,23 @@ export type QuotationRequestPayload = {
       displayUnit: string;
       displayText: string;
     };
+    inverterSizeKw: number;
+    storageCapacityKwh: number;
     configuration: string;
     estimatedMonthlySavingsPhp: number;
     estimatedProjectedSavingsPhp: number;
     projectionMonths: number;
     totalDailyUsageWh: number;
+    totalDayUsageWh: number;
+    totalNightUsageWh: number;
   };
   loadProfile: Array<{
     name: string;
     watts: number;
     quantity: number;
     hoursPerDay: number;
+    dayHoursPerDay: number;
+    nightHoursPerDay: number;
     schedule: string;
     usageType: string;
     estimatedUsageWhPerDay: number;
@@ -87,13 +105,16 @@ export type QuotationRequestPayload = {
 };
 
 export type QuotationBuilderParams = {
-  quoteMode: QuoteMode;
+  systemPurpose: SystemPurpose;
+  systemType: SystemType;
   selectedProperty: string;
+  monthlySavingsTarget: number;
   monthlyBill: number;
   electricRate: number;
-  projectionMonths: number;
-  quoteSummary: QuoteSummary;
-  formattedSystemSize: FormattedSystemSize;
+  peakPower: number;
+  allowedGridPower: number;
+  peakDuration: number;
+  engineResult: EngineResult;
   appliances: QuotationAppliance[];
   uploadedBill: UploadedBill | null;
   proposalForm?: ProposalRequestFormData;
@@ -210,50 +231,79 @@ export function validateProposalRequestForm(
   return errors;
 }
 
+function formatSystemSize(kWp: number): { value: string; unit: string } {
+  if (kWp >= 1000) return { value: (kWp / 1000).toFixed(1), unit: "MWp" };
+  return { value: kWp.toFixed(2), unit: "kWp" };
+}
+
+function configurationLabel(result: EngineResult): string {
+  const { value, unit } = formatSystemSize(result.solarKwp);
+  const typeLabel = result.systemType === "hybrid" ? "Hybrid" : "Grid-Tied";
+  return `~${value} ${unit} ${typeLabel}`;
+}
+
 export function buildQuotationRequestPayload(
   params: QuotationBuilderParams
 ): QuotationRequestPayload {
   const proposalForm = params.proposalForm
     ? sanitizeProposalRequestForm(params.proposalForm)
-    : {
-        fullName: "",
-        location: "",
-        email: "",
-        phone: "",
-        message: "",
-      };
+    : { fullName: "", location: "", email: "", phone: "", message: "" };
+
+  const { engineResult } = params;
+
+  const totalDailyUsageWh = params.appliances.reduce((s, a) => s + a.usage, 0);
+  const totalDayUsageWh = params.appliances.reduce((s, a) => s + a.dayUsage, 0);
+  const totalNightUsageWh = params.appliances.reduce((s, a) => s + a.nightUsage, 0);
+
+  const sized = formatSystemSize(engineResult.solarKwp);
+
+  const estimatedMonthlySavingsPhp =
+    params.systemPurpose === "monthly-savings"
+      ? params.monthlySavingsTarget
+      : params.systemPurpose === "zero-bill"
+        ? params.monthlyBill
+        : 0;
 
   return {
     type: "quotation_request",
     submittedAt: new Date().toISOString(),
-    quoteMode: params.quoteMode,
+    systemPurpose: params.systemPurpose,
+    systemType: params.systemType,
     customer: proposalForm,
-    property: {
-      classification: params.selectedProperty,
-    },
+    property: { classification: params.selectedProperty },
     consumption: {
       averageMonthlyBillPhp: params.monthlyBill,
+      monthlySavingsTargetPhp: params.monthlySavingsTarget,
       electricRatePhpPerKwh: params.electricRate,
-      estimatedMonthlyKwh: params.quoteSummary.monthlyKwh,
+      estimatedMonthlyKwh: Math.round(totalDailyUsageWh * 30 / 1000),
+      peakPowerKw: params.peakPower,
+      allowedGridPowerKw: params.allowedGridPower,
+      peakDurationHours: params.peakDuration,
     },
     solarEstimate: {
       estimatedSystemSize: {
-        rawKwp: params.quoteSummary.systemSize,
-        displayValue: params.formattedSystemSize.value,
-        displayUnit: params.formattedSystemSize.unit,
-        displayText: `${params.formattedSystemSize.value} ${params.formattedSystemSize.unit}`,
+        rawKwp: engineResult.solarKwp,
+        displayValue: sized.value,
+        displayUnit: sized.unit,
+        displayText: `${sized.value} ${sized.unit}`,
       },
-      configuration: `~${params.formattedSystemSize.value} ${params.formattedSystemSize.unit} Grid-Tie`,
-      estimatedMonthlySavingsPhp: params.quoteSummary.estimatedMonthlySavings,
-      estimatedProjectedSavingsPhp: params.quoteSummary.projectedSavings,
-      projectionMonths: params.projectionMonths,
-      totalDailyUsageWh: params.quoteSummary.totalDailyUsageWh,
+      inverterSizeKw: engineResult.inverterKw,
+      storageCapacityKwh: engineResult.storageKwh,
+      configuration: configurationLabel(engineResult),
+      estimatedMonthlySavingsPhp,
+      estimatedProjectedSavingsPhp: estimatedMonthlySavingsPhp * 144,
+      projectionMonths: 144,
+      totalDailyUsageWh,
+      totalDayUsageWh,
+      totalNightUsageWh,
     },
     loadProfile: params.appliances.map((item) => ({
       name: item.name,
       watts: item.watts,
       quantity: item.quantity,
       hoursPerDay: item.hours,
+      dayHoursPerDay: item.dayHours,
+      nightHoursPerDay: item.nightHours,
       schedule: item.schedule,
       usageType: item.usageType,
       estimatedUsageWhPerDay: item.usage,

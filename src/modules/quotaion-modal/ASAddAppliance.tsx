@@ -3,7 +3,7 @@ import type { QuotationAppliance } from "../../models/quotation";
 
 type AddApplianceModalProps = {
   onClose: () => void;
-  onSubmit: (item: Omit<QuotationAppliance, "id" | "usage">) => void;
+  onSubmit: (item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">) => void;
 };
 
 type ScheduleItem = {
@@ -12,15 +12,51 @@ type ScheduleItem = {
 };
 
 const DEFAULT_SCHEDULES: ScheduleItem[] = [
-  {
-    from: "08:30",
-    to: "18:00",
-  },
-  {
-    from: "",
-    to: "",
-  },
+  { from: "08:30", to: "18:00" },
+  { from: "", to: "" },
 ];
+
+// Day boundary: 08:00–18:00 (480–1080 minutes from midnight)
+const DAY_START_MIN = 8 * 60;
+const DAY_END_MIN = 18 * 60;
+
+function minutesOverlapWithDay(startMin: number, endMin: number): number {
+  return Math.max(0, Math.min(endMin, DAY_END_MIN) - Math.max(startMin, DAY_START_MIN));
+}
+
+function calculateDayNightHours(
+  from: string,
+  to: string
+): { dayHours: number; nightHours: number } {
+  if (!from || !to) return { dayHours: 0, nightHours: 0 };
+
+  const [fh, fm] = from.split(":").map(Number);
+  const [th, tm] = to.split(":").map(Number);
+
+  const fromMin = fh * 60 + fm;
+  let toMin = th * 60 + tm;
+
+  if (toMin <= fromMin) toMin += 24 * 60; // spans midnight
+
+  const totalMin = toMin - fromMin;
+  let dayMin = 0;
+
+  if (toMin <= 1440) {
+    dayMin = minutesOverlapWithDay(fromMin, toMin);
+  } else {
+    // Spans midnight: split at 1440 and check each segment
+    dayMin =
+      minutesOverlapWithDay(fromMin, 1440) +
+      minutesOverlapWithDay(0, toMin - 1440);
+  }
+
+  return { dayHours: dayMin / 60, nightHours: (totalMin - dayMin) / 60 };
+}
+
+function calculateHours(from: string, to: string) {
+  const { dayHours, nightHours } = calculateDayNightHours(from, to);
+  return dayHours + nightHours;
+}
 
 function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
@@ -30,22 +66,6 @@ function normalizeDecimalInput(value: string) {
   return cleaned;
 }
 
-function calculateHours(from: string, to: string) {
-  if (!from || !to) return 0;
-
-  const [fromHour, fromMinute] = from.split(":").map(Number);
-  const [toHour, toMinute] = to.split(":").map(Number);
-
-  const fromTotal = fromHour * 60 + fromMinute;
-  let toTotal = toHour * 60 + toMinute;
-
-  if (toTotal <= fromTotal) {
-    toTotal += 24 * 60;
-  }
-
-  return (toTotal - fromTotal) / 60;
-}
-
 function formatTimeDisplay(value: string) {
   if (!value) return "--:-- --";
 
@@ -53,10 +73,7 @@ function formatTimeDisplay(value: string) {
   const period = hourRaw >= 12 ? "PM" : "AM";
   const hour = hourRaw % 12 || 12;
 
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(
-    2,
-    "0"
-  )} ${period}`;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`;
 }
 
 export default function AddApplianceModal({
@@ -69,12 +86,18 @@ export default function AddApplianceModal({
   const [schedules, setSchedules] = useState<ScheduleItem[]>(DEFAULT_SCHEDULES);
   const [error, setError] = useState("");
 
-  const totalHours = useMemo(() => {
-    return schedules.reduce((total, item) => {
-      return total + calculateHours(item.from, item.to);
-    }, 0);
+  const { totalHours, totalDayHours, totalNightHours } = useMemo(() => {
+    let hours = 0;
+    let dayH = 0;
+    let nightH = 0;
+    for (const item of schedules) {
+      const { dayHours, nightHours } = calculateDayNightHours(item.from, item.to);
+      dayH += dayHours;
+      nightH += nightHours;
+      hours += dayHours + nightHours;
+    }
+    return { totalHours: hours, totalDayHours: dayH, totalNightHours: nightH };
   }, [schedules]);
-
 
   const handleScheduleChange = (
     index: number,
@@ -83,30 +106,18 @@ export default function AddApplianceModal({
   ) => {
     setSchedules((current) =>
       current.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-            ...item,
-            [field]: value,
-          }
-          : item
+        itemIndex === index ? { ...item, [field]: value } : item
       )
     );
-
     setError("");
   };
 
   const handleAddSchedule = () => {
-    setSchedules((current) => [
-      ...current,
-      {
-        from: "",
-        to: "",
-      },
-    ]);
+    setSchedules((current) => [...current, { from: "", to: "" }]);
   };
 
   const handleRemoveSchedule = (index: number) => {
-    setSchedules((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setSchedules((current) => current.filter((_, i) => i !== index));
     setError("");
   };
 
@@ -148,10 +159,7 @@ export default function AddApplianceModal({
     }
 
     const scheduleText = validSchedules
-      .map(
-        (item) =>
-          `${formatTimeDisplay(item.from)} - ${formatTimeDisplay(item.to)}`
-      )
+      .map((item) => `${formatTimeDisplay(item.from)} - ${formatTimeDisplay(item.to)}`)
       .join(", ");
 
     onSubmit({
@@ -159,6 +167,8 @@ export default function AddApplianceModal({
       watts: wattsValue,
       quantity: quantityValue,
       hours: Number(totalHours.toFixed(2)),
+      dayHours: Number(totalDayHours.toFixed(2)),
+      nightHours: Number(totalNightHours.toFixed(2)),
       schedule: scheduleText,
       usageType: "Scheduled",
     });
@@ -279,6 +289,13 @@ export default function AddApplianceModal({
             >
               + Add Schedule Usage
             </button>
+
+            {totalHours > 0 && (
+              <div className="as-schedule-summary">
+                <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
+                <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
+              </div>
+            )}
           </div>
 
           {error && <small className="as-field-error">{error}</small>}

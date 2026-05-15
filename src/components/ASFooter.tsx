@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useContent } from "../hooks/useContent";
 
 type FooterLink = {
   name: string;
@@ -53,7 +54,7 @@ export default function ASFooter() {
   const hasAnimated = useRef(false);
 
   const [isShown, setIsShown] = useState(false);
-  const resolvedFooter = DEFAULT_FOOTER;
+  const resolvedFooter = useContent<Required<FooterData>>("footer", DEFAULT_FOOTER);
 
   const socials = useMemo(() => {
     return Object.values(resolvedFooter.socials ?? {});

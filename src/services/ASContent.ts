@@ -9,7 +9,8 @@ export type ContentKey =
   | 'process'
   | 'tropics'
   | 'cta'
-  | 'benefits';
+  | 'benefits'
+  | 'footer';
 
 export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
   try {
@@ -132,5 +133,110 @@ export async function adminUpdateQuotationStatus(apiKey: string, id: string, sta
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminRetryTalkEmail(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}/retry-email`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Email retry failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminRetryQuotationEmail(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}/retry-email`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Email retry failed: ${res.status}`);
+  return res.json();
+}
+
+// ─── Projects API ──────────────────────────────────────────────────────────────
+
+export type ProjectCategory = 'Residential' | 'Commercial' | 'Industrial';
+
+export interface ApiProject {
+  id: string;
+  title: string;
+  category: ProjectCategory;
+  system: string;
+  savings: string;
+  imageUrl: string;
+  isRecent: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectInput {
+  title: string;
+  category: ProjectCategory;
+  system: string;
+  savings: string;
+  imageUrl: string;
+  isRecent: boolean;
+  sortOrder: number;
+}
+
+export async function fetchProjects(): Promise<ApiProject[]> {
+  try {
+    const res = await fetch(`${API_BASE}/projects`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success: boolean; data: ApiProject[] };
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function adminGetProjects(apiKey: string) {
+  const res = await fetch(`${API_BASE}/admin/projects`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load projects: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: ApiProject[] };
+}
+
+export async function adminCreateProject(apiKey: string, data: ProjectInput) {
+  const res = await fetch(`${API_BASE}/admin/projects`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUpdateProject(apiKey: string, id: string, data: Partial<ProjectInput>) {
+  const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Update failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDeleteProject(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
   return res.json();
 }
