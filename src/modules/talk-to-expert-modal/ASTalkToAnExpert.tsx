@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import "./as_talktoexpert.less";
-import { getCollectionData } from "../../services/ASFirestore";
 import ASSystemError from "../system-error/ASSystemError";
 import {
   buildTalkToExpertPayload,
@@ -24,17 +23,6 @@ type ASFooterConfig = {
   intro?: string;
   subheadline?: string;
   subtext?: string;
-};
-
-type ASAddressFirestoreConfig = {
-  id?: string;
-  provinces?: Record<
-    string,
-    {
-      city?: string[];
-      cities?: string[];
-    }
-  >;
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
@@ -62,10 +50,8 @@ export default function ASTalkToAnExpert({
   onClose,
 }: ASTalkToAnExpertProps) {
   const [isClosing, setIsClosing] = useState(false);
-  const [config, setConfig] = useState<ASFooterConfig>(DEFAULT_CONFIG);
-
-  const [addressConfig, setAddressConfig] =
-    useState<AddressConfig>(FALLBACK_ADDRESS);
+  const config: ASFooterConfig = DEFAULT_CONFIG;
+  const addressConfig: AddressConfig = FALLBACK_ADDRESS;
 
   const [selectedProvince, setSelectedProvince] = useState(
     FALLBACK_ADDRESS.provinces[0]
@@ -125,85 +111,6 @@ export default function ASTalkToAnExpert({
   };
 
   
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASFooterConfig>(
-      "ASFooter",
-      (data) => {
-        const item = data[0];
-
-        if (!item) {
-          setConfig(DEFAULT_CONFIG);
-          return;
-        }
-
-        setConfig({
-          contact_email: item.contact_email || DEFAULT_CONFIG.contact_email,
-          headline: item.headline || DEFAULT_CONFIG.headline,
-          intro: item.intro || DEFAULT_CONFIG.intro,
-          subheadline: item.subheadline || DEFAULT_CONFIG.subheadline,
-          subtext: item.subtext || DEFAULT_CONFIG.subtext,
-        });
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASAddressFirestoreConfig>(
-      "ASAddress",
-      (data) => {
-        const item =
-          data.find((doc) => doc.id === "places_config") || data[0];
-
-        if (!item?.provinces) {
-          setAddressConfig(FALLBACK_ADDRESS);
-          setSelectedProvince(FALLBACK_ADDRESS.provinces[0]);
-          setSelectedCity(
-            FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
-          );
-          return;
-        }
-
-        const provinces = Object.keys(item.provinces).filter(Boolean);
-
-        if (provinces.length === 0) {
-          setAddressConfig(FALLBACK_ADDRESS);
-          setSelectedProvince(FALLBACK_ADDRESS.provinces[0]);
-          setSelectedCity(
-            FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
-          );
-          return;
-        }
-
-        const cities = provinces.reduce<Record<string, string[]>>(
-          (acc, province) => {
-            acc[province] =
-              item.provinces?.[province]?.city ||
-              item.provinces?.[province]?.cities ||
-              [];
-
-            return acc;
-          },
-          {}
-        );
-
-        const firstProvince = provinces[0];
-        const firstCity = cities[firstProvince]?.[0] || "";
-
-        setAddressConfig({
-          provinces,
-          cities,
-        });
-
-        setSelectedProvince(firstProvince);
-        setSelectedCity(firstCity);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;

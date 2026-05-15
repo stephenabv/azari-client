@@ -6,6 +6,16 @@ import ASQuotationEngine from "../components/ASQuotationEngine";
 import ASProjects from "../components/ASProjects";
 import ASNotFound from "../components/ASNotFound";
 
+const normalizeRoutePath = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+};
+
+const ADMIN_ROUTE_PATH =
+  normalizeRoutePath(import.meta.env.VITE_ADMIN_ROUTE ?? "") ||
+  "/ops-console-a9f4c31e";
+
 export const ASAppRoute = createBrowserRouter([
   {
     path: "/",
@@ -30,7 +40,7 @@ export const ASAppRoute = createBrowserRouter([
     ]
   },
   {
-    path: "/admin",
+    path: ADMIN_ROUTE_PATH,
     element: <ASAdmin />,
   },
   {

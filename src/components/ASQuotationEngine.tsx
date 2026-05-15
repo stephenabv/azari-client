@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
-import { getCollectionData } from "../services/ASFirestore";
 import { sendQuotationRequest } from "../modules/quotationbuilder";
 import ASSystemError from "../modules/system-error/ASSystemError";
 import {
@@ -31,27 +31,6 @@ type ModalType =
 type QuoteNavigationState = {
   monthlyBill?: number;
   electricRate?: number;
-};
-
-type CalculatorRangeConfig = {
-  min: number;
-  max: number;
-  step: number;
-  defaultValue: number;
-};
-
-type CalculatorFormula = {
-  averageSolarProductionPerKwp: number;
-  estimatedSavingsRate: number;
-  projectionYears: number;
-  monthsPerYear: number;
-};
-
-type ASCalculatorData = {
-  id: string;
-  monthly_bill?: CalculatorRangeConfig;
-  electric_rate?: CalculatorRangeConfig;
-  formula?: CalculatorFormula;
 };
 
 const DEFAULT_CALCULATOR_CONFIG = {
@@ -180,9 +159,7 @@ export default function ASQuotationEngine() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [calculatorConfig, setCalculatorConfig] = useState(
-    DEFAULT_CALCULATOR_CONFIG
-  );
+  const [calculatorConfig] = useState(DEFAULT_CALCULATOR_CONFIG);
 
   const [quoteMode, setQuoteMode] = useState<QuoteMode>(
     QUOTE_ENGINE_CONFIG.defaults.quoteMode
@@ -223,40 +200,6 @@ export default function ASQuotationEngine() {
   const visiblePropertyTypes = propertyTypes.filter((item) => item.isVisible);
 
   const closeModal = () => setModal(null);
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASCalculatorData>(
-      "ASCalculator",
-      (data) => {
-        const item = data[0];
-
-        if (!item) {
-          setCalculatorConfig(DEFAULT_CALCULATOR_CONFIG);
-          return;
-        }
-
-        const nextConfig = {
-          monthlyBill: item.monthly_bill ?? DEFAULT_CALCULATOR_CONFIG.monthlyBill,
-          electricRate: item.electric_rate ?? DEFAULT_CALCULATOR_CONFIG.electricRate,
-          formula: item.formula ?? DEFAULT_CALCULATOR_CONFIG.formula,
-        };
-
-        setCalculatorConfig(nextConfig);
-
-        if (quoteState.monthlyBill === undefined) {
-          setMonthlyBill(nextConfig.monthlyBill.defaultValue);
-          setMonthlyBillInput(String(nextConfig.monthlyBill.defaultValue));
-        }
-
-        if (quoteState.electricRate === undefined) {
-          setElectricRate(nextConfig.electricRate.defaultValue);
-          setElectricRateInput(String(nextConfig.electricRate.defaultValue));
-        }
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     if (!modal) return;
@@ -544,6 +487,32 @@ export default function ASQuotationEngine() {
   const projectedSavingsLabel = getProjectionDisplay(
     projectionMonths
   );
+
+  const modalLayer =
+    modal && typeof document !== "undefined"
+      ? createPortal(
+        <>
+          {modal === "add-appliance" && (
+            <AddApplianceModal onClose={closeModal} onSubmit={handleAddAppliance} />
+          )}
+
+          {modal === "request-proposal" && (
+            <RequestProposalModal
+              onClose={closeModal}
+              onSubmit={handleSubmitProposal}
+              isSubmitting={isSubmitting}
+            />
+          )}
+
+          {modal === "submitted" && <ProposalSubmittedModal onClose={closeModal} />}
+
+          {modal === "system-error" && (
+            <ASSystemError onClose={closeModal} />
+          )}
+        </>,
+        document.body
+      )
+      : null;
 
   return (
     <section className="as-quote-page">
@@ -854,23 +823,7 @@ export default function ASQuotationEngine() {
         </div>
       </div>
 
-      {modal === "add-appliance" && (
-        <AddApplianceModal onClose={closeModal} onSubmit={handleAddAppliance} />
-      )}
-
-      {modal === "request-proposal" && (
-        <RequestProposalModal
-          onClose={closeModal}
-          onSubmit={handleSubmitProposal}
-          isSubmitting={isSubmitting}
-        />
-      )}
-
-      {modal === "submitted" && <ProposalSubmittedModal onClose={closeModal} />}
-
-      {modal === "system-error" && (
-        <ASSystemError onClose={closeModal} />
-      )}
+      {modalLayer}
     </section>
   );
 }

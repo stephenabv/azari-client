@@ -1,22 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import climateDark from "../assets/images/dark/climate_bg_dark.png";
 import assetsDeployed from "../assets/images/dark/assets_deployed_dark.png";
-import { getCollectionData } from "../services/ASFirestore";
 
 type ASTropicsCardsProps = {
   visibleCards: number;
-};
-
-type MetricItem = {
-  value: string;
-  label: string;
-  order: number;
-};
-
-type ASMetricsData = {
-  id: string;
-  metrics?: Record<string, MetricItem>;
-  performance_rating?: number;
 };
 
 const DEFAULT_ASSETS_DEPLOYED = "0";
@@ -43,23 +30,8 @@ const cards = [
 ];
 
 export default function ASTropicsCards({ visibleCards }: ASTropicsCardsProps) {
-  const [assetsTitle, setAssetsTitle] = useState(DEFAULT_ASSETS_DEPLOYED);
-  const [performanceRating, setPerformanceRating] = useState(
-    DEFAULT_PERFORMANCE_RATING
-  );
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASMetricsData>("ASMetrics", (data) => {
-      const item = data[0];
-
-      setAssetsTitle(item?.metrics?.installed?.value ?? DEFAULT_ASSETS_DEPLOYED);
-      setPerformanceRating(
-        item?.performance_rating ?? DEFAULT_PERFORMANCE_RATING
-      );
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const assetsTitle = DEFAULT_ASSETS_DEPLOYED;
+  const performanceRating = DEFAULT_PERFORMANCE_RATING;
 
   const totalBars = 12;
 

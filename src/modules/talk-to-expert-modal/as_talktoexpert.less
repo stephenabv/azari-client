@@ -82,6 +82,37 @@
   height: 100%;
 }
 
+.as-talk-modal,
+.as-talk-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.as-talk-modal::-webkit-scrollbar,
+.as-talk-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.as-talk-modal::-webkit-scrollbar-track,
+.as-talk-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.as-talk-modal::-webkit-scrollbar-thumb,
+.as-talk-content::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: content-box;
+}
+
+.as-talk-modal::-webkit-scrollbar-thumb:hover,
+.as-talk-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34);
+  background-clip: content-box;
+}
+
 .as-talk-info {
   display: flex;
   flex-direction: column;
@@ -223,6 +254,23 @@
   color: #111111;
   border: 1px solid #e5e5e5;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.light-theme .as-talk-modal,
+.light-theme .as-talk-content {
+  scrollbar-color: rgba(17, 17, 17, 0.22) transparent;
+}
+
+.light-theme .as-talk-modal::-webkit-scrollbar-thumb,
+.light-theme .as-talk-content::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.22);
+  background-clip: content-box;
+}
+
+.light-theme .as-talk-modal::-webkit-scrollbar-thumb:hover,
+.light-theme .as-talk-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 17, 17, 0.36);
+  background-clip: content-box;
 }
 
 .light-theme .as-talk-close {

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getCollectionData } from "../services/ASFirestore";
 
 type FooterLink = {
   name: string;
@@ -54,25 +53,11 @@ export default function ASFooter() {
   const hasAnimated = useRef(false);
 
   const [isShown, setIsShown] = useState(false);
-  const [footerData, setFooterData] = useState<FooterData | null>(null);
-
-  const resolvedFooter = footerData ?? DEFAULT_FOOTER;
+  const resolvedFooter = DEFAULT_FOOTER;
 
   const socials = useMemo(() => {
     return Object.values(resolvedFooter.socials ?? {});
   }, [resolvedFooter.socials]);
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<FooterData>("ASFooter", (data) => {
-      if (data.length > 0) {
-        setFooterData(data[0]);
-      } else {
-        setFooterData(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     const el = footerRef.current;

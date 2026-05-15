@@ -28,11 +28,25 @@ jobs:
           test -n "${{ secrets.VM_USER }}" || (echo "VM_USER is missing" && exit 1)
           test -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" || (echo "VM_SSH_PRIVATE_KEY is missing" && exit 1)
 
+      - name: Set VITE_ADMIN_ROUTE env
+        id: set-admin-route
+        run: |
+          # Generate a secure random slug if not provided by secret
+          if [ -z "${{ secrets.VITE_ADMIN_ROUTE }}" ]; then
+            export VITE_ADMIN_ROUTE="ops-console-$(openssl rand -hex 8)"
+          else
+            export VITE_ADMIN_ROUTE="${{ secrets.VITE_ADMIN_ROUTE }}"
+          fi
+          echo "VITE_ADMIN_ROUTE=$VITE_ADMIN_ROUTE" >> $GITHUB_ENV
+          echo "Admin route set to: $VITE_ADMIN_ROUTE"
+
       - name: Install dependencies
         run: npm install --no-package-lock
 
       - name: Build project
         run: npm run build
+        env:
+          VITE_ADMIN_ROUTE: ${{ env.VITE_ADMIN_ROUTE }}
 
       - name: Setup SSH
         run: |

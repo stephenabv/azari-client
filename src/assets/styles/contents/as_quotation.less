@@ -597,15 +597,14 @@
 }
 
 .as-modal-backdrop {
-  --as-navbar-height: 88px;
+  --as-navbar-height: calc(var(--navbar-height, 75px) + var(--navbar-offset, 16px));
   position: fixed;
   inset: 0;
-  top: var(--as-navbar-height);
-  z-index: 900;
+  z-index: 2200;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: calc(var(--as-navbar-height) + 16px) 24px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: rgba(0, 0, 0, 0.72);
@@ -616,7 +615,7 @@
 .as-modal {
   position: relative;
   width: min(100%, 500px);
-  max-height: calc(100dvh - var(--as-navbar-height) - 48px);
+  max-height: calc(100dvh - var(--as-navbar-height) - 40px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 28px;
@@ -624,6 +623,37 @@
   border: 1px solid #303030;
   border-radius: 18px;
   animation: modalIn 0.35s ease forwards;
+}
+
+.as-modal-backdrop,
+.as-modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.as-modal-backdrop::-webkit-scrollbar,
+.as-modal::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.as-modal-backdrop::-webkit-scrollbar-track,
+.as-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.as-modal-backdrop::-webkit-scrollbar-thumb,
+.as-modal::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: content-box;
+}
+
+.as-modal-backdrop::-webkit-scrollbar-thumb:hover,
+.as-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34);
+  background-clip: content-box;
 }
 
 .as-modal-close {
@@ -1088,6 +1118,23 @@
   border-color: #e5e5e5;
 }
 
+.light-theme .as-modal-backdrop,
+.light-theme .as-modal {
+  scrollbar-color: rgba(17, 17, 17, 0.22) transparent;
+}
+
+.light-theme .as-modal-backdrop::-webkit-scrollbar-thumb,
+.light-theme .as-modal::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.22);
+  background-clip: content-box;
+}
+
+.light-theme .as-modal-backdrop::-webkit-scrollbar-thumb:hover,
+.light-theme .as-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(17, 17, 17, 0.36);
+  background-clip: content-box;
+}
+
 .light-theme .as-modal-close {
   color: #666;
 }
@@ -1345,6 +1392,33 @@
 }
 
 @media (max-width: 768px) {
+  .as-modal-backdrop {
+    align-items: flex-start;
+    padding: calc(var(--as-navbar-height) + 12px) 14px 14px;
+  }
+
+  .as-modal {
+    width: 100%;
+    max-height: calc(100dvh - var(--as-navbar-height) - 26px);
+    padding: 22px 16px 18px;
+    border-radius: 14px;
+  }
+
+  .as-modal h2 {
+    font-size: 21px;
+  }
+
+  .as-modal > p {
+    margin: 8px 0 18px;
+    font-size: 12px;
+  }
+
+  .as-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin-top: 20px;
+  }
+
   .as-appliance-modal {
     padding: 28px 20px;
   }

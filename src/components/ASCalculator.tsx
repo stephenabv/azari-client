@@ -1,41 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getCollectionData } from "../services/ASFirestore";
 import {
   calculateSolarEstimate,
   formatProjectionDescription,
   formatProjectionLabel,
   getProjectionMonths,
 } from "../models/calculation";
-
-type CalculatorRangeConfig = {
-  min: number;
-  max: number;
-  step: number;
-  defaultValue: number;
-};
-
-type CalculatorLabels = {
-  monthlyBillMin: string;
-  monthlyBillMax: string;
-  electricRateMin: string;
-  electricRateMax: string;
-};
-
-type CalculatorFormula = {
-  averageSolarProductionPerKwp: number;
-  estimatedSavingsRate: number;
-  projectionYears: number;
-  monthsPerYear: number;
-};
-
-type ASCalculatorData = {
-  id: string;
-  monthly_bill?: CalculatorRangeConfig;
-  electric_rate?: CalculatorRangeConfig;
-  labels?: CalculatorLabels;
-  formula?: CalculatorFormula;
-};
 
 const DEFAULT_CONFIG = {
   monthlyBill: {
@@ -145,7 +115,7 @@ export default function ASImpactCalculator() {
   const [monthlyBillError, setMonthlyBillError] = useState("");
   const [electricRateError, setElectricRateError] = useState("");
 
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [config] = useState(DEFAULT_CONFIG);
 
   const [monthlyBill, setMonthlyBill] = useState(
     DEFAULT_CONFIG.monthlyBill.defaultValue
@@ -166,38 +136,6 @@ export default function ASImpactCalculator() {
   const clampValue = (value: number, min: number, max: number) => {
     return Math.min(max, Math.max(min, value));
   };
-
-  useEffect(() => {
-    const unsubscribe = getCollectionData<ASCalculatorData>(
-      "ASCalculator",
-      (data) => {
-        const item = data[0];
-
-        if (!item) {
-          setConfig(DEFAULT_CONFIG);
-          return;
-        }
-
-        const nextConfig = {
-          monthlyBill: item.monthly_bill ?? DEFAULT_CONFIG.monthlyBill,
-          electricRate: item.electric_rate ?? DEFAULT_CONFIG.electricRate,
-          labels: item.labels ?? DEFAULT_CONFIG.labels,
-          formula: item.formula ?? DEFAULT_CONFIG.formula,
-          animation: DEFAULT_CONFIG.animation,
-        };
-
-        setConfig(nextConfig);
-
-        setMonthlyBill(nextConfig.monthlyBill.defaultValue);
-        setElectricRate(nextConfig.electricRate.defaultValue);
-
-        setMonthlyBillInput(String(nextConfig.monthlyBill.defaultValue));
-        setElectricRateInput(String(nextConfig.electricRate.defaultValue));
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   const handleMonthlyBillInput = (value: string) => {
     const cleaned = normalizeDecimalInput(value);
