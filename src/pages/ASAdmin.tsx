@@ -493,7 +493,6 @@ type ProjectForm = {
   category: ApiProjectCategory;
   system: string;
   savings: string;
-  imageUrl: string;
   isRecent: boolean;
   sortOrder: number;
 };
@@ -503,7 +502,6 @@ const EMPTY_PROJECT_FORM: ProjectForm = {
   category: "Residential",
   system: "",
   savings: "",
-  imageUrl: "",
   isRecent: false,
   sortOrder: 0,
 };
@@ -520,6 +518,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProjectForm>(EMPTY_PROJECT_FORM);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
@@ -539,31 +539,53 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const openAdd = () => {
     setEditingId(null);
     setForm(EMPTY_PROJECT_FORM);
+    setImageFile(null);
+    setImagePreview("");
     setMsg("");
     setShowForm(true);
   };
 
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
-    setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, imageUrl: p.imageUrl, isRecent: p.isRecent, sortOrder: p.sortOrder });
+    setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent, sortOrder: p.sortOrder });
+    setImageFile(null);
+    setImagePreview(p.imageUrl); // show existing image
     setMsg("");
     setShowForm(true);
   };
 
-  const closeForm = () => { setShowForm(false); setEditingId(null); setMsg(""); };
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setImageFile(null);
+    setImagePreview("");
+    setMsg("");
+  };
+
+  const handleImageSelect = (file: File | undefined) => {
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const setField = <K extends keyof ProjectForm>(key: K, value: ProjectForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.system.trim() || !form.savings.trim() || !form.imageUrl.trim()) {
-      setMsg("Error: Title, System, Savings, and Image URL are required.");
+    if (!form.title.trim() || !form.system.trim() || !form.savings.trim()) {
+      setMsg("Error: Title, System, and Savings are required.");
+      return;
+    }
+    if (!editingId && !imageFile) {
+      setMsg("Error: Please upload a project image.");
       return;
     }
     setSaving(true);
     setMsg("");
     try {
-      const payload: ProjectInput = { ...form, sortOrder: Number(form.sortOrder) };
+      const payload: ProjectInput = { ...form, sortOrder: Number(form.sortOrder), imageFile: imageFile ?? undefined };
       if (editingId) {
         await adminUpdateProject(apiKey, editingId, payload);
         setMsg("✓ Project updated");
@@ -646,8 +668,37 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               <input style={PI} value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={PL}>Image URL</label>
-              <input style={PI} value={form.imageUrl} onChange={(e) => setField("imageUrl", e.target.value)} placeholder="https://..." />
+              <label style={PL}>Project Image {editingId && <span style={{ fontWeight: 400, color: "#475569" }}>(leave empty to keep current)</span>}</label>
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                <div
+                  style={{ flex: 1, border: "2px dashed #334155", borderRadius: 8, padding: 16, cursor: "pointer", textAlign: "center", background: "#0f172a" }}
+                  onClick={() => document.getElementById("proj-img-input")?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}
+                >
+                  <input
+                    id="proj-img-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                    hidden
+                    onChange={(e) => handleImageSelect(e.target.files?.[0])}
+                  />
+                  <div style={{ color: "#64748b", fontSize: 13 }}>
+                    {imageFile ? (
+                      <span style={{ color: "#38bdf8" }}>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span>
+                    ) : (
+                      <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>
+                    )}
+                  </div>
+                </div>
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #334155", flexShrink: 0 }}
+                  />
+                )}
+              </div>
             </div>
             <div>
               <label style={PL}>Sort Order</label>
@@ -703,10 +754,12 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               {projects.map((p) => (
                 <tr key={p.id} style={{ borderBottom: "1px solid #1e293b" }}>
                   <td style={TD}>
-                    <div style={{ fontWeight: 600, color: "#f8fafc" }}>{p.title}</div>
-                    {p.imageUrl && (
-                      <div style={{ fontSize: 11, color: "#475569", marginTop: 2, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.imageUrl}</div>
-                    )}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {p.imageUrl && (
+                        <img src={p.imageUrl} alt={p.title} style={{ width: 52, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
+                      )}
+                      <span style={{ fontWeight: 600, color: "#f8fafc" }}>{p.title}</span>
+                    </div>
                   </td>
                   <td style={TD}>
                     <span style={{ background: CATEGORY_BADGE[p.category] ?? "#334155", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>

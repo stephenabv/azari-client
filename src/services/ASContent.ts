@@ -178,9 +178,9 @@ export interface ProjectInput {
   category: ProjectCategory;
   system: string;
   savings: string;
-  imageUrl: string;
   isRecent: boolean;
   sortOrder: number;
+  imageFile?: File; // required on create, optional on update
 }
 
 export async function fetchProjects(): Promise<ApiProject[]> {
@@ -203,11 +203,23 @@ export async function adminGetProjects(apiKey: string) {
   return (await res.json()) as { success: boolean; data: ApiProject[] };
 }
 
+function buildProjectFormData(data: ProjectInput): FormData {
+  const fd = new FormData();
+  fd.append('title', data.title);
+  fd.append('category', data.category);
+  fd.append('system', data.system);
+  fd.append('savings', data.savings);
+  fd.append('isRecent', String(data.isRecent));
+  fd.append('sortOrder', String(data.sortOrder));
+  if (data.imageFile) fd.append('image', data.imageFile);
+  return fd;
+}
+
 export async function adminCreateProject(apiKey: string, data: ProjectInput) {
   const res = await fetch(`${API_BASE}/admin/projects`, {
     method: 'POST',
-    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(data)
+    headers: { 'x-admin-api-key': apiKey },
+    body: buildProjectFormData(data)
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) {
@@ -217,11 +229,11 @@ export async function adminCreateProject(apiKey: string, data: ProjectInput) {
   return res.json();
 }
 
-export async function adminUpdateProject(apiKey: string, id: string, data: Partial<ProjectInput>) {
+export async function adminUpdateProject(apiKey: string, id: string, data: ProjectInput) {
   const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
     method: 'PUT',
-    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(data)
+    headers: { 'x-admin-api-key': apiKey },
+    body: buildProjectFormData(data)
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) {

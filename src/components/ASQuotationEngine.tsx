@@ -478,7 +478,7 @@ export default function ASQuotationEngine() {
           </button>
         </div>
 
-        <div className="as-load-table">
+        <div className="as-load-table" style={{ fontFamily: "'Inter', sans-serif" }}>
           <div className="as-load-table-inner">
             <div className="as-load-row as-load-head">
               <span>Appliance / Load Name</span>
