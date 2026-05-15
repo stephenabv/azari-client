@@ -53,11 +53,6 @@ function calculateDayNightHours(
   return { dayHours: dayMin / 60, nightHours: (totalMin - dayMin) / 60 };
 }
 
-function calculateHours(from: string, to: string) {
-  const { dayHours, nightHours } = calculateDayNightHours(from, to);
-  return dayHours + nightHours;
-}
-
 function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
   cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");

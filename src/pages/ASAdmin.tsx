@@ -952,6 +952,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
 // ─── Shared table styles ───────────────────────────────────────────────────────: React.CSSProperties = { padding: "10px 12px", textAlign: "left", color: "#64748b", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "10px 12px", color: "#cbd5e1", verticalAlign: "middle" };
+const TH: React.CSSProperties = { padding: "10px 12px", color: "#94a3b8", fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" };
 const BTN_SM: React.CSSProperties = { padding: "6px 14px", borderRadius: 6, border: "none", background: "#334155", color: "#cbd5e1", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
