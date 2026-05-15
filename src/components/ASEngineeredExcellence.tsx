@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
 
 type ExcellenceItem = {
@@ -51,8 +51,9 @@ export default function ASEngineeredExcellence() {
     DEFAULT_EXCELLENCE_CONTENT
   );
 
-  const excellenceItems = [...content.items].sort(
-    (a, b) => Number(a.number) - Number(b.number)
+  const excellenceItems = useMemo(
+    () => [...(content.items ?? [])].sort((a, b) => Number(a.number) - Number(b.number)),
+    [content.items]
   );
 
   useEffect(() => {

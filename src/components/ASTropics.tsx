@@ -21,6 +21,20 @@ export default function ASTropicsSection() {
   const [showText, setShowText] = useState(false);
   const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
 
+  const headerParts = tropics.header
+    .split(/\n|<br\s*\/?\s*>/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const headerTop = headerParts[0] ?? "Solar Energy for the";
+  const headerBottom = headerParts[1] ?? "Tropics";
+
+  const brandedSubtext = tropics.subtext.includes("azari.solar")
+    ? tropics.subtext
+    : "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.";
+
+  const [subtextBeforeBrand, subtextAfterBrand] = brandedSubtext.split("azari.solar");
+
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
@@ -58,9 +72,16 @@ export default function ASTropicsSection() {
       <ASTropicsCards visibleCards={visibleCards} />
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
-        <p className="header">{tropics.header}</p>
+        <p className="header">
+          {headerTop} <br />
+          {headerBottom}
+        </p>
 
-        <p className="subtext">{tropics.subtext}</p>
+        <p className="subtext">
+          {subtextBeforeBrand}
+          <span>azari.solar</span>
+          {subtextAfterBrand}
+        </p>
       </div>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import { useContent } from "../hooks/useContent";
 
@@ -45,8 +45,11 @@ export default function ASProcessSection() {
   const [showFooter, setShowFooter] = useState(false);
   const content = useContent<ProcessContent>("process", DEFAULT_PROCESS_CONTENT);
 
-  const steps = [...content.steps].sort((a, b) => Number(a.number) - Number(b.number));
-  const stepsDelay = content.stepsDelay ?? 800;
+  const steps = useMemo(
+    () => [...(content.steps ?? [])].sort((a, b) => Number(a.number) - Number(b.number)),
+    [content.steps]
+  );
+  const stepsDelay = useMemo(() => content.stepsDelay ?? 800, [content.stepsDelay]);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -76,7 +79,7 @@ export default function ASProcessSection() {
 
         observer.disconnect();
       },
-      { threshold: 0.35 }
+      { threshold: 0.2, rootMargin: "0px 0px -8% 0px" }
     );
 
     observer.observe(el);

@@ -26,6 +26,14 @@ export default function ASCallToAction() {
   const [isShown, setIsShown] = useState(false);
   const cta = useContent<CtaContent>("cta", DEFAULT_CTA);
 
+  const titlePrefix = cta.title.includes("energy independence")
+    ? cta.title.split("energy independence")[0].trimEnd()
+    : "Ready to engineer your";
+
+  const titleHighlight = cta.title.includes("energy independence")
+    ? "energy independence?"
+    : "energy independence?";
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -55,7 +63,8 @@ export default function ASCallToAction() {
         className={`as-cta-section ${isShown ? "is-shown" : ""}`}
       >
         <h2 className="as-cta-title">
-          {cta.title}
+          {titlePrefix} <br />
+          <span>{titleHighlight}</span>
         </h2>
 
         <p className="as-cta-description">{cta.description}</p>
