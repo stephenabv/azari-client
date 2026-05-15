@@ -156,6 +156,48 @@ export async function adminRetryQuotationEmail(apiKey: string, id: string) {
   return res.json();
 }
 
+export async function adminDeleteTalkInquiry(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUpdateTalkInquiry(apiKey: string, id: string, data: Record<string, string>) {
+  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminDeleteQuotation(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUpdateQuotation(apiKey: string, id: string, data: Record<string, string>) {
+  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
 // ─── Projects API ──────────────────────────────────────────────────────────────
 
 export type ProjectCategory = 'Residential' | 'Commercial' | 'Industrial';

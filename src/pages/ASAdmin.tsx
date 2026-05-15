@@ -14,6 +14,10 @@ import {
   adminCreateProject,
   adminUpdateProject,
   adminDeleteProject,
+  adminDeleteTalkInquiry,
+  adminUpdateTalkInquiry,
+  adminDeleteQuotation,
+  adminUpdateQuotation,
   type ApiProject,
   type ProjectInput,
   type ProjectCategory as ApiProjectCategory,
@@ -203,6 +207,11 @@ function SubmissionsTable({
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [editSaving, setEditSaving] = useState(false);
+  const [editMsg, setEditMsg] = useState("");
   const limit = 20;
 
   const load = async () => {
@@ -241,10 +250,75 @@ function SubmissionsTable({
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this record permanently? This cannot be undone.")) return;
+    setDeleting(id);
+    try {
+      const fn = type === "talk" ? adminDeleteTalkInquiry : adminDeleteQuotation;
+      await fn(apiKey, id);
+      await load();
+    } catch (e) {
+      alert(`Delete failed: ${(e as Error).message}`);
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const openEdit = (row: Record<string, unknown>) => {
+    setEditingRow(row);
+    setEditMsg("");
+    if (type === "talk") {
+      setEditForm({
+        name: String(row.name ?? ""),
+        email: String(row.email ?? ""),
+        phone: String(row.phone ?? ""),
+        province: String(row.province ?? ""),
+        city: String(row.city ?? ""),
+        inquiryType: String(row.inquiryType ?? "general"),
+        message: String(row.message ?? ""),
+      });
+    } else {
+      setEditForm({
+        fullName: String(row.fullName ?? ""),
+        email: String(row.email ?? ""),
+        phone: String(row.phone ?? ""),
+        location: String(row.location ?? ""),
+        propertyClassification: String(row.propertyClassification ?? ""),
+        message: String(row.message ?? ""),
+      });
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editingRow) return;
+    setEditSaving(true);
+    setEditMsg("");
+    try {
+      const fn = type === "talk" ? adminUpdateTalkInquiry : adminUpdateQuotation;
+      await fn(apiKey, editingRow.id as string, editForm);
+      setEditingRow(null);
+      await load();
+    } catch (e) {
+      setEditMsg(`Error: ${(e as Error).message}`);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const EI: React.CSSProperties = {
+    width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #334155",
+    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
+  };
+  const EL: React.CSSProperties = {
+    display: "block", fontSize: 11, fontWeight: 700, color: "#64748b",
+    textTransform: "uppercase", letterSpacing: 1, marginBottom: 4,
+  };
+
   const STATUS_OPTIONS: SubmissionStatus[] = ["received", "emailed", "email_failed", "archived"];
 
   return (
     <div>
+      {/* Filter bar */}
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
         <select
           value={statusFilter}
@@ -256,6 +330,101 @@ function SubmissionsTable({
         </select>
         <span style={{ color: "#64748b", fontSize: 13 }}>{total} records</span>
       </div>
+
+      {/* Inline edit panel */}
+      {editingRow && (
+        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 15 }}>
+              Edit {type === "talk" ? "Inquiry" : "Quotation Request"}
+            </div>
+            <button onClick={() => { setEditingRow(null); setEditMsg(""); }} style={BTN_SM}>Cancel</button>
+          </div>
+
+          {type === "talk" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={EL}>Name</label>
+                <input style={EI} value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Email</label>
+                <input style={EI} value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Phone</label>
+                <input style={EI} value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Inquiry Type</label>
+                <select style={EI} value={editForm.inquiryType ?? "general"} onChange={(e) => setEditForm((f) => ({ ...f, inquiryType: e.target.value }))}>
+                  <option value="general">General</option>
+                  <option value="quote">Quote</option>
+                  <option value="consultation">Consultation</option>
+                </select>
+              </div>
+              <div>
+                <label style={EL}>Province</label>
+                <input style={EI} value={editForm.province ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, province: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>City</label>
+                <input style={EI} value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={EL}>Message</label>
+                <textarea
+                  style={{ ...EI, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+                  value={editForm.message ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
+                />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={EL}>Full Name</label>
+                <input style={EI} value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Email</label>
+                <input style={EI} value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Phone</label>
+                <input style={EI} value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
+              </div>
+              <div>
+                <label style={EL}>Location</label>
+                <input style={EI} value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={EL}>Property Classification</label>
+                <input style={EI} value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={EL}>Message</label>
+                <textarea
+                  style={{ ...EI, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
+                  value={editForm.message ?? ""}
+                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
+                />
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
+            <button
+              onClick={() => void handleEditSave()}
+              disabled={editSaving}
+              style={{ padding: "9px 24px", background: editSaving ? "#334155" : "#38bdf8", color: editSaving ? "#64748b" : "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
+            >
+              {editSaving ? "Saving…" : "Save Changes"}
+            </button>
+            {editMsg && <span style={{ fontSize: 13, color: "#f87171" }}>{editMsg}</span>}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ color: "#64748b", padding: 24 }}>Loading…</div>
@@ -283,6 +452,7 @@ function SubmissionsTable({
                 )}
                 <th style={TH}>Date</th>
                 <th style={TH}>Status / Email</th>
+                <th style={TH}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -322,6 +492,24 @@ function SubmissionsTable({
                       retrying={retrying === row.id}
                     />
                   </td>
+                  <td style={TD}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => openEdit(row)}
+                        disabled={!!editingRow || deleting === (row.id as string)}
+                        style={{ ...BTN_SM, background: "#1e40af", color: "#93c5fd" }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => void handleDelete(row.id as string)}
+                        disabled={deleting === (row.id as string) || !!editingRow}
+                        style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5", opacity: deleting === (row.id as string) ? 0.5 : 1 }}
+                      >
+                        {deleting === (row.id as string) ? "…" : "Delete"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -334,6 +522,55 @@ function SubmissionsTable({
         <span style={{ color: "#64748b", fontSize: 13, alignSelf: "center" }}>{Math.floor(offset / limit) + 1} / {Math.max(1, Math.ceil(total / limit))}</span>
         <button onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total} style={BTN_SM}>Next →</button>
       </div>
+    </div>
+  );
+}
+
+// ─── Metrics Editor Form ──────────────────────────────────────────────────────
+
+interface MetricItem { value: string; label: string; order: number }
+
+function MetricsEditorForm({ editorText, onChange }: { editorText: string; onChange: (text: string) => void }) {
+  let items: MetricItem[] = [];
+  try { items = (JSON.parse(editorText) as { items: MetricItem[] }).items ?? []; } catch { /* invalid json */ }
+
+  const update = (idx: number, key: "value" | "label", val: string) => {
+    const next = items.map((item, i) => i === idx ? { ...item, [key]: val } : item);
+    onChange(JSON.stringify({ items: next }, null, 2));
+  };
+
+  const MI: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #334155",
+    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
+        Edit each metric's displayed value and label. Changes take effect on the website after saving.
+      </div>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 12, marginBottom: 12, alignItems: "center" }}>
+          <div>
+            {i === 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Value</div>}
+            <input
+              style={{ ...MI, fontWeight: 700, textAlign: "center" }}
+              value={item.value}
+              onChange={(e) => update(i, "value", e.target.value)}
+              placeholder="e.g. 25yr"
+            />
+          </div>
+          <div>
+            {i === 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Label</div>}
+            <input
+              style={MI}
+              value={item.label}
+              onChange={(e) => update(i, "label", e.target.value)}
+              placeholder="e.g. PERFORMANCE WARRANTY"
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -452,23 +689,31 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
             </div>
           </div>
 
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
-            Edit JSON — changes take effect immediately on the website after saving.
-          </div>
-
-          <textarea
-            ref={textareaRef}
-            value={editorText}
-            onChange={(e) => { setEditorText(e.target.value); validateJson(e.target.value); }}
-            spellCheck={false}
-            style={{
-              width: "100%", minHeight: 420, padding: 14, borderRadius: 8,
-              border: jsonError ? "1px solid #dc2626" : "1px solid #334155",
-              background: "#0f172a", color: "#e2e8f0", fontFamily: "monospace", fontSize: 13,
-              lineHeight: 1.6, resize: "vertical", boxSizing: "border-box", outline: "none"
-            }}
-          />
-          {jsonError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 4 }}>JSON error: {jsonError}</div>}
+          {editing === "metrics" ? (
+            <MetricsEditorForm
+              editorText={editorText}
+              onChange={(text) => { setEditorText(text); validateJson(text); }}
+            />
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+                Edit JSON — changes take effect immediately on the website after saving.
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={editorText}
+                onChange={(e) => { setEditorText(e.target.value); validateJson(e.target.value); }}
+                spellCheck={false}
+                style={{
+                  width: "100%", minHeight: 420, padding: 14, borderRadius: 8,
+                  border: jsonError ? "1px solid #dc2626" : "1px solid #334155",
+                  background: "#0f172a", color: "#e2e8f0", fontFamily: "monospace", fontSize: 13,
+                  lineHeight: 1.6, resize: "vertical", boxSizing: "border-box", outline: "none"
+                }}
+              />
+              {jsonError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 4 }}>JSON error: {jsonError}</div>}
+            </>
+          )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
             <button
