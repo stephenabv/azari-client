@@ -132,11 +132,21 @@ function solarFromDpt(dpt: number): number {
 
 export function calculateMonthlySavingsHybrid(
   dpt: number,
+  duec: number,
   nwec: number
 ): EngineResult {
-  const solarKwp = solarFromDpt(dpt);
+  let solarKwp: number;
+  let storageKwh: number;
+
+  if (dpt > duec) {
+    solarKwp = Math.round((dpt / 4) * 100) / 100;
+    storageKwh = roundStorageCapacity(5);
+  } else {
+    solarKwp = Math.round((nwec / 2 + duec / 4) * 100) / 100;
+    storageKwh = roundStorageCapacity(nwec / 0.9);
+  }
+
   const inverterKw = roundInverterSize(solarKwp);
-  const storageKwh = roundStorageCapacity(nwec / 0.9);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
@@ -154,9 +164,12 @@ export function calculatePeakShaving(
   peakDuration: number
 ): EngineResult {
   const rawInverter = 1.25 * (peakPower - allowedGridPower);
-  const inverterKw = roundInverterSize(rawInverter);
+  let inverterKw = roundInverterSize(rawInverter);
   const storageKwh = roundStorageCapacity((inverterKw * peakDuration) / 0.9);
-  const solarKwp = Math.round((inverterKw / 4) * 100) / 100;
+  const solarKwp = Math.round((peakDuration / 0.9) * 100) / 100;
+  if (solarKwp >= 1.25 * inverterKw) {
+    inverterKw = solarKwp / 1.25;
+  }
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
@@ -179,9 +192,9 @@ export function calculateZeroBillWithLoadProfile(
   nwec: number
 ): EngineResult {
   const dpt = computeDpt(monthlyBill, electricRate);
-  const solarKwp = solarFromDpt(dpt);
-  const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / 0.9);
+  const solarKwp = Math.round((Math.max(dpt / 4, storageKwh / 4)) * 100) / 100;
+  const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 

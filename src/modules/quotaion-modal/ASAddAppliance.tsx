@@ -4,6 +4,8 @@ import type { QuotationAppliance } from "../../models/quotation";
 type AddApplianceModalProps = {
   onClose: () => void;
   onSubmit: (item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">) => void;
+  hasBill?: boolean;
+  onHasBillChange?: (val: boolean) => void;
 };
 
 type ScheduleItem = {
@@ -74,6 +76,8 @@ function formatTimeDisplay(value: string) {
 export default function AddApplianceModal({
   onClose,
   onSubmit,
+  hasBill,
+  onHasBillChange,
 }: AddApplianceModalProps) {
   const [name, setName] = useState("");
   const [watts, setWatts] = useState("");
@@ -235,6 +239,25 @@ export default function AddApplianceModal({
               />
             </label>
           </div>
+
+          {onHasBillChange !== undefined && (
+            <div className="as-quote-mode-toggle" style={{ margin: "1rem 0" }}>
+              <button
+                type="button"
+                className={hasBill ? "is-active" : ""}
+                onClick={() => onHasBillChange(true)}
+              >
+                I have a bill
+              </button>
+              <button
+                type="button"
+                className={!hasBill ? "is-active" : ""}
+                onClick={() => onHasBillChange(false)}
+              >
+                No bill yet
+              </button>
+            </div>
+          )}
 
           <div className="as-appliance-schedule">
             <p>SCHEDULE USAGE</p>
