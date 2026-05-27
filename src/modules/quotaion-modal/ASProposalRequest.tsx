@@ -72,8 +72,9 @@ export default function RequestProposalModal({
 
         <h2>Request Proposal</h2>
         <p>
-          Our team will review your system profile and send you a detailed solar
-          proposal.
+          You're almost there! Provide your details below so our team can
+          finalize your custom solar proposal and reach out to schedule your
+          free site assessment.
         </p>
 
         <div className="as-modal-form">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
@@ -38,6 +38,7 @@ type ModalType =
 type QuoteNavigationState = {
   monthlyBill?: number;
   electricRate?: number;
+  estimatedMonthlySavings?: number;
 };
 
 
@@ -116,7 +117,7 @@ function isAllowedFileType(file: File) {
 
 function useNumericInput(initial: number) {
   const [num, setNum] = useState(initial);
-  const [str, setStr] = useState(String(initial));
+  const [str, setStr] = useState(initial > 0 ? String(initial) : "");
 
   const handleChange = (value: string) => {
     const cleaned = normalizeDecimalInput(value);
@@ -327,6 +328,7 @@ export default function ASQuotationEngine() {
   const [formError, setFormError] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedResult, setSubmittedResult] = useState<EngineResult | null>(null);
 
   // ─── Appliances ───────────────────────────────────────────────────────────
   const [appliances, setAppliances] = useState<QuotationAppliance[]>([]);
@@ -334,15 +336,13 @@ export default function ASQuotationEngine() {
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
 
   // ─── Monthly Savings inputs ───────────────────────────────────────────────
-  const savingsTarget = useNumericInput(5000);
-  const electricRateMS = useNumericInput(
-    quoteState.electricRate ?? ELECTRIC_RATE_CONFIG.defaultValue
-  );
+  const savingsTarget = useNumericInput(quoteState.estimatedMonthlySavings ?? 0);
+  const electricRateMS = useNumericInput(quoteState.electricRate ?? 0);
 
   // ─── Peak Shaving inputs ──────────────────────────────────────────────────
   const peakPower = useNumericInput(0);
   const allowedGridPower = useNumericInput(0);
-  const peakDuration = useNumericInput(4);
+  const peakDuration = useNumericInput(0);
 
   // ─── Zero Bill inputs ─────────────────────────────────────────────────────
   const monthlyBillZB = useNumericInput(
@@ -399,7 +399,7 @@ export default function ASQuotationEngine() {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
       if (dpt <= 0) return null;
       return systemType === "hybrid"
-        ? calculateMonthlySavingsHybrid(dpt, nwec)
+        ? calculateMonthlySavingsHybrid(dpt, duec, nwec)
         : calculateMonthlySavingsGridTied(dpt);
     }
 
@@ -472,9 +472,11 @@ export default function ASQuotationEngine() {
     closeModal();
   };
 
-  const handleRemoveAppliance = (id: string) => {
+  const openAddAppliance = useCallback(() => setModal("add-appliance"), []);
+
+  const handleRemoveAppliance = useCallback((id: string) => {
     setAppliances((current) => current.filter((a) => a.id !== id));
-  };
+  }, []);
 
   // ─── Bill upload handlers ─────────────────────────────────────────────────
   const handleFileUpload = (file?: File) => {
@@ -557,8 +559,8 @@ export default function ASQuotationEngine() {
     setAppliances([]);
     setUploadedBill(null);
     setFormError("");
-    savingsTarget.setStr("5000");
-    savingsTarget.setNum(5000);
+    savingsTarget.setStr("");
+    savingsTarget.setNum(0);
   };
 
   const handleSubmitProposal = async (proposalForm?: ProposalRequestFormData) => {
@@ -589,6 +591,7 @@ export default function ASQuotationEngine() {
       });
 
       if (result.isRealSuccess) {
+        setSubmittedResult(engineResult!);
         resetForm();
         setModal("submitted");
         return;
@@ -914,7 +917,9 @@ export default function ASQuotationEngine() {
               />
             )}
 
-            {modal === "submitted" && <ProposalSubmittedModal onClose={closeModal} />}
+            {modal === "submitted" && (
+              <ProposalSubmittedModal onClose={closeModal} engineResult={submittedResult} />
+            )}
 
             {modal === "system-error" && <ASSystemError onClose={closeModal} />}
           </>,
@@ -962,7 +967,14 @@ export default function ASQuotationEngine() {
                     key={item.title}
                     type="button"
                     className={`as-property-card ${selectedProperty === item.title ? "is-selected" : ""}`}
-                    onClick={() => setSelectedProperty(item.title)}
+                    onClick={() => {
+                      setSelectedProperty(item.title);
+                      if (item.title !== "Residential" && systemPurpose === "zero-bill") {
+                        setSystemPurpose("monthly-savings");
+                        setFormError("");
+                        setAppliances([]);
+                      }
+                    }}
                   >
                     <span className="as-property-icon">
                       <img src={item.icon} alt={item.title} />
