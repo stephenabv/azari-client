@@ -150,6 +150,7 @@ function PhilippinesMap({
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="Philippines map showing client locations"
+      focusable="false"
     >
       <defs>
         <pattern id="ph-dot-grid" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">

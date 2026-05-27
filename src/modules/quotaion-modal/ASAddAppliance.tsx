@@ -1,57 +1,20 @@
 import { useMemo, useState } from "react";
+import {
+  calculateDayNightHours,
+  DAY_BOUNDARY,
+} from "../../models/calculation";
 import type { QuotationAppliance } from "../../models/quotation";
 
 type AddApplianceModalProps = {
   onClose: () => void;
   onSubmit: (item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">) => void;
+  initial?: QuotationAppliance;
 };
 
 type ScheduleItem = {
   from: string;
   to: string;
 };
-
-const DEFAULT_SCHEDULES: ScheduleItem[] = [
-  { from: "08:30", to: "18:00" },
-  { from: "", to: "" },
-];
-
-// Day boundary: 08:00–18:00 (480–1080 minutes from midnight)
-const DAY_START_MIN = 8 * 60;
-const DAY_END_MIN = 18 * 60;
-
-function minutesOverlapWithDay(startMin: number, endMin: number): number {
-  return Math.max(0, Math.min(endMin, DAY_END_MIN) - Math.max(startMin, DAY_START_MIN));
-}
-
-function calculateDayNightHours(
-  from: string,
-  to: string
-): { dayHours: number; nightHours: number } {
-  if (!from || !to) return { dayHours: 0, nightHours: 0 };
-
-  const [fh, fm] = from.split(":").map(Number);
-  const [th, tm] = to.split(":").map(Number);
-
-  const fromMin = fh * 60 + fm;
-  let toMin = th * 60 + tm;
-
-  if (toMin <= fromMin) toMin += 24 * 60; // spans midnight
-
-  const totalMin = toMin - fromMin;
-  let dayMin = 0;
-
-  if (toMin <= 1440) {
-    dayMin = minutesOverlapWithDay(fromMin, toMin);
-  } else {
-    // Spans midnight: split at 1440 and check each segment
-    dayMin =
-      minutesOverlapWithDay(fromMin, 1440) +
-      minutesOverlapWithDay(0, toMin - 1440);
-  }
-
-  return { dayHours: dayMin / 60, nightHours: (totalMin - dayMin) / 60 };
-}
 
 function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
@@ -74,11 +37,18 @@ function formatTimeDisplay(value: string) {
 export default function AddApplianceModal({
   onClose,
   onSubmit,
+  initial,
 }: AddApplianceModalProps) {
-  const [name, setName] = useState("");
-  const [watts, setWatts] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [schedules, setSchedules] = useState<ScheduleItem[]>(DEFAULT_SCHEDULES);
+  const isEditing = !!initial;
+
+  const [name, setName] = useState(() => initial?.name ?? "");
+  const [watts, setWatts] = useState(() => initial ? String(initial.watts) : "");
+  const [quantity, setQuantity] = useState(() => initial ? String(initial.quantity) : "");
+  const [schedules, setSchedules] = useState<ScheduleItem[]>(() =>
+    initial?.scheduleItems?.length
+      ? initial.scheduleItems
+      : [{ from: "08:30", to: "18:00" }]
+  );
   const [error, setError] = useState("");
 
   const { totalHours, totalDayHours, totalNightHours } = useMemo(() => {
@@ -165,6 +135,7 @@ export default function AddApplianceModal({
       dayHours: Number(totalDayHours.toFixed(2)),
       nightHours: Number(totalNightHours.toFixed(2)),
       schedule: scheduleText,
+      scheduleItems: validSchedules,
       usageType: "Scheduled",
     });
   };
@@ -176,7 +147,7 @@ export default function AddApplianceModal({
           ×
         </button>
 
-        <h2>Add Appliance</h2>
+        <h2>{isEditing ? "Edit Appliance" : "Add Appliance"}</h2>
 
         <p>
           Tell us about your appliances and how long you use them. This helps
@@ -306,7 +277,7 @@ export default function AddApplianceModal({
             onClick={handleSubmit}
             type="button"
           >
-            Add Appliance
+            {isEditing ? "Save Changes" : "Add Appliance"}
           </button>
         </div>
       </div>

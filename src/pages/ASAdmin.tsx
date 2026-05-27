@@ -25,7 +25,31 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "inquiries" | "quotations" | "projects" | "content" | "footer";
+type Tab = "overview" | "inquiries" | "quotations" | "projects" | "sections" | "content" | "footer";
+
+type SectionVisibility = {
+  hero: boolean;
+  metrics: boolean;
+  benefits: boolean;
+  excellence: boolean;
+  tropics: boolean;
+  process: boolean;
+  clientJourney: boolean;
+  calculator: boolean;
+  callToAction: boolean;
+};
+
+const DEFAULT_VISIBILITY: SectionVisibility = {
+  hero: true,
+  metrics: true,
+  benefits: true,
+  excellence: true,
+  tropics: true,
+  process: true,
+  clientJourney: true,
+  calculator: true,
+  callToAction: true,
+};
 
 interface Stats {
   totals: { talkInquiries: number; quotations: number };
@@ -48,61 +72,63 @@ type SubmissionStatus = "received" | "emailed" | "email_failed" | "archived";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<string, string> = {
-  received: "#2563eb",
-  emailed: "#16a34a",
-  email_failed: "#dc2626",
-  archived: "#6b7280",
-};
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function statusClass(s: string) {
+  if (s === "emailed") return "is-emailed";
+  if (s === "email_failed") return "is-failed";
+  if (s === "archived") return "is-archived";
+  return "is-received";
+}
+
+function Toast({ msg }: { msg: string }) {
+  if (!msg) return null;
+  const cls = msg.startsWith("Error") ? "is-error" : "is-success";
+  return <div className={`ad-toast ${cls}`}>{msg}</div>;
+}
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span style={{ background: STATUS_COLORS[status] ?? "#6b7280", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+    <span className={`ad-badge ${statusClass(status)}`}>
       {status.replace(/_/g, " ")}
     </span>
   );
 }
 
-function fmt(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 
-function LoginScreen({ onLogin }: { onLogin: (key: string) => void }) {
+function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error: string }) {
   const [value, setValue] = useState("");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed) { setError("API key is required."); return; }
+    if (!trimmed) { setLocalError("API key is required."); return; }
     onLogin(trimmed);
   };
 
+  const displayError = localError || error;
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a" }}>
-      <div style={{ background: "#1e293b", borderRadius: 16, padding: "40px 48px", width: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#f8fafc", letterSpacing: -0.5, marginBottom: 4 }}>
-          azari<span style={{ color: "#38bdf8" }}>.solar</span>
-        </div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 32 }}>Admin Panel</div>
+    <div className="ad-login-wrap">
+      <div className="ad-login-card">
+        <div className="ad-login-logo">azari<span>.solar</span></div>
+        <div className="ad-login-sub">Admin Panel</div>
+        {displayError && <div className="ad-login-error">{displayError}</div>}
         <form onSubmit={handleSubmit}>
-          <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" }}>
-            Admin API Key
-          </label>
+          <label className="ad-label">Admin API Key</label>
           <input
             type="password"
+            className="ad-input"
             value={value}
-            onChange={(e) => { setValue(e.target.value); setError(""); }}
+            onChange={(e) => { setValue(e.target.value); setLocalError(""); }}
             placeholder="Enter your admin API key"
-            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #334155", background: "#0f172a", color: "#f8fafc", fontSize: 14, boxSizing: "border-box", outline: "none" }}
+            style={{ marginBottom: 20 }}
           />
-          {error && <div style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>{error}</div>}
-          <button
-            type="submit"
-            style={{ marginTop: 20, width: "100%", padding: "11px 0", background: "#38bdf8", color: "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: "pointer" }}
-          >
+          <button type="submit" className="ad-btn" style={{ width: "100%" }}>
             Sign In
           </button>
         </form>
@@ -114,49 +140,49 @@ function LoginScreen({ onLogin }: { onLogin: (key: string) => void }) {
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({ stats }: { stats: Stats | null }) {
-  if (!stats) return <div style={{ color: "#94a3b8", padding: 24 }}>Loading stats…</div>;
+  if (!stats) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading stats…</div>;
 
   const talkCounts = stats.talkInquiries.byStatus;
   const quotCounts = stats.quotations.byStatus;
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 16, marginBottom: 32 }}>
+      <div className="ad-stats-grid">
         {[
-          { label: "Total Inquiries", value: stats.totals.talkInquiries, color: "#38bdf8" },
-          { label: "Total Quotations", value: stats.totals.quotations, color: "#4ade80" },
-          { label: "Email Failures (Talk)", value: talkCounts.email_failed ?? 0, color: "#f87171" },
-          { label: "Email Failures (Quot.)", value: quotCounts.email_failed ?? 0, color: "#f87171" },
+          { label: "Total Inquiries", value: stats.totals.talkInquiries, cls: "is-accent" },
+          { label: "Total Quotations", value: stats.totals.quotations, cls: "" },
+          { label: "Email Failures (Talk)", value: talkCounts.email_failed ?? 0, cls: "is-danger" },
+          { label: "Email Failures (Quot.)", value: quotCounts.email_failed ?? 0, cls: "is-danger" },
         ].map((card) => (
-          <div key={card.label} style={{ background: "#1e293b", borderRadius: 12, padding: "20px 24px" }}>
-            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{card.label}</div>
-            <div style={{ fontSize: 32, fontWeight: 800, color: card.color }}>{card.value}</div>
+          <div key={card.label} className="ad-stat-card">
+            <div className="ad-stat-label">{card.label}</div>
+            <div className={`ad-stat-value ${card.cls}`}>{card.value}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, color: "#f8fafc", marginBottom: 12 }}>Recent Inquiries</div>
+      <div className="ad-recent-grid">
+        <div className="ad-card">
+          <div className="ad-card-title">Recent Inquiries</div>
           {stats.recent.talkInquiries.map((r) => (
-            <div key={r.id} style={{ borderBottom: "1px solid #334155", padding: "10px 0", fontSize: 13 }}>
-              <div style={{ color: "#f8fafc", fontWeight: 600 }}>{r.name}</div>
-              <div style={{ color: "#64748b" }}>{r.email} · {r.inquiryType}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                <span style={{ color: "#475569", fontSize: 11 }}>{fmt(r.createdAt)}</span>
+            <div key={r.id} className="ad-recent-row">
+              <div className="ad-recent-name">{r.name}</div>
+              <div className="ad-recent-meta">{r.email} · {r.inquiryType}</div>
+              <div className="ad-recent-footer">
+                <span className="ad-recent-date">{fmt(r.createdAt)}</span>
                 <StatusBadge status={r.status} />
               </div>
             </div>
           ))}
         </div>
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20 }}>
-          <div style={{ fontWeight: 700, color: "#f8fafc", marginBottom: 12 }}>Recent Quotations</div>
+        <div className="ad-card">
+          <div className="ad-card-title">Recent Quotations</div>
           {stats.recent.quotations.map((r) => (
-            <div key={r.id} style={{ borderBottom: "1px solid #334155", padding: "10px 0", fontSize: 13 }}>
-              <div style={{ color: "#f8fafc", fontWeight: 600 }}>{r.fullName}</div>
-              <div style={{ color: "#64748b" }}>{r.email} · {r.estimatedSystemSizeDisplayText}</div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                <span style={{ color: "#475569", fontSize: 11 }}>{fmt(r.createdAt)}</span>
+            <div key={r.id} className="ad-recent-row">
+              <div className="ad-recent-name">{r.fullName}</div>
+              <div className="ad-recent-meta">{r.email} · {r.estimatedSystemSizeDisplayText}</div>
+              <div className="ad-recent-footer">
+                <span className="ad-recent-date">{fmt(r.createdAt)}</span>
                 <StatusBadge status={r.status} />
               </div>
             </div>
@@ -170,36 +196,20 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
 // ─── Submissions Table ─────────────────────────────────────────────────────────
 
 function EmailStatusIndicator({ status, id, onRetry, retrying }: { status: string; id: string; onRetry: (id: string) => void; retrying: boolean }) {
-  if (status === "emailed") {
-    return <div style={{ marginTop: 5, fontSize: 11, color: "#4ade80", fontWeight: 600 }}>✓ Email sent</div>;
-  }
-  if (status === "email_failed") {
-    return (
-      <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 11, color: "#f87171", fontWeight: 600 }}>✗ Email failed</span>
-        <button
-          onClick={() => onRetry(id)}
-          disabled={retrying}
-          style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: retrying ? "#334155" : "#7c3aed", color: retrying ? "#64748b" : "#e9d5ff", fontSize: 10, fontWeight: 700, cursor: retrying ? "not-allowed" : "pointer" }}
-        >
-          {retrying ? "…" : "Retry"}
-        </button>
-      </div>
-    );
-  }
-  if (status === "received") {
-    return <div style={{ marginTop: 5, fontSize: 11, color: "#64748b" }}>Pending email</div>;
-  }
+  if (status === "emailed") return <div className="ad-email-status is-sent">✓ Email sent</div>;
+  if (status === "email_failed") return (
+    <div className="ad-email-status is-failed" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      ✗ Email failed
+      <button onClick={() => onRetry(id)} disabled={retrying} className="ad-btn ad-btn--sm ad-btn--secondary">
+        {retrying ? "…" : "Retry"}
+      </button>
+    </div>
+  );
+  if (status === "received") return <div className="ad-email-status is-pending">Pending email</div>;
   return null;
 }
 
-function SubmissionsTable({
-  apiKey,
-  type,
-}: {
-  apiKey: string;
-  type: "talk" | "quotations";
-}) {
+function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "quotations" }) {
   const [data, setData] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -234,9 +244,7 @@ function SubmissionsTable({
       const fn = type === "talk" ? adminUpdateTalkStatus : adminUpdateQuotationStatus;
       await fn(apiKey, id, status);
       await load();
-    } finally {
-      setUpdating(null);
-    }
+    } finally { setUpdating(null); }
   };
 
   const handleRetryEmail = async (id: string) => {
@@ -245,9 +253,7 @@ function SubmissionsTable({
       const fn = type === "talk" ? adminRetryTalkEmail : adminRetryQuotationEmail;
       await fn(apiKey, id);
       await load();
-    } finally {
-      setRetrying(null);
-    }
+    } finally { setRetrying(null); }
   };
 
   const handleDelete = async (id: string) => {
@@ -259,9 +265,7 @@ function SubmissionsTable({
       await load();
     } catch (e) {
       alert(`Delete failed: ${(e as Error).message}`);
-    } finally {
-      setDeleting(null);
-    }
+    } finally { setDeleting(null); }
   };
 
   const openEdit = (row: Record<string, unknown>) => {
@@ -269,20 +273,15 @@ function SubmissionsTable({
     setEditMsg("");
     if (type === "talk") {
       setEditForm({
-        name: String(row.name ?? ""),
-        email: String(row.email ?? ""),
-        phone: String(row.phone ?? ""),
-        province: String(row.province ?? ""),
-        city: String(row.city ?? ""),
-        inquiryType: String(row.inquiryType ?? "general"),
+        name: String(row.name ?? ""), email: String(row.email ?? ""),
+        phone: String(row.phone ?? ""), province: String(row.province ?? ""),
+        city: String(row.city ?? ""), inquiryType: String(row.inquiryType ?? "general"),
         message: String(row.message ?? ""),
       });
     } else {
       setEditForm({
-        fullName: String(row.fullName ?? ""),
-        email: String(row.email ?? ""),
-        phone: String(row.phone ?? ""),
-        location: String(row.location ?? ""),
+        fullName: String(row.fullName ?? ""), email: String(row.email ?? ""),
+        phone: String(row.phone ?? ""), location: String(row.location ?? ""),
         propertyClassification: String(row.propertyClassification ?? ""),
         message: String(row.message ?? ""),
       });
@@ -300,188 +299,108 @@ function SubmissionsTable({
       await load();
     } catch (e) {
       setEditMsg(`Error: ${(e as Error).message}`);
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const EI: React.CSSProperties = {
-    width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #334155",
-    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
-  };
-  const EL: React.CSSProperties = {
-    display: "block", fontSize: 11, fontWeight: 700, color: "#64748b",
-    textTransform: "uppercase", letterSpacing: 1, marginBottom: 4,
+    } finally { setEditSaving(false); }
   };
 
   const STATUS_OPTIONS: SubmissionStatus[] = ["received", "emailed", "email_failed", "archived"];
 
   return (
     <div>
-      {/* Filter bar */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16 }}>
+      <div className="ad-filter-bar">
         <select
+          className="ad-select"
+          style={{ width: "auto" }}
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
-          style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #334155", background: "#1e293b", color: "#f8fafc", fontSize: 13 }}
         >
           <option value="">All Statuses</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
         </select>
-        <span style={{ color: "#64748b", fontSize: 13 }}>{total} records</span>
+        <span className="ad-filter-count">{total} records</span>
       </div>
 
-      {/* Inline edit panel */}
       {editingRow && (
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20, marginBottom: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 15 }}>
-              Edit {type === "talk" ? "Inquiry" : "Quotation Request"}
-            </div>
-            <button onClick={() => { setEditingRow(null); setEditMsg(""); }} style={BTN_SM}>Cancel</button>
+        <div className="ad-edit-panel">
+          <div className="ad-edit-panel-header">
+            <div className="ad-edit-panel-title">Edit {type === "talk" ? "Inquiry" : "Quotation Request"}</div>
+            <button onClick={() => { setEditingRow(null); setEditMsg(""); }} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
           </div>
 
-          {type === "talk" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={EL}>Name</label>
-                <input style={EI} value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Email</label>
-                <input style={EI} value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Phone</label>
-                <input style={EI} value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Inquiry Type</label>
-                <select style={EI} value={editForm.inquiryType ?? "general"} onChange={(e) => setEditForm((f) => ({ ...f, inquiryType: e.target.value }))}>
-                  <option value="general">General</option>
-                  <option value="quote">Quote</option>
-                  <option value="consultation">Consultation</option>
-                </select>
-              </div>
-              <div>
-                <label style={EL}>Province</label>
-                <input style={EI} value={editForm.province ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, province: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>City</label>
-                <input style={EI} value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={EL}>Message</label>
-                <textarea
-                  style={{ ...EI, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
-                  value={editForm.message ?? ""}
-                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
-                />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={EL}>Full Name</label>
-                <input style={EI} value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Email</label>
-                <input style={EI} value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Phone</label>
-                <input style={EI} value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div>
-                <label style={EL}>Location</label>
-                <input style={EI} value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={EL}>Property Classification</label>
-                <input style={EI} value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} />
-              </div>
-              <div style={{ gridColumn: "1 / -1" }}>
-                <label style={EL}>Message</label>
-                <textarea
-                  style={{ ...EI, minHeight: 80, resize: "vertical", fontFamily: "inherit" }}
-                  value={editForm.message ?? ""}
-                  onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))}
-                />
-              </div>
-            </div>
-          )}
+          <div className="ad-form-grid">
+            {type === "talk" ? (
+              <>
+                <div><label className="ad-label">Name</label><input className="ad-input" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} /></div>
+                <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+                <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
+                <div>
+                  <label className="ad-label">Inquiry Type</label>
+                  <select className="ad-select" value={editForm.inquiryType ?? "general"} onChange={(e) => setEditForm((f) => ({ ...f, inquiryType: e.target.value }))}>
+                    <option value="general">General</option>
+                    <option value="quote">Quote</option>
+                    <option value="consultation">Consultation</option>
+                  </select>
+                </div>
+                <div><label className="ad-label">Province</label><input className="ad-input" value={editForm.province ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, province: e.target.value }))} /></div>
+                <div><label className="ad-label">City</label><input className="ad-input" value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} /></div>
+                <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
+              </>
+            ) : (
+              <>
+                <div><label className="ad-label">Full Name</label><input className="ad-input" value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} /></div>
+                <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+                <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
+                <div><label className="ad-label">Location</label><input className="ad-input" value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} /></div>
+                <div className="ad-form-full"><label className="ad-label">Property Classification</label><input className="ad-input" value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} /></div>
+                <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
+              </>
+            )}
+          </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
-            <button
-              onClick={() => void handleEditSave()}
-              disabled={editSaving}
-              style={{ padding: "9px 24px", background: editSaving ? "#334155" : "#38bdf8", color: editSaving ? "#64748b" : "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
-            >
+          <div className="ad-form-actions">
+            <button onClick={() => void handleEditSave()} disabled={editSaving} className="ad-btn">
               {editSaving ? "Saving…" : "Save Changes"}
             </button>
-            {editMsg && <span style={{ fontSize: 13, color: "#f87171" }}>{editMsg}</span>}
+            <Toast msg={editMsg} />
           </div>
         </div>
       )}
 
       {loading ? (
-        <div style={{ color: "#64748b", padding: 24 }}>Loading…</div>
+        <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="ad-table-wrap">
+          <table className="ad-table">
             <thead>
-              <tr style={{ background: "#1e293b" }}>
+              <tr>
                 {type === "talk" ? (
-                  <>
-                    <th style={TH}>Name</th>
-                    <th style={TH}>Email</th>
-                    <th style={TH}>Phone</th>
-                    <th style={TH}>Location</th>
-                    <th style={TH}>Type</th>
-                  </>
+                  <><th>Name</th><th>Email</th><th>Phone</th><th>Location</th><th>Type</th></>
                 ) : (
-                  <>
-                    <th style={TH}>Name</th>
-                    <th style={TH}>Email</th>
-                    <th style={TH}>System Size</th>
-                    <th style={TH}>Monthly Bill</th>
-                    <th style={TH}>Property</th>
-                  </>
+                  <><th>Name</th><th>Email</th><th>System Size</th><th>Monthly Bill</th><th>Property</th></>
                 )}
-                <th style={TH}>Date</th>
-                <th style={TH}>Status / Email</th>
-                <th style={TH}>Actions</th>
+                <th>Date</th>
+                <th>Status / Email</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {(data as Array<Record<string, unknown>>).map((row) => (
-                <tr key={row.id as string} style={{ borderBottom: "1px solid #1e293b" }}>
+                <tr key={row.id as string}>
                   {type === "talk" ? (
-                    <>
-                      <td style={TD}>{row.name as string}</td>
-                      <td style={TD}>{row.email as string}</td>
-                      <td style={TD}>{row.phone as string}</td>
-                      <td style={TD}>{row.city as string}, {row.province as string}</td>
-                      <td style={TD}>{row.inquiryType as string}</td>
-                    </>
+                    <><td>{row.name as string}</td><td>{row.email as string}</td><td>{row.phone as string}</td>
+                    <td>{row.city as string}, {row.province as string}</td><td>{row.inquiryType as string}</td></>
                   ) : (
-                    <>
-                      <td style={TD}>{row.fullName as string}</td>
-                      <td style={TD}>{row.email as string}</td>
-                      <td style={TD}>{row.estimatedSystemSizeDisplayText as string}</td>
-                      <td style={TD}>₱{Number(row.averageMonthlyBillPhp).toLocaleString()}</td>
-                      <td style={TD}>{row.propertyClassification as string}</td>
-                    </>
+                    <><td>{row.fullName as string}</td><td>{row.email as string}</td>
+                    <td>{row.estimatedSystemSizeDisplayText as string}</td>
+                    <td>₱{Number(row.averageMonthlyBillPhp).toLocaleString()}</td>
+                    <td>{row.propertyClassification as string}</td></>
                   )}
-                  <td style={TD}>{fmt(row.createdAt as string)}</td>
-                  <td style={TD}>
+                  <td>{fmt(row.createdAt as string)}</td>
+                  <td>
                     <select
+                      className="ad-status-select"
                       value={row.status as string}
                       disabled={updating === row.id || retrying === row.id}
                       onChange={(e) => void handleStatusChange(row.id as string, e.target.value)}
-                      style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #334155", background: STATUS_COLORS[row.status as string] ?? "#334155", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                     >
                       {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
                     </select>
@@ -492,19 +411,14 @@ function SubmissionsTable({
                       retrying={retrying === row.id}
                     />
                   </td>
-                  <td style={TD}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        onClick={() => openEdit(row)}
-                        disabled={!!editingRow || deleting === (row.id as string)}
-                        style={{ ...BTN_SM, background: "#1e40af", color: "#93c5fd" }}
-                      >
-                        Edit
-                      </button>
+                  <td>
+                    <div className="ad-table-actions">
+                      <button onClick={() => openEdit(row)} disabled={!!editingRow || deleting === (row.id as string)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
                       <button
                         onClick={() => void handleDelete(row.id as string)}
                         disabled={deleting === (row.id as string) || !!editingRow}
-                        style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5", opacity: deleting === (row.id as string) ? 0.5 : 1 }}
+                        className="ad-btn ad-btn--danger ad-btn--sm"
+                        style={{ opacity: deleting === (row.id as string) ? 0.5 : 1 }}
                       >
                         {deleting === (row.id as string) ? "…" : "Delete"}
                       </button>
@@ -517,16 +431,16 @@ function SubmissionsTable({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-        <button onClick={() => setOffset(Math.max(0, offset - limit))} disabled={offset === 0} style={BTN_SM}>← Prev</button>
-        <span style={{ color: "#64748b", fontSize: 13, alignSelf: "center" }}>{Math.floor(offset / limit) + 1} / {Math.max(1, Math.ceil(total / limit))}</span>
-        <button onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total} style={BTN_SM}>Next →</button>
+      <div className="ad-pagination">
+        <button onClick={() => setOffset(Math.max(0, offset - limit))} disabled={offset === 0} className="ad-btn ad-btn--ghost ad-btn--sm">← Prev</button>
+        <span className="ad-pagination-info">{Math.floor(offset / limit) + 1} / {Math.max(1, Math.ceil(total / limit))}</span>
+        <button onClick={() => setOffset(offset + limit)} disabled={offset + limit >= total} className="ad-btn ad-btn--ghost ad-btn--sm">Next →</button>
       </div>
     </div>
   );
 }
 
-// ─── Metrics Editor Form ──────────────────────────────────────────────────────
+// ─── Metrics Editor ───────────────────────────────────────────────────────────
 
 interface MetricItem { value: string; label: string; order: number }
 
@@ -539,35 +453,20 @@ function MetricsEditorForm({ editorText, onChange }: { editorText: string; onCha
     onChange(JSON.stringify({ items: next }, null, 2));
   };
 
-  const MI: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #334155",
-    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
-  };
-
   return (
     <div>
-      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16 }}>
-        Edit each metric's displayed value and label. Changes take effect on the website after saving.
+      <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 16 }}>
+        Edit each metric's displayed value and label.
       </div>
       {items.map((item, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 12, marginBottom: 12, alignItems: "center" }}>
+        <div key={i} className="ad-metrics-row">
           <div>
-            {i === 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Value</div>}
-            <input
-              style={{ ...MI, fontWeight: 700, textAlign: "center" }}
-              value={item.value}
-              onChange={(e) => update(i, "value", e.target.value)}
-              placeholder="e.g. 25yr"
-            />
+            {i === 0 && <div className="ad-label">Value</div>}
+            <input className="ad-input" style={{ textAlign: "center", fontWeight: 700 }} value={item.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="e.g. 25yr" />
           </div>
           <div>
-            {i === 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Label</div>}
-            <input
-              style={MI}
-              value={item.label}
-              onChange={(e) => update(i, "label", e.target.value)}
-              placeholder="e.g. PERFORMANCE WARRANTY"
-            />
+            {i === 0 && <div className="ad-label">Label</div>}
+            <input className="ad-input" value={item.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="e.g. PERFORMANCE WARRANTY" />
           </div>
         </div>
       ))}
@@ -591,10 +490,8 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
     setLoading(true);
     try {
       const res = await adminGetAllContent(apiKey);
-      setItems(res.data);
-    } finally {
-      setLoading(false);
-    }
+      setItems(res.data.filter((i) => i.key !== "section-visibility"));
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { void load(); }, []);
@@ -622,9 +519,7 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
       await load();
     } catch (e) {
       setMsg(`Error: ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleReset = async (key: string) => {
@@ -640,93 +535,72 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
   };
 
   const SECTION_LABELS: Record<string, string> = {
-    hero: "Hero Section",
-    metrics: "Metrics / Stats",
-    excellence: "Engineered Excellence",
-    process: "Process Steps",
-    tropics: "Tropics Section",
-    cta: "Call to Action",
-    benefits: "Benefits Banner",
-    footer: "Footer",
+    hero: "Hero Section", metrics: "Metrics / Stats", excellence: "Engineered Excellence",
+    process: "Process Steps", tropics: "Tropics Section", cta: "Call to Action",
+    benefits: "Benefits Banner", footer: "Footer",
   };
 
-  if (loading) return <div style={{ color: "#94a3b8", padding: 24 }}>Loading content…</div>;
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading content…</div>;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: editing ? "280px 1fr" : "1fr", gap: 16 }}>
-      {/* Section list */}
-      <div>
-        {msg && <div style={{ padding: "8px 12px", borderRadius: 8, background: msg.startsWith("Error") ? "#7f1d1d" : "#14532d", color: "#fff", fontSize: 13, marginBottom: 12 }}>{msg}</div>}
-        {items.map((item) => (
-          <div
-            key={item.key}
-            style={{ background: editing === item.key ? "#2d3f55" : "#1e293b", borderRadius: 10, padding: "14px 16px", marginBottom: 8, cursor: "pointer", border: editing === item.key ? "1px solid #38bdf8" : "1px solid transparent" }}
-            onClick={() => startEdit(item)}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 600, color: "#f8fafc", fontSize: 14 }}>{SECTION_LABELS[item.key] ?? item.key}</span>
-              {item.isCustomized && (
-                <span style={{ fontSize: 10, background: "#0284c7", color: "#fff", padding: "2px 6px", borderRadius: 6, fontWeight: 700 }}>CUSTOM</span>
-              )}
-            </div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-              {item.updatedAt ? `Updated ${fmt(item.updatedAt)}` : "Using default"}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Editor panel */}
-      {editing && (
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 16 }}>
-              {SECTION_LABELS[editing] ?? editing}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => void handleReset(editing)} style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5" }}>Reset to Default</button>
-              <button onClick={() => setEditing(null)} style={{ ...BTN_SM, background: "#334155", color: "#cbd5e1" }}>Close</button>
-            </div>
-          </div>
-
-          {editing === "metrics" ? (
-            <MetricsEditorForm
-              editorText={editorText}
-              onChange={(text) => { setEditorText(text); validateJson(text); }}
-            />
-          ) : (
-            <>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
-                Edit JSON — changes take effect immediately on the website after saving.
-              </div>
-              <textarea
-                ref={textareaRef}
-                value={editorText}
-                onChange={(e) => { setEditorText(e.target.value); validateJson(e.target.value); }}
-                spellCheck={false}
-                style={{
-                  width: "100%", minHeight: 420, padding: 14, borderRadius: 8,
-                  border: jsonError ? "1px solid #dc2626" : "1px solid #334155",
-                  background: "#0f172a", color: "#e2e8f0", fontFamily: "monospace", fontSize: 13,
-                  lineHeight: 1.6, resize: "vertical", boxSizing: "border-box", outline: "none"
-                }}
-              />
-              {jsonError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 4 }}>JSON error: {jsonError}</div>}
-            </>
-          )}
-
-          <div style={{ display: "flex", gap: 10, marginTop: 14, alignItems: "center" }}>
-            <button
-              onClick={() => void handleSave()}
-              disabled={saving || !!jsonError}
-              style={{ padding: "9px 24px", background: saving || jsonError ? "#334155" : "#38bdf8", color: saving || jsonError ? "#64748b" : "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: saving || jsonError ? "not-allowed" : "pointer" }}
+    <div>
+      <Toast msg={msg} />
+      <div className="ad-content-layout">
+        <div>
+          {items.map((item) => (
+            <div
+              key={item.key}
+              className={`ad-content-list-item${editing === item.key ? " is-active" : ""}`}
+              onClick={() => startEdit(item)}
             >
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
-            {msg && !saving && <span style={{ fontSize: 13, color: msg.startsWith("Error") ? "#f87171" : "#4ade80" }}>{msg}</span>}
-          </div>
+              <div className="ad-content-list-name">
+                {SECTION_LABELS[item.key] ?? item.key}
+                {item.isCustomized && <span className="ad-badge is-custom">Custom</span>}
+              </div>
+              <div className="ad-content-list-meta">
+                {item.updatedAt ? `Updated ${fmt(item.updatedAt)}` : "Using default"}
+              </div>
+            </div>
+          ))}
         </div>
-      )}
+
+        {editing && (
+          <div className="ad-card">
+            <div className="ad-edit-panel-header" style={{ marginBottom: 12 }}>
+              <div className="ad-edit-panel-title">{SECTION_LABELS[editing] ?? editing}</div>
+              <div className="ad-table-actions">
+                <button onClick={() => void handleReset(editing)} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+                <button onClick={() => setEditing(null)} className="ad-btn ad-btn--ghost ad-btn--sm">Close</button>
+              </div>
+            </div>
+
+            {editing === "metrics" ? (
+              <MetricsEditorForm editorText={editorText} onChange={(text) => { setEditorText(text); validateJson(text); }} />
+            ) : (
+              <>
+                <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 8 }}>
+                  Edit JSON — changes take effect on the website after saving.
+                </div>
+                <textarea
+                  ref={textareaRef}
+                  className={`ad-code-textarea${jsonError ? " has-error" : ""}`}
+                  value={editorText}
+                  onChange={(e) => { setEditorText(e.target.value); validateJson(e.target.value); }}
+                  spellCheck={false}
+                />
+                {jsonError && <div className="ad-json-error">JSON error: {jsonError}</div>}
+              </>
+            )}
+
+            <div className="ad-form-actions">
+              <button onClick={() => void handleSave()} disabled={saving || !!jsonError} className="ad-btn">
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+              {msg && !saving && <Toast msg={msg} />}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -734,28 +608,19 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
 // ─── Projects Manager ─────────────────────────────────────────────────────────
 
 type ProjectForm = {
-  title: string;
-  category: ApiProjectCategory;
-  system: string;
-  savings: string;
-  isRecent: boolean;
-  sortOrder: number;
+  title: string; category: ApiProjectCategory; system: string;
+  savings: string; isRecent: boolean; sortOrder: number;
 };
 
 const EMPTY_PROJECT_FORM: ProjectForm = {
-  title: "",
-  category: "Residential",
-  system: "",
-  savings: "",
-  isRecent: false,
-  sortOrder: 0,
+  title: "", category: "Residential", system: "", savings: "", isRecent: false, sortOrder: 0,
 };
 
-const CATEGORY_BADGE: Record<string, string> = {
-  Residential: "#0284c7",
-  Commercial: "#7c3aed",
-  Industrial: "#b45309",
-};
+function categoryClass(c: string) {
+  if (c === "Commercial") return "is-commercial";
+  if (c === "Industrial") return "is-industrial";
+  return "is-residential";
+}
 
 function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [projects, setProjects] = useState<ApiProject[]>([]);
@@ -774,38 +639,23 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     try {
       const res = await adminGetProjects(apiKey);
       setProjects(res.data);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { void load(); }, []);
 
   const openAdd = () => {
-    setEditingId(null);
-    setForm(EMPTY_PROJECT_FORM);
-    setImageFile(null);
-    setImagePreview("");
-    setMsg("");
-    setShowForm(true);
+    setEditingId(null); setForm(EMPTY_PROJECT_FORM);
+    setImageFile(null); setImagePreview(""); setMsg(""); setShowForm(true);
   };
 
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
     setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent, sortOrder: p.sortOrder });
-    setImageFile(null);
-    setImagePreview(p.imageUrl); // show existing image
-    setMsg("");
-    setShowForm(true);
+    setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setShowForm(true);
   };
 
-  const closeForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setImageFile(null);
-    setImagePreview("");
-    setMsg("");
-  };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); };
 
   const handleImageSelect = (file: File | undefined) => {
     if (!file) return;
@@ -819,16 +669,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     setForm((f) => ({ ...f, [key]: value }));
 
   const handleSave = async () => {
-    if (!form.title.trim() || !form.system.trim() || !form.savings.trim()) {
-      setMsg("Error: Title, System, and Savings are required.");
-      return;
-    }
-    if (!editingId && !imageFile) {
-      setMsg("Error: Please upload a project image.");
-      return;
-    }
-    setSaving(true);
-    setMsg("");
+    if (!form.title.trim() || !form.system.trim() || !form.savings.trim()) { setMsg("Error: Title, System, and Savings are required."); return; }
+    if (!editingId && !imageFile) { setMsg("Error: Please upload a project image."); return; }
+    setSaving(true); setMsg("");
     try {
       const payload: ProjectInput = { ...form, sortOrder: Number(form.sortOrder), imageFile: imageFile ?? undefined };
       if (editingId) {
@@ -838,13 +681,10 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         await adminCreateProject(apiKey, payload);
         setMsg("✓ Project created");
       }
-      await load();
-      closeForm();
+      await load(); closeForm();
     } catch (e) {
       setMsg(`Error: ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string, title: string) => {
@@ -856,178 +696,101 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       await load();
     } catch (e) {
       setMsg(`Error: ${(e as Error).message}`);
-    } finally {
-      setDeleting(null);
-    }
+    } finally { setDeleting(null); }
   };
-
-  const PI: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #334155",
-    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
-  };
-  const PL: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 };
 
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 16 }}>Projects Portfolio</div>
-        {!showForm && (
-          <button onClick={openAdd} style={{ ...BTN_SM, background: "#0284c7", color: "#fff", fontSize: 13 }}>+ Add Project</button>
-        )}
+      <div className="ad-section-header">
+        <div className="ad-section-title">Projects Portfolio</div>
+        {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Project</button>}
       </div>
 
-      {msg && (
-        <div style={{ padding: "10px 14px", borderRadius: 8, background: msg.startsWith("Error") ? "#7f1d1d" : "#14532d", color: "#fff", fontSize: 13, marginBottom: 16 }}>
-          {msg}
-        </div>
-      )}
+      <Toast msg={msg} />
 
-      {/* Add / Edit Form */}
       {showForm && (
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-            <div style={{ fontWeight: 700, color: "#f8fafc", fontSize: 15 }}>{editingId ? "Edit Project" : "Add New Project"}</div>
-            <button onClick={closeForm} style={BTN_SM}>Cancel</button>
+        <div className="ad-card" style={{ marginBottom: 20 }}>
+          <div className="ad-edit-panel-header">
+            <div className="ad-edit-panel-title">{editingId ? "Edit Project" : "Add New Project"}</div>
+            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div className="ad-form-grid">
+            <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
             <div>
-              <label style={PL}>Title</label>
-              <input style={PI} value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" />
-            </div>
-            <div>
-              <label style={PL}>Category</label>
-              <select style={PI} value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
+              <label className="ad-label">Category</label>
+              <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
                 <option value="Residential">Residential</option>
                 <option value="Commercial">Commercial</option>
                 <option value="Industrial">Industrial</option>
               </select>
             </div>
-            <div>
-              <label style={PL}>System</label>
-              <input style={PI} value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" />
-            </div>
-            <div>
-              <label style={PL}>Estimated Savings (10-Year)</label>
-              <input style={PI} value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" />
-            </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={PL}>Project Image {editingId && <span style={{ fontWeight: 400, color: "#475569" }}>(leave empty to keep current)</span>}</label>
-              <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
+            <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
+            <div className="ad-form-full">
+              <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
+              <div className="ad-image-row">
                 <div
-                  style={{ flex: 1, border: "2px dashed #334155", borderRadius: 8, padding: 16, cursor: "pointer", textAlign: "center", background: "#0f172a" }}
+                  className="ad-image-drop"
+                  style={{ flex: 1 }}
                   onClick={() => document.getElementById("proj-img-input")?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}
                 >
-                  <input
-                    id="proj-img-input"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
-                    hidden
-                    onChange={(e) => handleImageSelect(e.target.files?.[0])}
-                  />
-                  <div style={{ color: "#64748b", fontSize: 13 }}>
-                    {imageFile ? (
-                      <span style={{ color: "#38bdf8" }}>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span>
-                    ) : (
-                      <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>
-                    )}
-                  </div>
+                  <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
+                  {imageFile
+                    ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span>
+                    : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
                 </div>
-                {imagePreview && (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid #334155", flexShrink: 0 }}
-                  />
-                )}
+                {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
               </div>
             </div>
-            <div>
-              <label style={PL}>Sort Order</label>
-              <input type="number" style={PI} value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} />
-            </div>
+            <div><label className="ad-label">Sort Order</label><input type="number" className="ad-input" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <input
-                type="checkbox"
-                id="isRecent"
-                checked={form.isRecent}
-                onChange={(e) => setField("isRecent", e.target.checked)}
-                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#38bdf8" }}
-              />
-              <label htmlFor="isRecent" style={{ color: "#cbd5e1", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
+              <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              onClick={() => void handleSave()}
-              disabled={saving}
-              style={{ padding: "9px 24px", background: saving ? "#334155" : "#38bdf8", color: saving ? "#64748b" : "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer" }}
-            >
+          <div className="ad-form-actions">
+            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
               {saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Projects Table */}
       {loading ? (
-        <div style={{ color: "#94a3b8", padding: 24 }}>Loading projects…</div>
+        <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading projects…</div>
       ) : projects.length === 0 ? (
-        <div style={{ background: "#1e293b", borderRadius: 12, padding: 40, textAlign: "center", color: "#475569" }}>
-          <div style={{ fontSize: 15, marginBottom: 8 }}>No projects yet</div>
-          <div style={{ fontSize: 13 }}>Click "+ Add Project" to publish your first installation.</div>
+        <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No projects yet</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Click "+ Add Project" to publish your first installation.</div>
         </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="ad-table-wrap">
+          <table className="ad-table">
             <thead>
-              <tr style={{ background: "#1e293b" }}>
-                <th style={TH}>Title</th>
-                <th style={TH}>Category</th>
-                <th style={TH}>System</th>
-                <th style={TH}>Savings</th>
-                <th style={TH}>Recent</th>
-                <th style={TH}>Order</th>
-                <th style={TH}>Actions</th>
-              </tr>
+              <tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Order</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {projects.map((p) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #1e293b" }}>
-                  <td style={TD}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {p.imageUrl && (
-                        <img src={p.imageUrl} alt={p.title} style={{ width: 52, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
-                      )}
-                      <span style={{ fontWeight: 600, color: "#f8fafc" }}>{p.title}</span>
+                <tr key={p.id}>
+                  <td>
+                    <div className="ad-proj-title-cell">
+                      {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="ad-proj-thumb" />}
+                      <span style={{ fontWeight: 600 }}>{p.title}</span>
                     </div>
                   </td>
-                  <td style={TD}>
-                    <span style={{ background: CATEGORY_BADGE[p.category] ?? "#334155", color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 8 }}>
-                      {p.category}
-                    </span>
-                  </td>
-                  <td style={TD}>{p.system}</td>
-                  <td style={TD}>{p.savings}</td>
-                  <td style={TD}>
-                    {p.isRecent
-                      ? <span style={{ fontSize: 11, background: "#14532d", color: "#4ade80", padding: "2px 8px", borderRadius: 8, fontWeight: 700 }}>Recent</span>
-                      : <span style={{ color: "#475569" }}>—</span>
-                    }
-                  </td>
-                  <td style={{ ...TD, textAlign: "center" }}>{p.sortOrder}</td>
-                  <td style={TD}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => openEdit(p)} style={{ ...BTN_SM, background: "#1e40af", color: "#93c5fd" }}>Edit</button>
-                      <button
-                        onClick={() => void handleDelete(p.id, p.title)}
-                        disabled={deleting === p.id}
-                        style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5", opacity: deleting === p.id ? 0.5 : 1 }}
-                      >
+                  <td><span className={`ad-badge ${categoryClass(p.category)}`}>{p.category}</span></td>
+                  <td>{p.system}</td>
+                  <td>{p.savings}</td>
+                  <td>{p.isRecent ? <span className="ad-badge is-recent">Recent</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
+                  <td style={{ textAlign: "center" }}>{p.sortOrder}</td>
+                  <td>
+                    <div className="ad-table-actions">
+                      <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                      <button onClick={() => void handleDelete(p.id, p.title)} disabled={deleting === p.id} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>
                         {deleting === p.id ? "…" : "Delete"}
                       </button>
                     </div>
@@ -1042,18 +805,94 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   );
 }
 
+// ─── Section Visibility Manager ───────────────────────────────────────────────
+
+const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: string }> = [
+  { key: "hero",         name: "Hero",              desc: "Main hero banner with headline" },
+  { key: "metrics",      name: "Metrics",           desc: "Stats strip (installs, warranty, savings…)" },
+  { key: "benefits",     name: "Benefits",          desc: "Benefits banner row" },
+  { key: "excellence",   name: "Engineered Excellence", desc: "Products & quality section" },
+  { key: "tropics",      name: "Tropics",           desc: "Designed for the tropics section" },
+  { key: "process",      name: "Process",           desc: "Step-by-step process section" },
+  { key: "clientJourney", name: "Client Journey",   desc: "Testimonials map carousel" },
+  { key: "calculator",   name: "Calculator",        desc: "Solar impact calculator" },
+  { key: "callToAction", name: "Call to Action",    desc: "Final CTA section" },
+];
+
+function SectionsManager({ apiKey }: { apiKey: string }) {
+  const [vis, setVis] = useState<SectionVisibility>(DEFAULT_VISIBILITY);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await adminGetAllContent(apiKey);
+        const item = res.data.find((i) => i.key === "section-visibility");
+        if (item?.data) setVis({ ...DEFAULT_VISIBILITY, ...(item.data as Partial<SectionVisibility>) });
+      } finally { setLoading(false); }
+    };
+    void load();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true); setMsg("");
+    try {
+      await adminUpsertContent(apiKey, "section-visibility", vis);
+      setMsg("✓ Section visibility saved");
+    } catch (e) {
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+
+  return (
+    <div>
+      <div className="ad-section-header">
+        <div>
+          <div className="ad-section-title">Section Visibility</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text2)", marginTop: 4 }}>Toggle which sections are shown on the public website.</div>
+        </div>
+      </div>
+
+      <div className="ad-sections-grid">
+        {SECTION_INFO.map(({ key, name, desc }) => (
+          <div key={key} className={`ad-section-toggle-card${vis[key] ? " is-enabled" : ""}`}>
+            <div className="ad-section-toggle-info">
+              <div className="ad-section-toggle-name">{name}</div>
+              <div className="ad-section-toggle-desc">{desc}</div>
+            </div>
+            <label className="ad-toggle-switch">
+              <input
+                type="checkbox"
+                checked={vis[key]}
+                onChange={(e) => setVis((v) => ({ ...v, [key]: e.target.checked }))}
+              />
+              <span className="ad-toggle-track" />
+            </label>
+          </div>
+        ))}
+      </div>
+
+      <div className="ad-sections-save-bar">
+        <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
+          {saving ? "Saving…" : "Save Changes"}
+        </button>
+        <Toast msg={msg} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Footer Editor ─────────────────────────────────────────────────────────────
 
 type FooterLink = { name: string; url: string };
 type FooterContent = {
-  phone: string;
-  email: string;
+  phone: string; email: string;
   socials: Record<string, FooterLink>;
-  footer_text: {
-    credits: string;
-    privacy_policy: FooterLink;
-    terms_conditions: FooterLink;
-  };
+  footer_text: { credits: string; privacy_policy: FooterLink; terms_conditions: FooterLink };
 };
 
 function FooterEditor({ apiKey }: { apiKey: string }) {
@@ -1070,14 +909,11 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   const [termsUrl, setTermsUrl] = useState("");
 
   const populate = (d: Partial<FooterContent>) => {
-    setPhone(d.phone ?? "");
-    setEmail(d.email ?? "");
+    setPhone(d.phone ?? ""); setEmail(d.email ?? "");
     setSocials(Object.entries(d.socials ?? {}).map(([k, v]) => ({ key: k, name: v.name, url: v.url })));
     setCredits(d.footer_text?.credits ?? "");
-    setPrivacyName(d.footer_text?.privacy_policy?.name ?? "");
-    setPrivacyUrl(d.footer_text?.privacy_policy?.url ?? "");
-    setTermsName(d.footer_text?.terms_conditions?.name ?? "");
-    setTermsUrl(d.footer_text?.terms_conditions?.url ?? "");
+    setPrivacyName(d.footer_text?.privacy_policy?.name ?? ""); setPrivacyUrl(d.footer_text?.privacy_policy?.url ?? "");
+    setTermsName(d.footer_text?.terms_conditions?.name ?? ""); setTermsUrl(d.footer_text?.terms_conditions?.url ?? "");
   };
 
   const load = async () => {
@@ -1086,19 +922,14 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
       const res = await adminGetAllContent(apiKey);
       const item = res.data.find((i) => i.key === "footer");
       if (item) populate(item.data as Partial<FooterContent>);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { void load(); }, []);
 
   const buildPayload = (): FooterContent => ({
-    phone,
-    email,
-    socials: Object.fromEntries(
-      socials.filter((s) => s.key.trim()).map((s) => [s.key.trim(), { name: s.name, url: s.url }])
-    ),
+    phone, email,
+    socials: Object.fromEntries(socials.filter((s) => s.key.trim()).map((s) => [s.key.trim(), { name: s.name, url: s.url }])),
     footer_text: {
       credits,
       privacy_policy: { name: privacyName, url: privacyUrl },
@@ -1107,16 +938,13 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   });
 
   const handleSave = async () => {
-    setSaving(true);
-    setMsg("");
+    setSaving(true); setMsg("");
     try {
       await adminUpsertContent(apiKey, "footer", buildPayload());
       setMsg("✓ Footer saved successfully");
     } catch (e) {
       setMsg(`Error: ${(e as Error).message}`);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleReset = async () => {
@@ -1130,128 +958,71 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
     }
   };
 
-  const FI: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #334155",
-    background: "#0f172a", color: "#f8fafc", fontSize: 13, boxSizing: "border-box", outline: "none",
-  };
-  const FL: React.CSSProperties = {
-    display: "block", fontSize: 11, fontWeight: 700, color: "#64748b",
-    textTransform: "uppercase", letterSpacing: 1, marginBottom: 6,
-  };
-  const FS: React.CSSProperties = { background: "#1e293b", borderRadius: 12, padding: "20px 24px", marginBottom: 16 };
-  const FST: React.CSSProperties = { fontWeight: 700, color: "#f8fafc", fontSize: 15, marginBottom: 16 };
-
-  if (loading) return <div style={{ color: "#94a3b8", padding: 24 }}>Loading footer…</div>;
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading footer…</div>;
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      {msg && (
-        <div style={{ padding: "10px 14px", borderRadius: 8, background: msg.startsWith("Error") ? "#7f1d1d" : "#14532d", color: "#fff", fontSize: 13, marginBottom: 16 }}>
-          {msg}
-        </div>
-      )}
+    <div className="ad-footer-wrap">
+      <Toast msg={msg} />
 
-      {/* Contact info */}
-      <div style={FS}>
-        <div style={FST}>Contact Info</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <label style={FL}>Phone</label>
-            <input style={FI} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+63 961 618 3436" />
-          </div>
-          <div>
-            <label style={FL}>Email</label>
-            <input style={FI} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sales@azari.solar" />
-          </div>
+      <div className="ad-card" style={{ marginBottom: 16 }}>
+        <div className="ad-card-title">Contact Info</div>
+        <div className="ad-form-grid">
+          <div><label className="ad-label">Phone</label><input className="ad-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+63 961 618 3436" /></div>
+          <div><label className="ad-label">Email</label><input className="ad-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sales@azari.solar" /></div>
         </div>
       </div>
 
-      {/* Social links */}
-      <div style={FS}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={FST}>Social Links</div>
-          <button
-            onClick={() => setSocials((prev) => [...prev, { key: "", name: "", url: "" }])}
-            style={{ ...BTN_SM, background: "#0284c7", color: "#fff" }}
-          >
-            + Add Link
-          </button>
+      <div className="ad-card" style={{ marginBottom: 16 }}>
+        <div className="ad-section-header" style={{ marginBottom: 12 }}>
+          <div className="ad-card-title" style={{ margin: 0 }}>Social Links</div>
+          <button onClick={() => setSocials((prev) => [...prev, { key: "", name: "", url: "" }])} className="ad-btn ad-btn--sm ad-btn--secondary">+ Add Link</button>
         </div>
-        {socials.length === 0 && (
-          <div style={{ color: "#475569", fontSize: 13 }}>No social links. Click "+ Add Link" to add one.</div>
-        )}
+        {socials.length === 0 && <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>No social links. Click "+ Add Link" to add one.</div>}
         {socials.map((s, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: 10, marginBottom: 10, alignItems: "end" }}>
+          <div key={i} className="ad-socials-row">
             <div>
-              {i === 0 && <label style={FL}>Key (ID)</label>}
-              <input style={FI} value={s.key} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, key: e.target.value } : x))} placeholder="facebook" />
+              {i === 0 && <div className="ad-label">Key (ID)</div>}
+              <input className="ad-input" value={s.key} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, key: e.target.value } : x))} placeholder="facebook" />
             </div>
             <div>
-              {i === 0 && <label style={FL}>Display Name</label>}
-              <input style={FI} value={s.name} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Facebook" />
+              {i === 0 && <div className="ad-label">Display Name</div>}
+              <input className="ad-input" value={s.name} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} placeholder="Facebook" />
             </div>
-            <div>
-              {i === 0 && <label style={FL}>URL</label>}
-              <input style={FI} value={s.url} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} placeholder="https://..." />
+            <div className="ad-socials-url">
+              {i === 0 && <div className="ad-label">URL</div>}
+              <input className="ad-input" value={s.url} onChange={(e) => setSocials((prev) => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))} placeholder="https://..." />
             </div>
             <div>
               {i === 0 && <div style={{ height: 23 }} />}
-              <button onClick={() => setSocials((prev) => prev.filter((_, j) => j !== i))} style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5", padding: "9px 12px" }}>✕</button>
+              <button onClick={() => setSocials((prev) => prev.filter((_, j) => j !== i))} className="ad-btn ad-btn--danger ad-btn--sm">✕</button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Footer text */}
-      <div style={FS}>
-        <div style={FST}>Footer Text</div>
+      <div className="ad-card" style={{ marginBottom: 16 }}>
+        <div className="ad-card-title">Footer Text</div>
         <div style={{ marginBottom: 16 }}>
-          <label style={FL}>Credits</label>
-          <input style={FI} value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="Designed by..." />
+          <label className="ad-label">Credits</label>
+          <input className="ad-input" value={credits} onChange={(e) => setCredits(e.target.value)} placeholder="Designed by..." />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-          <div>
-            <label style={FL}>Privacy Policy Label</label>
-            <input style={FI} value={privacyName} onChange={(e) => setPrivacyName(e.target.value)} placeholder="Privacy Policy" />
-          </div>
-          <div>
-            <label style={FL}>Privacy Policy URL</label>
-            <input style={FI} value={privacyUrl} onChange={(e) => setPrivacyUrl(e.target.value)} placeholder="https://..." />
-          </div>
+        <div className="ad-form-grid" style={{ marginBottom: 16 }}>
+          <div><label className="ad-label">Privacy Policy Label</label><input className="ad-input" value={privacyName} onChange={(e) => setPrivacyName(e.target.value)} placeholder="Privacy Policy" /></div>
+          <div><label className="ad-label">Privacy Policy URL</label><input className="ad-input" value={privacyUrl} onChange={(e) => setPrivacyUrl(e.target.value)} placeholder="https://..." /></div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <label style={FL}>Terms & Conditions Label</label>
-            <input style={FI} value={termsName} onChange={(e) => setTermsName(e.target.value)} placeholder="Terms and Conditions" />
-          </div>
-          <div>
-            <label style={FL}>Terms & Conditions URL</label>
-            <input style={FI} value={termsUrl} onChange={(e) => setTermsUrl(e.target.value)} placeholder="https://..." />
-          </div>
+        <div className="ad-form-grid">
+          <div><label className="ad-label">Terms & Conditions Label</label><input className="ad-input" value={termsName} onChange={(e) => setTermsName(e.target.value)} placeholder="Terms and Conditions" /></div>
+          <div><label className="ad-label">Terms & Conditions URL</label><input className="ad-input" value={termsUrl} onChange={(e) => setTermsUrl(e.target.value)} placeholder="https://..." /></div>
         </div>
       </div>
 
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <button
-          onClick={() => void handleSave()}
-          disabled={saving}
-          style={{ padding: "10px 28px", background: saving ? "#334155" : "#38bdf8", color: saving ? "#64748b" : "#0f172a", fontWeight: 700, fontSize: 14, border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer" }}
-        >
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-        <button onClick={() => void handleReset()} style={{ ...BTN_SM, background: "#7f1d1d", color: "#fca5a5" }}>
-          Reset to Default
-        </button>
+      <div className="ad-form-actions">
+        <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        <button onClick={() => void handleReset()} className="ad-btn ad-btn--danger">Reset to Default</button>
       </div>
     </div>
   );
 }
-
-// ─── Shared table styles ───────────────────────────────────────────────────────: React.CSSProperties = { padding: "10px 12px", textAlign: "left", color: "#64748b", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap" };
-const TD: React.CSSProperties = { padding: "10px 12px", color: "#cbd5e1", verticalAlign: "middle" };
-const TH: React.CSSProperties = { padding: "10px 12px", color: "#94a3b8", fontWeight: 600, textAlign: "left", whiteSpace: "nowrap" };
-const BTN_SM: React.CSSProperties = { padding: "6px 14px", borderRadius: 6, border: "none", background: "#334155", color: "#cbd5e1", fontSize: 12, fontWeight: 600, cursor: "pointer" };
 
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
@@ -1260,6 +1031,7 @@ export default function ASAdmin() {
   const [authError, setAuthError] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<Stats | null>(null);
+  const [isLight, setIsLight] = useState<boolean>(() => localStorage.getItem("azari-admin-theme") === "light");
 
   const handleLogin = async (key: string) => {
     try {
@@ -1283,68 +1055,70 @@ export default function ASAdmin() {
 
   const handleLogout = () => {
     sessionStorage.removeItem("azari_admin_key");
-    setApiKey("");
-    setStats(null);
+    setApiKey(""); setStats(null);
   };
+
+  const toggleTheme = () => {
+    const next = !isLight;
+    setIsLight(next);
+    localStorage.setItem("azari-admin-theme", next ? "light" : "dark");
+  };
+
+  const TABS: Array<{ id: Tab; label: string }> = [
+    { id: "overview",   label: "Overview" },
+    { id: "inquiries",  label: "Talk Inquiries" },
+    { id: "quotations", label: "Quotation Requests" },
+    { id: "projects",   label: "Projects" },
+    { id: "sections",   label: "Sections" },
+    { id: "content",    label: "Site Content" },
+    { id: "footer",     label: "Footer" },
+  ];
 
   if (!apiKey) {
     return (
-      <div>
-        <LoginScreen onLogin={handleLogin} />
-        {authError && (
-          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#7f1d1d", color: "#fca5a5", padding: "10px 20px", borderRadius: 8, fontSize: 14 }}>
-            {authError}
-          </div>
-        )}
+      <div className={`as-admin${isLight ? " is-light" : ""}`}>
+        <LoginScreen onLogin={handleLogin} error={authError} />
       </div>
     );
   }
 
-  const TABS: Array<{ id: Tab; label: string }> = [
-    { id: "overview", label: "Overview" },
-    { id: "inquiries", label: "Talk Inquiries" },
-    { id: "quotations", label: "Quotation Requests" },
-    { id: "projects", label: "Projects" },
-    { id: "content", label: "Site Content" },
-    { id: "footer", label: "Footer" },
-  ];
-
   return (
-    <div style={{ minHeight: "100vh", background: "#0f172a", color: "#f8fafc" }}>
-      {/* Top nav */}
-      <nav style={{ background: "#1e293b", borderBottom: "1px solid #334155", padding: "0 24px", display: "flex", alignItems: "center", height: 56, gap: 24 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.5 }}>
-          azari<span style={{ color: "#38bdf8" }}>.solar</span>
-          <span style={{ fontSize: 12, color: "#64748b", fontWeight: 400, marginLeft: 8 }}>Admin</span>
+    <div className={`as-admin${isLight ? " is-light" : ""}`}>
+      <nav className="ad-topnav">
+        <div className="ad-topnav-logo">azari<span>.solar</span></div>
+        <span className="ad-topnav-badge">Admin</span>
+        <div className="ad-topnav-spacer" />
+        <div className="ad-topnav-actions">
+          <button
+            className={`ad-theme-toggle${isLight ? " is-light" : ""}`}
+            onClick={toggleTheme}
+            aria-label="Toggle theme"
+            title={isLight ? "Switch to dark mode" : "Switch to light mode"}
+          />
+          <button onClick={handleLogout} className="ad-btn ad-btn--ghost ad-btn--sm">Sign Out</button>
         </div>
-        <div style={{ flex: 1 }} />
-        <button onClick={handleLogout} style={{ ...BTN_SM, fontSize: 13 }}>Sign Out</button>
       </nav>
 
-      {/* Tab bar */}
-      <div style={{ background: "#1e293b", borderBottom: "1px solid #334155", padding: "0 24px", display: "flex", gap: 4 }}>
+      <div className="ad-tabs">
         {TABS.map((t) => (
           <button
             key={t.id}
+            className={`ad-tab-btn${tab === t.id ? " is-active" : ""}`}
             onClick={() => setTab(t.id)}
-            style={{
-              padding: "14px 16px", background: "transparent", border: "none", borderBottom: tab === t.id ? "2px solid #38bdf8" : "2px solid transparent",
-              color: tab === t.id ? "#38bdf8" : "#94a3b8", fontWeight: 600, fontSize: 13, cursor: "pointer", marginBottom: -1
-            }}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
-      <div style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
-        {tab === "overview" && <OverviewTab stats={stats} />}
-        {tab === "inquiries" && <SubmissionsTable apiKey={apiKey} type="talk" />}
+      <div className="ad-content">
+        {tab === "overview"   && <OverviewTab stats={stats} />}
+        {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
         {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
-        {tab === "projects" && <ProjectsManager apiKey={apiKey} />}
-        {tab === "content" && <ContentEditor apiKey={apiKey} />}
-        {tab === "footer" && <FooterEditor apiKey={apiKey} />}
+        {tab === "projects"   && <ProjectsManager apiKey={apiKey} />}
+        {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
+        {tab === "content"    && <ContentEditor apiKey={apiKey} />}
+        {tab === "footer"     && <FooterEditor apiKey={apiKey} />}
       </div>
     </div>
   );
