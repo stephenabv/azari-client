@@ -399,8 +399,8 @@ export default function ASQuotationEngine() {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
       if (dpt <= 0) return null;
       return systemType === "hybrid"
-        ? calculateMonthlySavingsHybrid(dpt, duec, nwec)
-        : calculateMonthlySavingsGridTied(dpt);
+        ? calculateMonthlySavingsHybrid(dpt, nwec, duec)
+        : calculateMonthlySavingsGridTied(dpt, duec);
     }
 
     if (systemPurpose === "peak-shaving") {

@@ -310,7 +310,7 @@ export function calculateZeroBillWithLoadProfile(
   nwec: number
 ): EngineResult {
   const dpt = computeDpt(monthlyBill, electricRate);
-  const solarKwp = solarFromDpt(dpt);
+  const solarKwp = solarFromDpt(Math.max(dpt, nwec));
   const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
