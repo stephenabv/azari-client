@@ -4,52 +4,32 @@ import {
   calculateSolarEstimate,
   formatProjectionDescription,
   formatProjectionLabel,
+  formatSystemSize,
   getProjectionMonths,
+  SOLAR_CONSTANTS,
+  ELECTRIC_RATE_CONFIG,
+  MONTHLY_BILL_CONFIG,
 } from "../models/calculation";
 
 const DEFAULT_CONFIG = {
-  monthlyBill: {
-    min: 3000,
-    max: 200000,
-    step: 0.1,
-    defaultValue: 3000,
-  },
-  electricRate: {
-    min: 8,
-    max: 20,
-    step: 0.01,
-    defaultValue: 11.25,
-  },
+  monthlyBill: MONTHLY_BILL_CONFIG,
+  electricRate: ELECTRIC_RATE_CONFIG,
   formula: {
-    averageSolarProductionPerKwp: 120,
-    estimatedSavingsRate: 0.87,
-    projectionYears: 12,
+    averageSolarProductionPerKwp: SOLAR_CONSTANTS.averageSolarProductionPerKwp,
+    estimatedSavingsRate: SOLAR_CONSTANTS.estimatedSavingsRate,
+    projectionYears: SOLAR_CONSTANTS.calculatorProjectionMonths,
     monthsPerYear: 0,
   },
   labels: {
     monthlyBillMin: "₱3k",
     monthlyBillMax: "₱100k+",
-    electricRateMin: "₱8",
-    electricRateMax: "₱20",
+    electricRateMin: `₱${ELECTRIC_RATE_CONFIG.min}`,
+    electricRateMax: `₱${ELECTRIC_RATE_CONFIG.max}`,
   },
   animation: {
     duration: 1200,
   },
 };
-
-function formatSystemSize(value: number) {
-  if (value >= 1000) {
-    return {
-      value: (value / 1000).toFixed(1),
-      unit: "MWp",
-    };
-  }
-
-  return {
-    value: value.toFixed(1),
-    unit: "kWp",
-  };
-}
 
 function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");

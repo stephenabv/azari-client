@@ -8,12 +8,14 @@ import { sendQuotationRequest } from "../modules/quotationbuilder";
 import ASSystemError from "../modules/system-error/ASSystemError";
 import {
   computeDpt,
+  computeDailyLoadMetrics,
   calculateMonthlySavingsHybrid,
   calculateMonthlySavingsGridTied,
   calculatePeakShaving,
   calculateZeroBillBillOnly,
   calculateZeroBillWithLoadProfile,
   calculateZeroBillLoadOnly,
+  ELECTRIC_RATE_CONFIG,
 } from "../models/calculation";
 import type { EngineResult, SystemPurpose, SystemType } from "../models/calculation";
 import type {
@@ -39,12 +41,6 @@ type QuoteNavigationState = {
   estimatedMonthlySavings?: number;
 };
 
-const ELECTRIC_RATE_CONFIG = {
-  min: 1.1,
-  max: 20,
-  step: 0.01,
-  defaultValue: 11.25,
-};
 
 const UPLOAD_CONFIG = {
   maxSizeInBytes: 10 * 1024 * 1024,
@@ -106,6 +102,8 @@ function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
   cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
   cleaned = cleaned.replace(/^0+(?=\d)/, "");
+  const dot = cleaned.indexOf(".");
+  if (dot !== -1) cleaned = cleaned.slice(0, dot + 3);
   return cleaned;
 }
 
@@ -132,9 +130,8 @@ function useNumericInput(initial: number) {
 }
 
 // ─── Module-level sub-components ─────────────────────────────────────────────
-// Defined outside ASQuotationEngine so React keeps a stable component reference
-// across parent re-renders — prevents remounting (which would lose slider drag
-// state, input focus, and trigger CSS mount animations on every state change).
+// Defined outside ASQuotationEngine so React never unmounts/remounts them on
+// parent re-renders (avoids re-animation and slider interruptions).
 
 function ElectricRateField({
   num,
@@ -145,34 +142,72 @@ function ElectricRateField({
   str: string;
   onChange: (v: string) => void;
 }) {
+  const [error, setError] = useState("");
+
+  const clampedNum = Math.min(
+    ELECTRIC_RATE_CONFIG.max,
+    Math.max(ELECTRIC_RATE_CONFIG.min, num || ELECTRIC_RATE_CONFIG.min)
+  );
+
+  const handleTextChange = (value: string) => {
+    const cleaned = normalizeDecimalInput(value);
+    onChange(cleaned);
+    if (cleaned === "" || cleaned === ".") {
+      setError("");
+      return;
+    }
+    const n = Number(cleaned);
+    if (n < ELECTRIC_RATE_CONFIG.min) {
+      setError(`Minimum value is ₱${ELECTRIC_RATE_CONFIG.min} / kWh`);
+    } else if (n > ELECTRIC_RATE_CONFIG.max) {
+      setError(`Maximum value is ₱${ELECTRIC_RATE_CONFIG.max} / kWh`);
+    } else {
+      setError("");
+    }
+  };
+
+  const handleBlur = () => {
+    const n = Number(str);
+    const clamped = Math.min(
+      ELECTRIC_RATE_CONFIG.max,
+      Math.max(ELECTRIC_RATE_CONFIG.min, !n || n <= 0 ? ELECTRIC_RATE_CONFIG.min : n)
+    );
+    onChange(String(parseFloat(clamped.toFixed(2))));
+    setError("");
+  };
+
   return (
-    <div className="as-rate-wrapper">
-      <div className="as-rate-slider-area">
-        <div className="as-rate-labels">
-          <span>₱{ELECTRIC_RATE_CONFIG.min}</span>
-          <span>₱{ELECTRIC_RATE_CONFIG.max}</span>
-        </div>
-        <input
-          type="range"
-          min={ELECTRIC_RATE_CONFIG.min}
-          max={ELECTRIC_RATE_CONFIG.max}
-          step={ELECTRIC_RATE_CONFIG.step}
-          value={Math.min(ELECTRIC_RATE_CONFIG.max, Math.max(ELECTRIC_RATE_CONFIG.min, num))}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
-      <div className="as-rate-input-group">
-        <div className="as-rate-value">
-          <span>₱</span>
+    <div>
+      <div className="as-rate-wrapper">
+        <div className="as-rate-slider-area">
+          <div className="as-rate-labels">
+            <span>₱{ELECTRIC_RATE_CONFIG.min}</span>
+            <span>₱{ELECTRIC_RATE_CONFIG.max}</span>
+          </div>
           <input
-            type="text"
-            inputMode="decimal"
-            value={str}
-            onChange={(e) => onChange(normalizeDecimalInput(e.target.value))}
+            type="range"
+            min={ELECTRIC_RATE_CONFIG.min}
+            max={ELECTRIC_RATE_CONFIG.max}
+            step={ELECTRIC_RATE_CONFIG.step}
+            value={clampedNum}
+            onChange={(e) => { onChange(e.target.value); setError(""); }}
           />
         </div>
-        <small>/ kWh</small>
+        <div className="as-rate-input-group">
+          <div className="as-rate-value">
+            <span>₱</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={str}
+              onChange={(e) => handleTextChange(e.target.value)}
+              onBlur={handleBlur}
+            />
+          </div>
+          <small>/ kWh</small>
+        </div>
       </div>
+      {error && <p className="as-rate-error">{error}</p>}
     </div>
   );
 }
@@ -184,6 +219,7 @@ function LoadProfileSection({
   totalDailyUsageWh,
   onAdd,
   onRemove,
+  onEdit,
 }: {
   label: string;
   required?: boolean;
@@ -191,6 +227,7 @@ function LoadProfileSection({
   totalDailyUsageWh: number;
   onAdd: () => void;
   onRemove: (id: string) => void;
+  onEdit: (appliance: QuotationAppliance) => void;
 }) {
   return (
     <div className="as-form-section">
@@ -239,9 +276,17 @@ function LoadProfileSection({
                   <span><b>{item.quantity}</b></span>
                   <span>{item.hours}</span>
                   <span>{formatNumber(item.usage)}</span>
-                  <span>
+                  <span className="as-load-actions">
                     <button
                       type="button"
+                      className="as-load-edit-btn"
+                      onClick={() => onEdit(item)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      className="as-load-remove-btn"
                       onClick={() => onRemove(item.id)}
                     >
                       ×
@@ -268,6 +313,9 @@ export default function ASQuotationEngine() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ─── Bill toggle (global) ─────────────────────────────────────────────────
+  const [hasBill, setHasBill] = useState(true);
+
   // ─── System purpose & type ────────────────────────────────────────────────
   const [systemPurpose, setSystemPurpose] = useState<SystemPurpose>("monthly-savings");
   const [systemType, setSystemType] = useState<SystemType>("hybrid");
@@ -284,6 +332,7 @@ export default function ASQuotationEngine() {
 
   // ─── Appliances ───────────────────────────────────────────────────────────
   const [appliances, setAppliances] = useState<QuotationAppliance[]>([]);
+  const [editingAppliance, setEditingAppliance] = useState<QuotationAppliance | null>(null);
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
 
   // ─── Monthly Savings inputs ───────────────────────────────────────────────
@@ -296,11 +345,21 @@ export default function ASQuotationEngine() {
   const peakDuration = useNumericInput(0);
 
   // ─── Zero Bill inputs ─────────────────────────────────────────────────────
-  const [hasBill, setHasBill] = useState(true);
-  const monthlyBillZB = useNumericInput(quoteState.monthlyBill ?? 0);
-  const electricRateZB = useNumericInput(quoteState.electricRate ?? 0);
+  const monthlyBillZB = useNumericInput(
+    quoteState.monthlyBill ?? 5000
+  );
+  const electricRateZB = useNumericInput(
+    quoteState.electricRate ?? ELECTRIC_RATE_CONFIG.defaultValue
+  );
 
   const closeModal = () => setModal(null);
+
+  // Reset zero-bill purpose when non-Residential property is selected
+  useEffect(() => {
+    if (systemPurpose === "zero-bill" && selectedProperty !== "Residential") {
+      setSystemPurpose("monthly-savings");
+    }
+  }, [selectedProperty, systemPurpose]);
 
   // Lock body scroll when a modal is open
   useEffect(() => {
@@ -329,17 +388,10 @@ export default function ASQuotationEngine() {
   }, [modal]);
 
   // ─── Computed load metrics ────────────────────────────────────────────────
-  const { duec, nwec, totalDailyUsageWh } = useMemo(() => {
-    let d = 0;
-    let n = 0;
-    let total = 0;
-    for (const a of appliances) {
-      d += (a.watts * a.quantity * a.dayHours * 0.9) / 1000;
-      n += (a.watts * a.quantity * a.nightHours * 0.9) / 1000;
-      total += a.usage;
-    }
-    return { duec: d, nwec: n, totalDailyUsageWh: total };
-  }, [appliances]);
+  const { duec, nwec, totalDailyUsageWh } = useMemo(
+    () => computeDailyLoadMetrics(appliances),
+    [appliances]
+  );
 
   // ─── Engine result ────────────────────────────────────────────────────────
   const engineResult = useMemo((): EngineResult | null => {
@@ -382,7 +434,7 @@ export default function ASQuotationEngine() {
   ]);
 
   // ─── Appliance handlers ───────────────────────────────────────────────────
-  const handleAddAppliance = (
+  const handleApplianceSubmit = (
     item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">
   ) => {
     const w = Number(item.watts);
@@ -391,24 +443,31 @@ export default function ASQuotationEngine() {
 
     if (!item.name?.trim() || w <= 0 || q <= 0 || h <= 0) return;
 
-    setAppliances((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        name: item.name.trim(),
-        watts: w,
-        quantity: q,
-        hours: h,
-        dayHours: item.dayHours,
-        nightHours: item.nightHours,
-        schedule: item.schedule,
-        usageType: item.usageType,
-        usage: w * q * h,
-        dayUsage: w * q * item.dayHours,
-        nightUsage: w * q * item.nightHours,
-      },
-    ]);
+    const built: QuotationAppliance = {
+      id: editingAppliance?.id ?? crypto.randomUUID(),
+      name: item.name.trim(),
+      watts: w,
+      quantity: q,
+      hours: h,
+      dayHours: item.dayHours,
+      nightHours: item.nightHours,
+      schedule: item.schedule,
+      scheduleItems: item.scheduleItems,
+      usageType: item.usageType,
+      usage: w * q * h,
+      dayUsage: w * q * item.dayHours,
+      nightUsage: w * q * item.nightHours,
+    };
 
+    if (editingAppliance) {
+      setAppliances((current) =>
+        current.map((a) => (a.id === editingAppliance.id ? built : a))
+      );
+    } else {
+      setAppliances((current) => [...current, built]);
+    }
+
+    setEditingAppliance(null);
     setFormError("");
     closeModal();
   };
@@ -618,8 +677,9 @@ export default function ASQuotationEngine() {
         required={systemType === "hybrid"}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={openAddAppliance}
+        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
         onRemove={handleRemoveAppliance}
+        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
       />
     </>
   );
@@ -693,39 +753,23 @@ export default function ASQuotationEngine() {
         label="04"
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={openAddAppliance}
+        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
         onRemove={handleRemoveAppliance}
+        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
       />
     </>
   );
 
   const zeroBillContent = (
     <>
-      <div className="as-form-section">
-        <div className="as-section-label">
-          <span>03</span>
-          <p>Bill Information</p>
-        </div>
+      {hasBill && (
+        <>
+          <div className="as-form-section">
+            <div className="as-section-label">
+              <span>03</span>
+              <p>Consumption Data</p>
+            </div>
 
-        <div className="as-quote-mode-toggle" style={{ marginBottom: "1.5rem" }}>
-          <button
-            type="button"
-            className={hasBill ? "is-active" : ""}
-            onClick={() => { setHasBill(true); setFormError(""); }}
-          >
-            I have a bill
-          </button>
-          <button
-            type="button"
-            className={!hasBill ? "is-active" : ""}
-            onClick={() => { setHasBill(false); setFormError(""); }}
-          >
-            No bill yet
-          </button>
-        </div>
-
-        {hasBill && (
-          <>
             <div className="as-consumption-grid">
               <div
                 className="as-upload-card"
@@ -799,37 +843,45 @@ export default function ASQuotationEngine() {
                 <p>Based on your recent electricity bill.</p>
               </div>
             </div>
+          </div>
 
-            <div className="as-form-section" style={{ marginTop: "1.5rem", paddingTop: 0, borderTop: "none" }}>
-              <div className="as-section-label">
-                <span />
-                <p>Electricity Rate</p>
-              </div>
-              <ElectricRateField
-                num={electricRateZB.num}
-                str={electricRateZB.str}
-                onChange={(v) => { electricRateZB.handleChange(v); setFormError(""); }}
-              />
+          <div className="as-form-section">
+            <div className="as-section-label">
+              <span>04</span>
+              <p>Typical Electricity Rate</p>
             </div>
-          </>
-        )}
-      </div>
+            <ElectricRateField
+              num={electricRateZB.num}
+              str={electricRateZB.str}
+              onChange={(v) => { electricRateZB.handleChange(v); setFormError(""); }}
+            />
+          </div>
+        </>
+      )}
 
       <LoadProfileSection
-        label="04"
+        label={hasBill ? "05" : "03"}
         required={!hasBill}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={openAddAppliance}
+        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
         onRemove={handleRemoveAppliance}
+        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
       />
     </>
   );
 
   // ─── Summary panel ────────────────────────────────────────────────────────
 
-  const systemLabel =
-    engineResult?.systemType === "grid-tied" ? "Grid-Tied" : "Hybrid";
+  const recommendedSystemLabel = engineResult
+    ? `~${engineResult.solarKwp.toFixed(1)} kWp ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
+    : "—";
+
+  const batterySizeLabel = engineResult
+    ? engineResult.storageKwh > 0
+      ? `${engineResult.storageKwh} kWh`
+      : "No Battery"
+    : "—";
 
   const savingsSummaryValue =
     systemPurpose === "monthly-savings"
@@ -837,6 +889,11 @@ export default function ASQuotationEngine() {
       : systemPurpose === "zero-bill" && hasBill
         ? monthlyBillZB.num
         : null;
+
+  const monthlySavingsLabel =
+    savingsSummaryValue !== null && savingsSummaryValue > 0
+      ? formatCompactPeso(savingsSummaryValue)
+      : "—";
 
   // ─── Modal layer ──────────────────────────────────────────────────────────
 
@@ -846,10 +903,9 @@ export default function ASQuotationEngine() {
           <>
             {modal === "add-appliance" && (
               <AddApplianceModal
-                onClose={closeModal}
-                onSubmit={handleAddAppliance}
-                hasBill={systemPurpose === "zero-bill" ? hasBill : undefined}
-                onHasBillChange={systemPurpose === "zero-bill" ? (v) => { setHasBill(v); setFormError(""); } : undefined}
+                onClose={() => { setEditingAppliance(null); closeModal(); }}
+                onSubmit={handleApplianceSubmit}
+                initial={editingAppliance ?? undefined}
               />
             )}
 
@@ -877,6 +933,23 @@ export default function ASQuotationEngine() {
         <header className="as-quote-header">
           <h1>Technical Quotation Engine</h1>
           <p>Configure your institutional-grade solar system.</p>
+
+          <div className="as-quote-mode-toggle as-bill-toggle">
+            <button
+              type="button"
+              className={hasBill ? "is-active" : ""}
+              onClick={() => { setHasBill(true); setFormError(""); }}
+            >
+              I have a bill
+            </button>
+            <button
+              type="button"
+              className={!hasBill ? "is-active" : ""}
+              onClick={() => { setHasBill(false); setFormError(""); }}
+            >
+              No bill yet
+            </button>
+          </div>
         </header>
 
         <div className="as-quote-layout">
@@ -914,7 +987,7 @@ export default function ASQuotationEngine() {
               </div>
             </div>
 
-            {/* System Purpose selection */}
+            {/* Section 02: System Purpose */}
             <div className="as-form-section">
               <div className="as-section-label">
                 <span>02</span>
@@ -922,29 +995,36 @@ export default function ASQuotationEngine() {
               </div>
 
               <div className="as-property-grid">
-                {systemPurposes
-                  .filter((s) => s.id !== "zero-bill" || selectedProperty === "Residential")
-                  .map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""}`}
-                    onClick={() => {
-                      setSystemPurpose(item.id);
-                      setFormError("");
-                      setAppliances([]);
-                    }}
-                  >
-                    <span className="as-property-check" />
-                    <h3>{item.label}</h3>
-                    <p>{item.description}</p>
-                  </button>
-                ))}
+                {systemPurposes.map((item) => {
+                  const isZeroBillUnavailable =
+                    item.id === "zero-bill" && selectedProperty !== "Residential";
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={isZeroBillUnavailable}
+                      className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""} ${isZeroBillUnavailable ? "is-disabled" : ""}`}
+                      onClick={() => {
+                        if (isZeroBillUnavailable) return;
+                        setSystemPurpose(item.id);
+                        setFormError("");
+                        setAppliances([]);
+                      }}
+                    >
+                      <span className="as-property-check" />
+                      <h3>{item.label}</h3>
+                      <p>{item.description}</p>
+                      {isZeroBillUnavailable && (
+                        <small className="as-purpose-restricted">Residential only</small>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Purpose-specific sections (renumbered starting from 02 internally) */}
-            <div style={{ counterReset: "section 2" }}>
+            {/* Purpose-specific sections — key forces re-mount (re-fires enter animation) on purpose change */}
+            <div key={systemPurpose} style={{ display: "contents" }}>
               {systemPurpose === "monthly-savings" && monthlySavingsContent}
               {systemPurpose === "peak-shaving" && peakShavingContent}
               {systemPurpose === "zero-bill" && zeroBillContent}
@@ -956,46 +1036,21 @@ export default function ASQuotationEngine() {
           {/* Summary panel */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p>System Type</p>
-              <h2>{systemLabel}</h2>
+              <p>Recommended System</p>
+              <h2>{recommendedSystemLabel}</h2>
 
-              <p>Solar Panels</p>
-              <h2>
-                {engineResult
-                  ? `~${engineResult.solarKwp.toFixed(2)} kWp`
-                  : "—"}
-              </h2>
+              <p>Battery Size</p>
+              <h2>{batterySizeLabel}</h2>
 
-              <p>Inverter</p>
-              <h2>
-                {engineResult ? `${engineResult.inverterKw} kW` : "—"}
-              </h2>
-
-              <p>Battery Storage</p>
-              <h2>
-                {engineResult
-                  ? engineResult.storageKwh > 0
-                    ? `${engineResult.storageKwh} kWh`
-                    : "None (Grid-Tied)"
-                  : "—"}
-              </h2>
-
-              {savingsSummaryValue !== null && savingsSummaryValue > 0 && (
-                <>
-                  <p>Est. Monthly Savings</p>
-                  <h2>{formatCompactPeso(savingsSummaryValue)}</h2>
-
-                  <p>Est. 12-Year Savings</p>
-                  <h2>{formatCompactPeso(savingsSummaryValue * 144)}</h2>
-                </>
-              )}
+              <p>Monthly Savings</p>
+              <h2>{monthlySavingsLabel}</h2>
 
               <button
                 type="button"
                 onClick={handleOpenProposal}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting..." : "Request Proposal →"}
+                {isSubmitting ? "Submitting..." : "Request Proposal"}
               </button>
             </div>
           </aside>

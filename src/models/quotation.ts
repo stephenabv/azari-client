@@ -1,4 +1,8 @@
 import type { FieldErrors } from "./common";
+import {
+  SOLAR_CONSTANTS,
+  formatSystemSize,
+} from "./calculation";
 import type { SystemPurpose, SystemType, EngineResult } from "./calculation";
 
 export type { SystemPurpose, SystemType };
@@ -14,6 +18,7 @@ export type QuotationAppliance = {
   dayHours: number;
   nightHours: number;
   schedule: string;
+  scheduleItems: Array<{ from: string; to: string }>;
   usageType: string;
   usage: number;
   dayUsage: number;
@@ -231,13 +236,8 @@ export function validateProposalRequestForm(
   return errors;
 }
 
-function formatSystemSize(kWp: number): { value: string; unit: string } {
-  if (kWp >= 1000) return { value: (kWp / 1000).toFixed(1), unit: "MWp" };
-  return { value: kWp.toFixed(2), unit: "kWp" };
-}
-
 function configurationLabel(result: EngineResult): string {
-  const { value, unit } = formatSystemSize(result.solarKwp);
+  const { value, unit } = formatSystemSize(result.solarKwp, 2);
   const typeLabel = result.systemType === "hybrid" ? "Hybrid" : "Grid-Tied";
   return `~${value} ${unit} ${typeLabel}`;
 }
@@ -255,7 +255,7 @@ export function buildQuotationRequestPayload(
   const totalDayUsageWh = params.appliances.reduce((s, a) => s + a.dayUsage, 0);
   const totalNightUsageWh = params.appliances.reduce((s, a) => s + a.nightUsage, 0);
 
-  const sized = formatSystemSize(engineResult.solarKwp);
+  const sized = formatSystemSize(engineResult.solarKwp, 2);
 
   const estimatedMonthlySavingsPhp =
     params.systemPurpose === "monthly-savings"
@@ -275,7 +275,7 @@ export function buildQuotationRequestPayload(
       averageMonthlyBillPhp: params.monthlyBill,
       monthlySavingsTargetPhp: params.monthlySavingsTarget,
       electricRatePhpPerKwh: params.electricRate,
-      estimatedMonthlyKwh: Math.round(totalDailyUsageWh * 30 / 1000),
+      estimatedMonthlyKwh: Math.round(totalDailyUsageWh * SOLAR_CONSTANTS.daysPerMonth / 1000),
       peakPowerKw: params.peakPower,
       allowedGridPowerKw: params.allowedGridPower,
       peakDurationHours: params.peakDuration,
@@ -291,8 +291,8 @@ export function buildQuotationRequestPayload(
       storageCapacityKwh: engineResult.storageKwh,
       configuration: configurationLabel(engineResult),
       estimatedMonthlySavingsPhp,
-      estimatedProjectedSavingsPhp: estimatedMonthlySavingsPhp * 144,
-      projectionMonths: 144,
+      estimatedProjectedSavingsPhp: estimatedMonthlySavingsPhp * SOLAR_CONSTANTS.projectionMonths,
+      projectionMonths: SOLAR_CONSTANTS.projectionMonths,
       totalDailyUsageWh,
       totalDayUsageWh,
       totalNightUsageWh,

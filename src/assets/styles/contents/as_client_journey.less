@@ -144,11 +144,22 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
   transition: border-color 0.2s ease, background 0.2s ease;
 
   &:hover:not(:disabled) {
     border-color: rgba(227, 227, 227, 0.45);
     background: rgba(255, 255, 255, 0.10);
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    border-color: rgba(252, 97, 90, 0.6);
+    box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.25);
   }
 
   &:disabled {
@@ -179,14 +190,29 @@
   max-width: 420px;
   height: auto;
   overflow: visible;
+  display: block;
+  background: transparent;
+  outline: none;
 }
 
 .as-ph-marker {
   cursor: pointer;
   transition: opacity 0.2s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
     opacity: 0.8;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid rgba(252, 97, 90, 0.7);
+    outline-offset: 3px;
+    border-radius: 3px;
   }
 }
 

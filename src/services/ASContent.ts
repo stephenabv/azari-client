@@ -10,7 +10,8 @@ export type ContentKey =
   | 'tropics'
   | 'cta'
   | 'benefits'
-  | 'footer';
+  | 'footer'
+  | 'section-visibility';
 
 export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
   try {

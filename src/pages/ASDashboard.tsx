@@ -1,3 +1,4 @@
+import { useContent } from "../hooks/useContent";
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASImpactCalculator from "../components/ASCalculator";
 import ASCallToAction from "../components/ASCallToAction";
@@ -8,44 +9,90 @@ import ASMetrics from "../components/ASMetrics";
 import ASProcessSection from "../components/ASProcess";
 import ASTropicsSection from "../components/ASTropics";
 
+type SectionVisibility = {
+  hero: boolean;
+  metrics: boolean;
+  benefits: boolean;
+  excellence: boolean;
+  tropics: boolean;
+  process: boolean;
+  clientJourney: boolean;
+  calculator: boolean;
+  callToAction: boolean;
+};
+
+const DEFAULT_VISIBILITY: SectionVisibility = {
+  hero: true,
+  metrics: true,
+  benefits: true,
+  excellence: true,
+  tropics: true,
+  process: true,
+  clientJourney: true,
+  calculator: true,
+  callToAction: true,
+};
+
 export default function ASDashboard() {
+  const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);
+
+  //  TODO: add on/off
+
   return (
     <>
-      <section className="_asHero">
-        <ASHero />
-      </section>
+      {vis.hero && (
+        <section className="_asHero">
+          <ASHero />
+        </section>
+      )}
 
-      <section className="_asMetrics">
-        <ASMetrics />
-      </section>
+      {vis.metrics && (
+        <section className="_asMetrics">
+          <ASMetrics />
+        </section>
+      )}
 
-      <section className="_asBenefitsBanner">
-        <ASBenefitsBanner />
-      </section>
+      {vis.benefits && (
+        <section className="_asBenefitsBanner">
+          <ASBenefitsBanner />
+        </section>
+      )}
 
-      <section className="_asEngineeredExcellence">
-        <ASEngineeredExcellence />
-      </section>
+      {vis.excellence && (
+        <section className="_asEngineeredExcellence">
+          <ASEngineeredExcellence />
+        </section>
+      )}
 
-      <section className="_asTropicsSection">
-        <ASTropicsSection />
-      </section>
+      {vis.tropics && (
+        <section className="_asTropicsSection">
+          <ASTropicsSection />
+        </section>
+      )}
 
-      <section className="_asProcessSection">
-        <ASProcessSection />
-      </section>
+      {vis.process && (
+        <section className="_asProcessSection">
+          <ASProcessSection />
+        </section>
+      )}
 
-      <section className="_asClientJourney">
-        <ASClientJourney />
-      </section>
+      {vis.clientJourney && (
+        <section className="_asClientJourney">
+          <ASClientJourney />
+        </section>
+      )}
 
-      <section className="_asImpactCalculator" id="calculator">
-        <ASImpactCalculator />
-      </section>
+      {vis.calculator && (
+        <section className="_asImpactCalculator" id="calculator">
+          <ASImpactCalculator />
+        </section>
+      )}
 
-      <section className="_asCallToAction">
-        <ASCallToAction />
-      </section>
+      {vis.callToAction && (
+        <section className="_asCallToAction">
+          <ASCallToAction />
+        </section>
+      )}
     </>
   );
 }
