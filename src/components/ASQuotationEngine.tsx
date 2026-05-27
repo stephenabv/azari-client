@@ -472,8 +472,6 @@ export default function ASQuotationEngine() {
     closeModal();
   };
 
-  const openAddAppliance = useCallback(() => setModal("add-appliance"), []);
-
   const handleRemoveAppliance = useCallback((id: string) => {
     setAppliances((current) => current.filter((a) => a.id !== id));
   }, []);

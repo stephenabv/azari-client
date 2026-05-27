@@ -1,8 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  calculateDayNightHours,
-  DAY_BOUNDARY,
-} from "../../models/calculation";
+import { calculateDayNightHours } from "../../models/calculation";
 import type { QuotationAppliance } from "../../models/quotation";
 
 type AddApplianceModalProps = {
@@ -206,25 +203,6 @@ export default function AddApplianceModal({
               />
             </label>
           </div>
-
-          {onHasBillChange !== undefined && (
-            <div className="as-quote-mode-toggle" style={{ margin: "1rem 0" }}>
-              <button
-                type="button"
-                className={hasBill ? "is-active" : ""}
-                onClick={() => onHasBillChange(true)}
-              >
-                I have a bill
-              </button>
-              <button
-                type="button"
-                className={!hasBill ? "is-active" : ""}
-                onClick={() => onHasBillChange(false)}
-              >
-                No bill yet
-              </button>
-            </div>
-          )}
 
           <div className="as-appliance-schedule">
             <p>SCHEDULE USAGE</p>
