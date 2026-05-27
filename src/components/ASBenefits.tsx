@@ -89,7 +89,7 @@ export default function ASBenefitsBanner() {
         benefitsData.forEach((_, index) => {
           window.setTimeout(() => {
             setVisibleItems(index);
-          }, (index + 1) * 350);
+          }, 1800 + (index + 1) * 350);
         });
 
         observer.disconnect();
