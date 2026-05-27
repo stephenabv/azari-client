@@ -36,6 +36,8 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
 export default function ASDashboard() {
   const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);
 
+  //  TODO: add on/off
+
   return (
     <>
       {vis.hero && (
