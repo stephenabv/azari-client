@@ -1,6 +1,7 @@
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASImpactCalculator from "../components/ASCalculator";
 import ASCallToAction from "../components/ASCallToAction";
+import ASClientJourney from "../components/ASClientJourney";
 import ASEngineeredExcellence from "../components/ASEngineeredExcellence";
 import ASHero from "../components/ASHero";
 import ASMetrics from "../components/ASMetrics";
@@ -32,6 +33,10 @@ export default function ASDashboard() {
 
       <section className="_asProcessSection">
         <ASProcessSection />
+      </section>
+
+      <section className="_asClientJourney">
+        <ASClientJourney />
       </section>
 
       <section className="_asImpactCalculator" id="calculator">

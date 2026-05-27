@@ -4,7 +4,7 @@
   height: 350px;
   border-radius: 24px;
   overflow: hidden;
-  background: #111;
+  background: transparent;
 }
 
 .as-benefits-video {
@@ -43,6 +43,12 @@
       rgba(0, 0, 0, 0.2) 45%,
       rgba(0, 0, 0, 0.58) 100%),
     rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+
+  &.is-shown {
+    opacity: 1;
+  }
 }
 
 .as-benefits-content {

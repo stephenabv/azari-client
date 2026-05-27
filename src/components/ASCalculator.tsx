@@ -9,13 +9,13 @@ import {
 
 const DEFAULT_CONFIG = {
   monthlyBill: {
-    min: 500,
+    min: 3000,
     max: 200000,
     step: 0.1,
-    defaultValue: 1000,
+    defaultValue: 3000,
   },
   electricRate: {
-    min: 1.1,
+    min: 8,
     max: 20,
     step: 0.01,
     defaultValue: 11.25,
@@ -55,7 +55,8 @@ function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
   cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
   cleaned = cleaned.replace(/^0+(?=\d)/, "");
-
+  const dot = cleaned.indexOf(".");
+  if (dot !== -1) cleaned = cleaned.slice(0, dot + 3);
   return cleaned;
 }
 
@@ -139,59 +140,53 @@ export default function ASImpactCalculator() {
 
   const handleMonthlyBillInput = (value: string) => {
     const cleaned = normalizeDecimalInput(value);
-
     setMonthlyBillInput(cleaned);
-
     if (cleaned === "" || cleaned === ".") {
       setMonthlyBill(0);
+      setMonthlyBillError("");
       return;
     }
-
-    const numericValue = Number(cleaned);
-
-    setMonthlyBill(numericValue);
-
-    if (numericValue < config.monthlyBill.min) {
-      setMonthlyBillError(
-        `Minimum value is ₱${config.monthlyBill.min.toLocaleString()}`
-      );
-      return;
+    const num = Number(cleaned);
+    setMonthlyBill(num);
+    if (num < config.monthlyBill.min) {
+      setMonthlyBillError(`Minimum value is ₱${config.monthlyBill.min.toLocaleString()}`);
+    } else if (num > config.monthlyBill.max) {
+      setMonthlyBillError(`Maximum value is ₱${config.monthlyBill.max.toLocaleString()}`);
+    } else {
+      setMonthlyBillError("");
     }
+  };
 
-    if (numericValue > config.monthlyBill.max) {
-      setMonthlyBillError(
-        `Maximum value is ₱${config.monthlyBill.max.toLocaleString()}`
-      );
-      return;
-    }
-
+  const handleMonthlyBillBlur = () => {
+    const clamped = clampValue(monthlyBill, config.monthlyBill.min, config.monthlyBill.max);
+    setMonthlyBill(clamped);
+    setMonthlyBillInput(String(parseFloat(clamped.toFixed(2))));
     setMonthlyBillError("");
   };
 
   const handleElectricRateInput = (value: string) => {
     const cleaned = normalizeDecimalInput(value);
-
     setElectricRateInput(cleaned);
-
     if (cleaned === "" || cleaned === ".") {
       setElectricRate(0);
+      setElectricRateError("");
       return;
     }
-
-    const numericValue = Number(cleaned);
-
-    setElectricRate(numericValue);
-
-    if (numericValue < config.electricRate.min) {
+    const num = Number(cleaned);
+    setElectricRate(num);
+    if (num < config.electricRate.min) {
       setElectricRateError(`Minimum value is ₱${config.electricRate.min}`);
-      return;
-    }
-
-    if (numericValue > config.electricRate.max) {
+    } else if (num > config.electricRate.max) {
       setElectricRateError(`Maximum value is ₱${config.electricRate.max}`);
-      return;
+    } else {
+      setElectricRateError("");
     }
+  };
 
+  const handleElectricRateBlur = () => {
+    const clamped = clampValue(electricRate, config.electricRate.min, config.electricRate.max);
+    setElectricRate(clamped);
+    setElectricRateInput(String(parseFloat(clamped.toFixed(2))));
     setElectricRateError("");
   };
 
@@ -328,12 +323,12 @@ export default function ASImpactCalculator() {
                     inputMode="decimal"
                     value={monthlyBillInput}
                     onChange={(e) => handleMonthlyBillInput(e.target.value)}
+                    onBlur={handleMonthlyBillBlur}
                   />
                 </div>
 
                 <span className="as-suffix">/ month</span>
               </div>
-
               {monthlyBillError && (
                 <p className="as-current-error">{monthlyBillError}</p>
               )}
@@ -384,12 +379,12 @@ export default function ASImpactCalculator() {
                     inputMode="decimal"
                     value={electricRateInput}
                     onChange={(e) => handleElectricRateInput(e.target.value)}
+                    onBlur={handleElectricRateBlur}
                   />
                 </div>
 
                 <span className="as-suffix">/ kWh</span>
               </div>
-
               {electricRateError && (
                 <p className="as-current-error">{electricRateError}</p>
               )}

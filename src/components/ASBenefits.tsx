@@ -103,7 +103,7 @@ export default function ASBenefitsBanner() {
   }, []);
 
   return (
-    <section ref={sectionRef} className="ASBenefitsBanner">
+    <section ref={sectionRef} className={`ASBenefitsBanner${isVideoShown ? " is-video-shown" : ""}`}>
       <video
         className={`as-benefits-video ${isVideoShown ? "is-video-shown" : ""}`}
         autoPlay
@@ -114,7 +114,7 @@ export default function ASBenefitsBanner() {
         <source src={benefitVideoOverlay} type="video/mp4" />
       </video>
 
-      <div className="as-benefits-overlay" />
+      <div className={`as-benefits-overlay${isVideoShown ? " is-shown" : ""}`} />
 
       <div className="as-benefits-content">
         {benefitsData.map((item, index) => (
