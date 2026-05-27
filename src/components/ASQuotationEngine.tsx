@@ -916,7 +916,11 @@ export default function ASQuotationEngine() {
             )}
 
             {modal === "submitted" && (
-              <ProposalSubmittedModal onClose={closeModal} engineResult={submittedResult} />
+              <ProposalSubmittedModal
+                onClose={closeModal}
+                engineResult={submittedResult}
+                propertyType={selectedProperty}
+              />
             )}
 
             {modal === "system-error" && <ASSystemError onClose={closeModal} />}

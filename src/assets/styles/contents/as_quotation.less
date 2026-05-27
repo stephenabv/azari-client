@@ -1375,6 +1375,249 @@
   }
 }
 
+// ─── Submitted modal ──────────────────────────────────────────────────────────
+
+.as-submitted-modal {
+  max-width: 560px;
+  text-align: center;
+}
+
+.as-submitted-requirement {
+  margin: 16px 0 20px;
+  padding: 14px 16px;
+  background: #1e1e1e;
+  border: 1px solid #303030;
+  border-radius: 10px;
+  text-align: left;
+
+  > span {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+  }
+}
+
+.as-submitted-req-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  span {
+    font-size: 12px;
+    font-weight: 500;
+    color: #ccc;
+    background: #2a2a2a;
+    border: 1px solid #383838;
+    border-radius: 6px;
+    padding: 3px 10px;
+  }
+}
+
+.as-pkg-section {
+  text-align: left;
+  margin-top: 4px;
+}
+
+.as-pkg-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.as-pkg-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-pkg-card {
+  position: relative;
+  padding: 14px 16px;
+  background: #1e1e1e;
+  border: 1px solid #2e2e2e;
+  border-radius: 12px;
+  transition: border-color 0.18s;
+
+  &.is-recommended {
+    border-color: #fc615a;
+    background: rgba(252, 97, 90, 0.04);
+  }
+}
+
+.as-pkg-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fc615a;
+  background: rgba(252, 97, 90, 0.14);
+  border: 1px solid rgba(252, 97, 90, 0.3);
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-bottom: 8px;
+}
+
+.as-pkg-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f0f0f0;
+  margin-bottom: 10px;
+}
+
+.as-pkg-specs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    span {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #666;
+    }
+
+    strong {
+      font-size: 13px;
+      color: #ccc;
+    }
+  }
+}
+
+.as-pkg-phase {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 10px;
+}
+
+.as-pkg-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+
+  span {
+    font-size: 11px;
+    color: #666;
+  }
+
+  strong {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f0f0f0;
+  }
+}
+
+.as-pkg-bill-range {
+  font-size: 11px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.as-pkg-disclaimer {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.as-pkg-custom {
+  padding: 16px;
+  background: #1e1e1e;
+  border: 1px solid #303030;
+  border-radius: 12px;
+  margin: 16px 0;
+  text-align: left;
+  font-size: 13px;
+  color: #999;
+  line-height: 1.6;
+
+  strong {
+    color: #eee;
+  }
+}
+
+// ── Light theme overrides ─────────────────────────────────────────────────────
+
+.light-theme .as-submitted-requirement {
+  background: #f8f8f8;
+  border-color: #e5e5e5;
+}
+
+.light-theme .as-submitted-req-specs span {
+  color: #333;
+  background: #efefef;
+  border-color: #e0e0e0;
+}
+
+.light-theme .as-submitted-requirement > span,
+.light-theme .as-pkg-section-label {
+  color: #999;
+}
+
+.light-theme .as-pkg-card {
+  background: #f8f8f8;
+  border-color: #e5e5e5;
+
+  &.is-recommended {
+    border-color: #fc615a;
+    background: rgba(252, 97, 90, 0.04);
+  }
+}
+
+.light-theme .as-pkg-name {
+  color: #111;
+}
+
+.light-theme .as-pkg-specs > div span {
+  color: #999;
+}
+
+.light-theme .as-pkg-specs > div strong {
+  color: #333;
+}
+
+.light-theme .as-pkg-phase {
+  color: #888;
+}
+
+.light-theme .as-pkg-price strong {
+  color: #111;
+}
+
+.light-theme .as-pkg-price span {
+  color: #888;
+}
+
+.light-theme .as-pkg-bill-range {
+  color: #aaa;
+}
+
+.light-theme .as-pkg-disclaimer {
+  color: #aaa;
+}
+
+.light-theme .as-pkg-custom {
+  background: #f8f8f8;
+  border-color: #e5e5e5;
+  color: #666;
+
+  strong {
+    color: #111;
+  }
+}
+
 @keyframes asFadeLeft {
   from {
     opacity: 0;
