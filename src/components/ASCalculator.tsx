@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   calculateSolarEstimate,
   formatProjectionDescription,
-  formatProjectionLabel,
+  // formatProjectionLabel,
   formatSystemSize,
   getProjectionMonths,
   SOLAR_CONSTANTS,
@@ -206,11 +206,11 @@ export default function ASImpactCalculator() {
     config.animation.duration
   );
 
-  const rollingProjectedSavings = useInitialRollingNumber(
-    results.projectedSavings,
-    isShown,
-    config.animation.duration
-  );
+  // const rollingProjectedSavings = useInitialRollingNumber(
+  //   results.projectedSavings,
+  //   isShown,
+  //   config.animation.duration
+  // );
 
   const formattedSystemSize = formatSystemSize(rollingSystemSize);
 
@@ -225,7 +225,7 @@ export default function ASImpactCalculator() {
     100;
 
   const projectionMonths = getProjectionMonths(config.formula);
-  const projectionLabel = formatProjectionLabel(projectionMonths);
+  // const projectionLabel = formatProjectionLabel(projectionMonths);
   const projectionDescription = formatProjectionDescription(projectionMonths);
 
   const handleGetQuote = () => {
@@ -382,7 +382,7 @@ export default function ASImpactCalculator() {
               </p>
             </div>
 
-            <div>
+            {/* <div>
               <p className="as-result-label">{projectionLabel}</p>
               <p className="as-savings">
                 ₱{" "}
@@ -390,7 +390,7 @@ export default function ASImpactCalculator() {
                   maximumFractionDigits: 0,
                 })}
               </p>
-            </div>
+            </div> */}
           </div>
 
           <button
@@ -402,7 +402,7 @@ export default function ASImpactCalculator() {
 
           <p className="as-impact-note as-delay-6">
             *Estimates are based on the selected electricity rate and average
-            Metro Manila solar irradiance. Actual results may vary.
+            Philippine solar irradiance. Actual results may vary.
           </p>
         </div>
       </div>
