@@ -18,14 +18,19 @@ import {
   adminUpdateTalkInquiry,
   adminDeleteQuotation,
   adminUpdateQuotation,
+  adminGetPackages,
+  adminCreatePackage,
+  adminUpdatePackage,
+  adminDeletePackage,
   type ApiProject,
   type ProjectInput,
   type ProjectCategory as ApiProjectCategory,
+  type ApiSolarPackage,
+  type PackageInput,
 } from "../services/ASContent";
+import { SOLAR_PACKAGES } from "../models/packages";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Tab = "overview" | "inquiries" | "quotations" | "projects" | "sections" | "content" | "footer";
+type Tab = "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections" | "content" | "footer";
 
 type SectionVisibility = {
   hero: boolean;
@@ -70,8 +75,6 @@ interface ContentItem {
 
 type SubmissionStatus = "received" | "emailed" | "email_failed" | "archived";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
@@ -96,8 +99,6 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
-
-// ─── Login Screen ─────────────────────────────────────────────────────────────
 
 function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error: string }) {
   const [value, setValue] = useState("");
@@ -136,8 +137,6 @@ function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error
     </div>
   );
 }
-
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({ stats }: { stats: Stats | null }) {
   if (!stats) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading stats…</div>;
@@ -192,8 +191,6 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
     </div>
   );
 }
-
-// ─── Submissions Table ─────────────────────────────────────────────────────────
 
 function EmailStatusIndicator({ status, id, onRetry, retrying }: { status: string; id: string; onRetry: (id: string) => void; retrying: boolean }) {
   if (status === "emailed") return <div className="ad-email-status is-sent">✓ Email sent</div>;
@@ -440,13 +437,11 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   );
 }
 
-// ─── Metrics Editor ───────────────────────────────────────────────────────────
-
 interface MetricItem { value: string; label: string; order: number }
 
 function MetricsEditorForm({ editorText, onChange }: { editorText: string; onChange: (text: string) => void }) {
   let items: MetricItem[] = [];
-  try { items = (JSON.parse(editorText) as { items: MetricItem[] }).items ?? []; } catch { /* invalid json */ }
+  try { items = (JSON.parse(editorText) as { items: MetricItem[] }).items ?? []; } catch { }
 
   const update = (idx: number, key: "value" | "label", val: string) => {
     const next = items.map((item, i) => i === idx ? { ...item, [key]: val } : item);
@@ -473,8 +468,6 @@ function MetricsEditorForm({ editorText, onChange }: { editorText: string; onCha
     </div>
   );
 }
-
-// ─── Content Editor ────────────────────────────────────────────────────────────
 
 function ContentEditor({ apiKey }: { apiKey: string }) {
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -604,8 +597,6 @@ function ContentEditor({ apiKey }: { apiKey: string }) {
     </div>
   );
 }
-
-// ─── Projects Manager ─────────────────────────────────────────────────────────
 
 type ProjectForm = {
   title: string; category: ApiProjectCategory; system: string;
@@ -805,8 +796,6 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Section Visibility Manager ───────────────────────────────────────────────
-
 const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: string }> = [
   { key: "hero",         name: "Hero",              desc: "Main hero banner with headline" },
   { key: "metrics",      name: "Metrics",           desc: "Stats strip (installs, warranty, savings…)" },
@@ -886,7 +875,395 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Footer Editor ─────────────────────────────────────────────────────────────
+type PkgForm = Omit<PackageInput, never>;
+
+const EMPTY_PKG_FORM: PkgForm = {
+  name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0,
+  phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0,
+  isActive: true, sortOrder: 0,
+};
+
+function autoName(kwp: number, kw: number, kwh: number) {
+  const parts: string[] = [];
+  if (kwp > 0) parts.push(`${kwp} kWp`);
+  if (kw > 0) parts.push(`${kw} kW`);
+  if (kwh > 0) parts.push(`${kwh} kWh`);
+  return parts.join(" · ");
+}
+
+function PkgNumInput({
+  label, hint, value, unit, step = "0.01", onChange,
+}: {
+  label: string; hint: string; value: number; unit: string;
+  step?: string; onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <label className="ad-label">{label}</label>
+      <div className="ad-pkg-num-wrap">
+        <input
+          type="number"
+          className="ad-input"
+          min={0}
+          step={step}
+          value={value || ""}
+          placeholder="0"
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <span className="ad-pkg-num-unit">{unit}</span>
+      </div>
+      <p className="ad-pkg-hint">{hint}</p>
+    </div>
+  );
+}
+
+function PackagesManager({ apiKey }: { apiKey: string }) {
+  const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<PkgForm>(EMPTY_PKG_FORM);
+  const [nameEdited, setNameEdited] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await adminGetPackages(apiKey);
+      setPackages(res.data);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const openAdd = () => {
+    setEditingId(null); setForm(EMPTY_PKG_FORM); setNameEdited(false); setMsg(""); setShowForm(true);
+  };
+
+  const openEdit = (p: ApiSolarPackage) => {
+    setEditingId(p.id);
+    setForm({
+      name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh,
+      phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin,
+      billRangeMax: p.billRangeMax, isActive: p.isActive, sortOrder: p.sortOrder,
+    });
+    setNameEdited(true); setMsg(""); setShowForm(true);
+  };
+
+  const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setMsg(""); };
+
+  const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const handleSpecChange = (key: "solarKwp" | "inverterKw" | "storageKwh", val: number) => {
+    setForm((f) => {
+      const next = { ...f, [key]: val };
+      if (!nameEdited) next.name = autoName(next.solarKwp, next.inverterKw, next.storageKwh);
+      return next;
+    });
+  };
+
+  const validateForm = (): string => {
+    if (!form.name.trim()) return "Package name is required.";
+    if (form.solarKwp <= 0) return "Solar panel capacity must be greater than 0.";
+    if (form.inverterKw <= 0) return "Inverter size must be greater than 0.";
+    if (form.storageKwh < 0) return "Battery storage cannot be negative.";
+    if (form.totalPrice <= 0) return "Package price must be greater than 0.";
+    if (form.billRangeMax < form.billRangeMin) return "Maximum bill must be ≥ minimum bill.";
+    return "";
+  };
+
+  const handleSave = async () => {
+    const err = validateForm();
+    if (err) { setMsg(`Error: ${err}`); return; }
+    setSaving(true); setMsg("");
+    try {
+      if (editingId) {
+        await adminUpdatePackage(apiKey, editingId, form);
+      } else {
+        await adminCreatePackage(apiKey, form);
+      }
+      await load(); closeForm();
+    } catch (e) {
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setSaving(false); }
+  };
+
+  const handleToggleActive = async (p: ApiSolarPackage) => {
+    setToggling(p.id);
+    try {
+      await adminUpdatePackage(apiKey, p.id, { isActive: !p.isActive });
+      await load();
+    } catch (e) {
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setToggling(null); }
+  };
+
+  const handleDelete = async (p: ApiSolarPackage) => {
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
+    setDeleting(p.id);
+    try {
+      await adminDeletePackage(apiKey, p.id);
+      setMsg("✓ Package deleted");
+      await load();
+    } catch (e) {
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setDeleting(null); }
+  };
+
+  const handleSeedDefaults = async () => {
+    if (!confirm("Add the 7 built-in KSTAR packages to your catalog? You can edit them afterward.")) return;
+    setSeeding(true); setMsg("");
+    try {
+      for (const pkg of SOLAR_PACKAGES) {
+        await adminCreatePackage(apiKey, {
+          name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw,
+          storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice,
+          billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1],
+          isActive: true, sortOrder: 0,
+        });
+      }
+      setMsg("✓ Default packages loaded — you can now edit or add more.");
+      await load();
+    } catch (e) {
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setSeeding(false); }
+  };
+
+  const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
+  const activeCount = packages.filter((p) => p.isActive).length;
+
+  return (
+    <div>
+      <div className="ad-section-header">
+        <div>
+          <div className="ad-section-title">Solar Packages</div>
+          <div className="ad-section-sub">
+            {loading ? "Loading…" : `${activeCount} active · ${packages.length} total — packages shown to customers after their quotation submission.`}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {packages.length === 0 && !loading && (
+            <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">
+              {seeding ? "Loading…" : "Load Default Packages"}
+            </button>
+          )}
+          {!showForm && (
+            <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>
+          )}
+        </div>
+      </div>
+
+      <Toast msg={msg} />
+
+      {showForm && (
+        <div className="ad-card" style={{ marginBottom: 20 }}>
+          <div className="ad-edit-panel-header">
+            <div className="ad-edit-panel-title">{editingId ? "Edit Package" : "Add New Package"}</div>
+            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
+          </div>
+
+          <div className="ad-pkg-form-phase">
+            <div className="ad-label">System Phase</div>
+            <div className="ad-pkg-phase-toggle">
+              <button
+                type="button"
+                className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`}
+                onClick={() => setField("phase", "single")}
+              >
+                Single Phase
+                <span>Residential</span>
+              </button>
+              <button
+                type="button"
+                className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`}
+                onClick={() => setField("phase", "three")}
+              >
+                Three Phase
+                <span>Commercial / Industrial</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="ad-form-grid" style={{ marginTop: 16 }}>
+            <div className="ad-form-full">
+              <label className="ad-label">Package Name</label>
+              <input
+                className="ad-input"
+                value={form.name}
+                placeholder="e.g. 3.72 kWp · 3.6 kW · 5.1 kWh"
+                onChange={(e) => { setNameEdited(true); setField("name", e.target.value); }}
+              />
+              <p className="ad-pkg-hint">This name is shown to customers in the recommendation panel. Fill in the specs below first — the name will auto-fill.</p>
+            </div>
+
+            <PkgNumInput label="Solar Panel Capacity" hint="Total solar array size." value={form.solarKwp} unit="kWp" onChange={(v) => handleSpecChange("solarKwp", v)} />
+            <PkgNumInput label="Inverter Size" hint="The inverter's power output rating." value={form.inverterKw} unit="kW" onChange={(v) => handleSpecChange("inverterKw", v)} />
+            <PkgNumInput label="Battery Storage" hint="Battery capacity. Enter 0 for grid-tied (no battery)." value={form.storageKwh} unit="kWh" step="0.1" onChange={(v) => handleSpecChange("storageKwh", v)} />
+
+            <div>
+              <label className="ad-label">Package Price</label>
+              <div className="ad-pkg-num-wrap">
+                <span className="ad-pkg-num-prefix">₱</span>
+                <input
+                  type="number"
+                  className="ad-input"
+                  min={0}
+                  step={1}
+                  value={form.totalPrice || ""}
+                  placeholder="0"
+                  onChange={(e) => setField("totalPrice", Number(e.target.value))}
+                />
+              </div>
+              <p className="ad-pkg-hint">Indicative starting price shown to customers.</p>
+            </div>
+
+            <div />
+
+            <div>
+              <label className="ad-label">Minimum Monthly Bill</label>
+              <div className="ad-pkg-num-wrap">
+                <span className="ad-pkg-num-prefix">₱</span>
+                <input
+                  type="number"
+                  className="ad-input"
+                  min={0}
+                  step={100}
+                  value={form.billRangeMin || ""}
+                  placeholder="0"
+                  onChange={(e) => setField("billRangeMin", Number(e.target.value))}
+                />
+                <span className="ad-pkg-num-unit">/ mo</span>
+              </div>
+              <p className="ad-pkg-hint">Customers with bills above this amount are a good fit.</p>
+            </div>
+
+            <div>
+              <label className="ad-label">Maximum Monthly Bill</label>
+              <div className="ad-pkg-num-wrap">
+                <span className="ad-pkg-num-prefix">₱</span>
+                <input
+                  type="number"
+                  className="ad-input"
+                  min={0}
+                  step={100}
+                  value={form.billRangeMax || ""}
+                  placeholder="0"
+                  onChange={(e) => setField("billRangeMax", Number(e.target.value))}
+                />
+                <span className="ad-pkg-num-unit">/ mo</span>
+              </div>
+              <p className="ad-pkg-hint">Customers with bills below this amount are best suited.</p>
+            </div>
+
+            <div>
+              <label className="ad-label">Display Order</label>
+              <input
+                type="number"
+                className="ad-input"
+                value={form.sortOrder}
+                onChange={(e) => setField("sortOrder", Number(e.target.value))}
+              />
+              <p className="ad-pkg-hint">Lower numbers appear first. Use 0 for default ordering.</p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+              <input
+                type="checkbox"
+                id="pkg-active"
+                checked={form.isActive}
+                onChange={(e) => setField("isActive", e.target.checked)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }}
+              />
+              <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>
+                Active — visible to customers
+              </label>
+            </div>
+          </div>
+
+          <div className="ad-form-actions">
+            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
+              {saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading packages…</div>
+      ) : packages.length === 0 ? (
+        <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 380, margin: "0 auto" }}>
+            Click <strong>Load Default Packages</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch.
+          </div>
+        </div>
+      ) : (
+        <div className="ad-pkg-mgr-grid">
+          {packages.map((p) => (
+            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""} is-${p.phase}-phase`}>
+              <div className="ad-pkg-mgr-top">
+                <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>
+                  {p.phase === "single" ? "Single Phase" : "Three Phase"}
+                </span>
+                <label className="ad-toggle-switch" title={p.isActive ? "Active — click to hide" : "Hidden — click to show"}>
+                  <input
+                    type="checkbox"
+                    checked={p.isActive}
+                    disabled={toggling === p.id}
+                    onChange={() => void handleToggleActive(p)}
+                  />
+                  <span className="ad-toggle-track" />
+                </label>
+              </div>
+
+              <div className="ad-pkg-mgr-name">{p.name}</div>
+
+              <div className="ad-pkg-mgr-specs">
+                <div className="ad-pkg-mgr-spec">
+                  <span>Solar</span>
+                  <strong>{p.solarKwp} kWp</strong>
+                </div>
+                <div className="ad-pkg-mgr-spec">
+                  <span>Inverter</span>
+                  <strong>{p.inverterKw} kW</strong>
+                </div>
+                <div className="ad-pkg-mgr-spec">
+                  <span>Battery</span>
+                  <strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong>
+                </div>
+              </div>
+
+              <div className="ad-pkg-mgr-price">{peso(p.totalPrice)}</div>
+              <div className="ad-pkg-mgr-bill">
+                For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo
+              </div>
+
+              <div className="ad-pkg-mgr-footer">
+                <span className="ad-pkg-mgr-order">Order #{p.sortOrder}</span>
+                <div className="ad-table-actions">
+                  <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
+                  <button
+                    onClick={() => void handleDelete(p)}
+                    disabled={deleting === p.id || showForm}
+                    className="ad-btn ad-btn--danger ad-btn--sm"
+                    style={{ opacity: deleting === p.id ? 0.5 : 1 }}
+                  >
+                    {deleting === p.id ? "…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type FooterLink = { name: string; url: string };
 type FooterContent = {
@@ -1024,8 +1401,6 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Main Admin Page ──────────────────────────────────────────────────────────
-
 export default function ASAdmin() {
   const [apiKey, setApiKey] = useState<string>(() => sessionStorage.getItem("azari_admin_key") ?? "");
   const [authError, setAuthError] = useState("");
@@ -1069,6 +1444,7 @@ export default function ASAdmin() {
     { id: "inquiries",  label: "Talk Inquiries" },
     { id: "quotations", label: "Quotation Requests" },
     { id: "projects",   label: "Projects" },
+    { id: "packages",   label: "Solar Packages" },
     { id: "sections",   label: "Sections" },
     { id: "content",    label: "Site Content" },
     { id: "footer",     label: "Footer" },
@@ -1116,6 +1492,7 @@ export default function ASAdmin() {
         {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
         {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
         {tab === "projects"   && <ProjectsManager apiKey={apiKey} />}
+        {tab === "packages"   && <PackagesManager apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
         {tab === "content"    && <ContentEditor apiKey={apiKey} />}
         {tab === "footer"     && <FooterEditor apiKey={apiKey} />}

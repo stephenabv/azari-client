@@ -5,6 +5,7 @@ type ProposalSubmittedModalProps = {
   onClose: () => void;
   engineResult: EngineResult | null;
   propertyType: string;
+  catalog: SolarPackage[];
 };
 
 function formatPeso(value: number) {
@@ -19,12 +20,13 @@ export default function ProposalSubmittedModal({
   onClose,
   engineResult,
   propertyType,
+  catalog,
 }: ProposalSubmittedModalProps) {
   const preferredPhase =
     propertyType === "Residential" ? "single" : "three";
 
   const packages = engineResult
-    ? findMatchingPackages(engineResult, preferredPhase)
+    ? findMatchingPackages(engineResult, preferredPhase, catalog)
     : [];
 
   const systemLabel = engineResult

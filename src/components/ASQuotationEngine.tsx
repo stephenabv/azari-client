@@ -18,6 +18,7 @@ import {
   ELECTRIC_RATE_CONFIG,
 } from "../models/calculation";
 import type { EngineResult, SystemPurpose, SystemType } from "../models/calculation";
+import { SOLAR_PACKAGES, fetchPackagesFromApi, type SolarPackage } from "../models/packages";
 import type {
   QuotationAppliance,
   UploadedBill,
@@ -129,9 +130,7 @@ function useNumericInput(initial: number) {
   return { num, str, handleChange, setNum, setStr };
 }
 
-// ─── Module-level sub-components ─────────────────────────────────────────────
-// Defined outside ASQuotationEngine so React never unmounts/remounts them on
-// parent re-renders (avoids re-animation and slider interruptions).
+
 
 function ElectricRateField({
   num,
@@ -313,38 +312,39 @@ export default function ASQuotationEngine() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ─── Bill toggle (global) ─────────────────────────────────────────────────
+
   const [hasBill, setHasBill] = useState(true);
 
-  // ─── System purpose & type ────────────────────────────────────────────────
+
   const [systemPurpose, setSystemPurpose] = useState<SystemPurpose>("monthly-savings");
   const [systemType, setSystemType] = useState<SystemType>("hybrid");
 
-  // ─── Property classification ──────────────────────────────────────────────
+
   const [selectedProperty, setSelectedProperty] = useState("Residential");
 
-  // ─── Modal & UI state ─────────────────────────────────────────────────────
+
   const [modal, setModal] = useState<ModalType>(null);
   const [formError, setFormError] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState<EngineResult | null>(null);
+  const [packageCatalog, setPackageCatalog] = useState<SolarPackage[]>(SOLAR_PACKAGES);
 
-  // ─── Appliances ───────────────────────────────────────────────────────────
+
   const [appliances, setAppliances] = useState<QuotationAppliance[]>([]);
   const [editingAppliance, setEditingAppliance] = useState<QuotationAppliance | null>(null);
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
 
-  // ─── Monthly Savings inputs ───────────────────────────────────────────────
+
   const savingsTarget = useNumericInput(quoteState.estimatedMonthlySavings ?? 0);
   const electricRateMS = useNumericInput(quoteState.electricRate ?? 0);
 
-  // ─── Peak Shaving inputs ──────────────────────────────────────────────────
+
   const peakPower = useNumericInput(0);
   const allowedGridPower = useNumericInput(0);
   const peakDuration = useNumericInput(0);
 
-  // ─── Zero Bill inputs ─────────────────────────────────────────────────────
+
   const monthlyBillZB = useNumericInput(
     quoteState.monthlyBill ?? 5000
   );
@@ -354,14 +354,14 @@ export default function ASQuotationEngine() {
 
   const closeModal = () => setModal(null);
 
-  // Reset zero-bill purpose when non-Residential property is selected
+
   useEffect(() => {
     if (systemPurpose === "zero-bill" && selectedProperty !== "Residential") {
       setSystemPurpose("monthly-savings");
     }
   }, [selectedProperty, systemPurpose]);
 
-  // Lock body scroll when a modal is open
+
   useEffect(() => {
     if (!modal) return;
 
@@ -387,13 +387,18 @@ export default function ASQuotationEngine() {
     };
   }, [modal]);
 
-  // ─── Computed load metrics ────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchPackagesFromApi().then(setPackageCatalog).catch(() => {});
+  }, []);
+
+
   const { duec, nwec, totalDailyUsageWh } = useMemo(
     () => computeDailyLoadMetrics(appliances),
     [appliances]
   );
 
-  // ─── Engine result ────────────────────────────────────────────────────────
+
   const engineResult = useMemo((): EngineResult | null => {
     if (systemPurpose === "monthly-savings") {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
@@ -419,7 +424,7 @@ export default function ASQuotationEngine() {
         if (monthlyBillZB.num <= 0 || electricRateZB.num <= 0) return null;
         return calculateZeroBillWithLoadProfile(monthlyBillZB.num, electricRateZB.num, nwec);
       }
-      // Load profile only
+
       if (!hasProfile) return null;
       return calculateZeroBillLoadOnly(duec, nwec);
     }
@@ -433,7 +438,7 @@ export default function ASQuotationEngine() {
     duec, nwec, appliances.length,
   ]);
 
-  // ─── Appliance handlers ───────────────────────────────────────────────────
+
   const handleApplianceSubmit = (
     item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">
   ) => {
@@ -476,7 +481,7 @@ export default function ASQuotationEngine() {
     setAppliances((current) => current.filter((a) => a.id !== id));
   }, []);
 
-  // ─── Bill upload handlers ─────────────────────────────────────────────────
+
   const handleFileUpload = (file?: File) => {
     setUploadError("");
     if (!file) return;
@@ -507,7 +512,7 @@ export default function ASQuotationEngine() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // ─── Validation ───────────────────────────────────────────────────────────
+
   const validateBeforeProposal = (): string => {
     if (!selectedProperty) return "Please select a property classification.";
 
@@ -601,7 +606,7 @@ export default function ASQuotationEngine() {
     }
   };
 
-  // ─── Section content per purpose ──────────────────────────────────────────
+
 
   const monthlySavingsContent = (
     <>
@@ -869,8 +874,6 @@ export default function ASQuotationEngine() {
     </>
   );
 
-  // ─── Summary panel ────────────────────────────────────────────────────────
-
   const recommendedSystemLabel = engineResult
     ? `~${engineResult.solarKwp.toFixed(1)} kWp ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
     : "—";
@@ -892,8 +895,6 @@ export default function ASQuotationEngine() {
     savingsSummaryValue !== null && savingsSummaryValue > 0
       ? formatCompactPeso(savingsSummaryValue)
       : "—";
-
-  // ─── Modal layer ──────────────────────────────────────────────────────────
 
   const modalLayer =
     modal && typeof document !== "undefined"
@@ -920,6 +921,7 @@ export default function ASQuotationEngine() {
                 onClose={closeModal}
                 engineResult={submittedResult}
                 propertyType={selectedProperty}
+                catalog={packageCatalog}
               />
             )}
 

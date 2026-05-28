@@ -1,4 +1,4 @@
-// ─── Admin CSS Variable System ────────────────────────────────────────────────
+
 
 .as-admin {
   --ad-bg: #0a0a0a;
@@ -34,8 +34,6 @@
   }
 }
 
-// ─── Base Layout ─────────────────────────────────────────────────────────────
-
 .as-admin {
   min-height: 100vh;
   background: var(--ad-bg);
@@ -43,8 +41,6 @@
   font-family: "Inter", sans-serif;
   transition: background 0.25s ease, color 0.25s ease;
 }
-
-// ─── Login ────────────────────────────────────────────────────────────────────
 
 .ad-login-wrap {
   min-height: 100vh;
@@ -92,8 +88,6 @@
   margin-bottom: 16px;
 }
 
-// ─── Top Nav ─────────────────────────────────────────────────────────────────
-
 .ad-topnav {
   background: var(--ad-surface);
   border-bottom: 1px solid var(--ad-border);
@@ -140,8 +134,6 @@
   gap: 10px;
 }
 
-// ─── Theme Toggle ─────────────────────────────────────────────────────────────
-
 .ad-theme-toggle {
   width: 44px;
   height: 24px;
@@ -175,8 +167,6 @@
     box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.4);
   }
 }
-
-// ─── Tab Bar ──────────────────────────────────────────────────────────────────
 
 .ad-tabs {
   background: var(--ad-surface);
@@ -224,15 +214,11 @@
   }
 }
 
-// ─── Tab Content Wrapper ──────────────────────────────────────────────────────
-
 .ad-content {
   padding: 28px;
   max-width: 1440px;
   margin: 0 auto;
 }
-
-// ─── Shared Form Controls ─────────────────────────────────────────────────────
 
 .ad-label {
   display: block;
@@ -348,8 +334,6 @@
   }
 }
 
-// ─── Card / Panel ─────────────────────────────────────────────────────────────
-
 .ad-card {
   background: var(--ad-surface);
   border: 1px solid var(--ad-border);
@@ -364,8 +348,6 @@
   color: var(--ad-text);
   margin-bottom: 16px;
 }
-
-// ─── Toast / Alert ────────────────────────────────────────────────────────────
 
 .ad-toast {
   padding: 10px 16px;
@@ -385,8 +367,6 @@
     color: var(--ad-error-text);
   }
 }
-
-// ─── Status Badges ────────────────────────────────────────────────────────────
 
 .ad-badge {
   display: inline-flex;
@@ -408,8 +388,6 @@
   &.is-commercial  { background: rgba(124, 58, 237, 0.15); color: #a78bfa; }
   &.is-industrial  { background: rgba(180, 83, 9, 0.15); color: #fbbf24; }
 }
-
-// ─── Overview Stats ───────────────────────────────────────────────────────────
 
 .ad-stats-grid {
   display: grid;
@@ -488,8 +466,6 @@
   color: var(--ad-text3);
   font-size: 11px;
 }
-
-// ─── Table ────────────────────────────────────────────────────────────────────
 
 .ad-filter-bar {
   display: flex;
@@ -583,8 +559,6 @@
   outline: none;
 }
 
-// ─── Inline Edit Panel ────────────────────────────────────────────────────────
-
 .ad-edit-panel {
   background: var(--ad-surface);
   border: 1px solid var(--ad-border);
@@ -627,8 +601,6 @@
   margin-top: 16px;
   flex-wrap: wrap;
 }
-
-// ─── Content Editor ───────────────────────────────────────────────────────────
 
 .ad-content-layout {
   display: grid;
@@ -691,8 +663,6 @@
   margin-top: 4px;
 }
 
-// ─── Metrics Editor ───────────────────────────────────────────────────────────
-
 .ad-metrics-row {
   display: grid;
   grid-template-columns: 180px 1fr;
@@ -704,8 +674,6 @@
     grid-template-columns: 1fr;
   }
 }
-
-// ─── Projects Manager ─────────────────────────────────────────────────────────
 
 .ad-section-header {
   display: flex;
@@ -773,8 +741,6 @@
   align-items: flex-start;
 }
 
-// ─── Footer Editor ────────────────────────────────────────────────────────────
-
 .ad-footer-wrap {
   max-width: 780px;
 }
@@ -794,8 +760,6 @@
     }
   }
 }
-
-// ─── Section Visibility Manager ───────────────────────────────────────────────
 
 .ad-sections-grid {
   display: grid;
@@ -895,7 +859,217 @@
   border-top: 1px solid var(--ad-border);
 }
 
-// ─── Responsive ───────────────────────────────────────────────────────────────
+.ad-section-sub {
+  font-size: 13px;
+  color: var(--ad-text2);
+  margin-top: 4px;
+}
+
+.ad-pkg-form-phase {
+  margin-bottom: 4px;
+}
+
+.ad-pkg-phase-toggle {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.ad-pkg-phase-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ad-border2);
+  background: var(--ad-surface2);
+  color: var(--ad-text2);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  span {
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  &.is-active {
+    border-color: var(--ad-accent);
+    background: var(--ad-accent-dim);
+    color: var(--ad-accent);
+  }
+
+  &:hover:not(.is-active) {
+    border-color: var(--ad-border2);
+    color: var(--ad-text);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.35);
+  }
+}
+
+.ad-pkg-num-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+
+  .ad-input {
+    border-radius: 10px 0 0 10px;
+    border-right: none;
+
+    &:focus {
+      z-index: 1;
+      position: relative;
+    }
+  }
+
+  &:has(.ad-pkg-num-prefix) .ad-input {
+    border-radius: 0 10px 10px 0;
+    border-left: none;
+  }
+}
+
+.ad-pkg-num-prefix {
+  padding: 0 10px;
+  height: 37px;
+  display: flex;
+  align-items: center;
+  background: var(--ad-surface2);
+  border: 1px solid var(--ad-border2);
+  border-radius: 10px 0 0 10px;
+  font-size: 13px;
+  color: var(--ad-text2);
+  flex-shrink: 0;
+}
+
+.ad-pkg-num-unit {
+  padding: 0 10px;
+  height: 37px;
+  display: flex;
+  align-items: center;
+  background: var(--ad-surface2);
+  border: 1px solid var(--ad-border2);
+  border-left: none;
+  border-radius: 0 10px 10px 0;
+  font-size: 12px;
+  color: var(--ad-text2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ad-pkg-hint {
+  font-size: 11px;
+  color: var(--ad-text3);
+  margin-top: 5px;
+  line-height: 1.45;
+}
+
+.ad-pkg-mgr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 16px;
+}
+
+.ad-pkg-mgr-card {
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+
+  &.is-inactive {
+    opacity: 0.45;
+  }
+
+  &.is-single-phase {
+    border-top: 3px solid #38bdf8;
+  }
+
+  &.is-three-phase {
+    border-top: 3px solid #a78bfa;
+  }
+}
+
+.ad-pkg-mgr-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ad-pkg-mgr-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ad-text);
+  line-height: 1.35;
+}
+
+.ad-pkg-mgr-specs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+
+.ad-pkg-mgr-spec {
+  background: var(--ad-surface2);
+  border-radius: 8px;
+  padding: 8px 6px;
+  text-align: center;
+
+  span {
+    display: block;
+    font-size: 10px;
+    color: var(--ad-text3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 3px;
+  }
+
+  strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ad-text);
+  }
+}
+
+.ad-pkg-mgr-price {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ad-accent);
+  line-height: 1;
+}
+
+.ad-pkg-mgr-bill {
+  font-size: 12px;
+  color: var(--ad-text2);
+}
+
+.ad-pkg-mgr-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--ad-border);
+  margin-top: auto;
+}
+
+.ad-pkg-mgr-order {
+  font-size: 11px;
+  color: var(--ad-text3);
+}
 
 @media (max-width: 768px) {
   .ad-topnav {

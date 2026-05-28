@@ -1,5 +1,5 @@
-// Base URL for API calls. In production, Nginx proxies /api/* to the backend.
-// In development, Vite proxies /api/* to localhost:4000 (see vite.config.ts).
+
+
 const API_BASE = '/api';
 
 export type ContentKey =
@@ -39,7 +39,7 @@ export async function fetchAllContent(): Promise<Record<string, unknown> | null>
   }
 }
 
-// ─── Admin API calls (require x-admin-api-key header) ──────────────────────────
+
 
 export async function adminGetAllContent(apiKey: string) {
   const res = await fetch(`${API_BASE}/admin/content`, {
@@ -199,7 +199,7 @@ export async function adminUpdateQuotation(apiKey: string, id: string, data: Rec
   return res.json();
 }
 
-// ─── Projects API ──────────────────────────────────────────────────────────────
+
 
 export type ProjectCategory = 'Residential' | 'Commercial' | 'Industrial';
 
@@ -223,7 +223,7 @@ export interface ProjectInput {
   savings: string;
   isRecent: boolean;
   sortOrder: number;
-  imageFile?: File; // required on create, optional on update
+  imageFile?: File;
 }
 
 export async function fetchProjects(): Promise<ApiProject[]> {
@@ -288,6 +288,95 @@ export async function adminUpdateProject(apiKey: string, id: string, data: Proje
 
 export async function adminDeleteProject(apiKey: string, id: string) {
   const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+
+
+export interface ApiSolarPackage {
+  id: string;
+  name: string;
+  solarKwp: number;
+  inverterKw: number;
+  storageKwh: number;
+  phase: 'single' | 'three';
+  totalPrice: number;
+  billRangeMin: number;
+  billRangeMax: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PackageInput {
+  name: string;
+  solarKwp: number;
+  inverterKw: number;
+  storageKwh: number;
+  phase: 'single' | 'three';
+  totalPrice: number;
+  billRangeMin: number;
+  billRangeMax: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
+  try {
+    const res = await fetch(`${API_BASE}/packages`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success: boolean; data: ApiSolarPackage[] };
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function adminGetPackages(apiKey: string) {
+  const res = await fetch(`${API_BASE}/admin/packages`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load packages: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: ApiSolarPackage[] };
+}
+
+export async function adminCreatePackage(apiKey: string, data: PackageInput) {
+  const res = await fetch(`${API_BASE}/admin/packages`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUpdatePackage(apiKey: string, id: string, data: Partial<PackageInput>) {
+  const res = await fetch(`${API_BASE}/admin/packages/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Update failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDeletePackage(apiKey: string, id: string) {
+  const res = await fetch(`${API_BASE}/admin/packages/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });

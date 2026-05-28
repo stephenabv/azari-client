@@ -12,7 +12,7 @@ export type SolarPackage = {
 };
 
 export const SOLAR_PACKAGES: SolarPackage[] = [
-  // ── Single Phase ─────────────────────────────────────────────────────────────
+
   {
     id: "sp-3.6",
     name: "3.72 kWp · 3.6 kW · 5.1 kWh",
@@ -53,7 +53,7 @@ export const SOLAR_PACKAGES: SolarPackage[] = [
     totalPrice: 758289,
     monthlyBillRange: [22000, 26000],
   },
-  // ── Three Phase ───────────────────────────────────────────────────────────────
+
   {
     id: "tp-8",
     name: "8.68 kWp · 8 kW · 5.1 kWh",
@@ -86,15 +86,12 @@ export const SOLAR_PACKAGES: SolarPackage[] = [
   },
 ];
 
-/**
- * Returns up to 3 packages whose specs meet or exceed the engine result.
- * Preferred phase is shown first; within each phase packages are sorted cheapest-first.
- */
 export function findMatchingPackages(
   result: EngineResult,
-  preferredPhase: "single" | "three"
+  preferredPhase: "single" | "three",
+  catalog: SolarPackage[] = SOLAR_PACKAGES
 ): SolarPackage[] {
-  const matches = SOLAR_PACKAGES.filter((pkg) => {
+  const matches = catalog.filter((pkg) => {
     const solarOk = pkg.solarKwp >= result.solarKwp;
     const inverterOk = pkg.inverterKw >= result.inverterKw;
     const storageOk = result.storageKwh === 0 || pkg.storageKwh >= result.storageKwh;
@@ -109,4 +106,32 @@ export function findMatchingPackages(
   });
 
   return matches.slice(0, 3);
+}
+
+export async function fetchPackagesFromApi(): Promise<SolarPackage[]> {
+  try {
+    const res = await fetch("/api/packages", { headers: { Accept: "application/json" } });
+    if (!res.ok) return SOLAR_PACKAGES;
+    const json = (await res.json()) as {
+      success: boolean;
+      data: Array<{
+        id: string; name: string; solarKwp: number; inverterKw: number;
+        storageKwh: number; phase: string; totalPrice: number;
+        billRangeMin: number; billRangeMax: number;
+      }>;
+    };
+    if (!json.data?.length) return SOLAR_PACKAGES;
+    return json.data.map((p) => ({
+      id: p.id,
+      name: p.name,
+      solarKwp: p.solarKwp,
+      inverterKw: p.inverterKw,
+      storageKwh: p.storageKwh,
+      phase: p.phase as "single" | "three",
+      totalPrice: p.totalPrice,
+      monthlyBillRange: [p.billRangeMin, p.billRangeMax] as [number, number],
+    }));
+  } catch {
+    return SOLAR_PACKAGES;
+  }
 }
