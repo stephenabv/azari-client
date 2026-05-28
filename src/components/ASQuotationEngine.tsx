@@ -388,12 +388,10 @@ export default function ASQuotationEngine() {
     fetchPackagesFromApi().then(setPackageCatalog).catch(() => { });
   }, []);
 
-
   const { duec, nwec, totalDailyUsageWh } = useMemo(
     () => computeDailyLoadMetrics(appliances),
     [appliances]
   );
-
 
   const engineResult = useMemo((): EngineResult | null => {
     if (systemPurpose === "monthly-savings") {
@@ -420,7 +418,6 @@ export default function ASQuotationEngine() {
         if (monthlyBillZB.num <= 0 || electricRateZB.num <= 0) return null;
         return calculateZeroBillWithLoadProfile(monthlyBillZB.num, electricRateZB.num, nwec);
       }
-
       if (!hasProfile) return null;
       return calculateZeroBillLoadOnly(duec, nwec);
     }
@@ -433,6 +430,8 @@ export default function ASQuotationEngine() {
     hasBill, monthlyBillZB.num, electricRateZB.num,
     duec, nwec, appliances.length,
   ]);
+
+
 
 
   const handleApplianceSubmit = (
@@ -881,16 +880,6 @@ export default function ASQuotationEngine() {
     </>
   );
 
-  const recommendedSystemLabel = engineResult
-    ? `~${engineResult.solarKwp.toFixed(1)} kWp ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
-    : "—";
-
-  const batterySizeLabel = engineResult
-    ? engineResult.storageKwh > 0
-      ? `${engineResult.storageKwh} kWh`
-      : "No Battery"
-    : "—";
-
   const modalLayer =
     modal && typeof document !== "undefined"
       ? createPortal(
@@ -1028,11 +1017,24 @@ export default function ASQuotationEngine() {
           {/* Summary panel */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p>Recommended System</p>
-              <h2>{recommendedSystemLabel}</h2>
+              <p>Inverter Specifications</p>
+              <h2>
+                {engineResult
+                  ? `${engineResult.inverterKw}kW ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
+                  : "—"}
+              </h2>
 
-              <p>Battery Size</p>
-              <h2>{batterySizeLabel}</h2>
+              <p>Solar Panel Capacity</p>
+              <h2>
+                {engineResult ? `~${engineResult.solarKwp.toFixed(1)} kWp` : "—"}
+              </h2>
+
+              <p>Storage Capacity</p>
+              <h2>
+                {engineResult
+                  ? engineResult.storageKwh > 0 ? `${engineResult.storageKwh} kWh` : "No Battery"
+                  : "—"}
+              </h2>
 
               <button
                 type="button"
