@@ -1018,10 +1018,11 @@ function BenefitsEditor({ apiKey }: { apiKey: string }) {
 
 // ─── Tropics ──────────────────────────────────────────────────────────────────
 
-type TropicsForm = { header: string; subtext: string };
+type TropicsForm = { header: string; subtext: string; performanceRating: number };
 const DEFAULT_TROPICS_FORM: TropicsForm = {
   header: "Solar Energy for the Tropics",
   subtext: "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+  performanceRating: 87,
 };
 
 function TropicsEditor({ apiKey }: { apiKey: string }) {
@@ -1041,6 +1042,22 @@ function TropicsEditor({ apiKey }: { apiKey: string }) {
           <div className="ad-form-full">
             <label className="ad-label">Subtext</label>
             <textarea className="ad-textarea" rows={3} value={form.subtext} onChange={(e) => setForm((f) => ({ ...f, subtext: e.target.value }))} />
+          </div>
+          <div>
+            <label className="ad-label">Performance Rating (%)</label>
+            <input
+              className="ad-input"
+              type="number"
+              min={0}
+              max={100}
+              value={form.performanceRating}
+              onChange={(e) => {
+                const v = Math.min(100, Math.max(0, Number(e.target.value)));
+                setForm((f) => ({ ...f, performanceRating: v }));
+              }}
+              placeholder="87"
+            />
+            <p className="ad-pkg-hint">Shown as the bar chart percentage on the Performance Guarantee card (0–100).</p>
           </div>
         </div>
         <div className="ad-form-actions">

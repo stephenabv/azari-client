@@ -5,12 +5,22 @@ import { useContent } from "../hooks/useContent";
 type TropicsContent = {
   header: string;
   subtext: string;
+  performanceRating: number;
+};
+
+type MetricsContent = {
+  items: Array<{ value: string; label: string; order: number }>;
 };
 
 const DEFAULT_TROPICS: TropicsContent = {
   header: "Solar Energy for the Tropics",
   subtext:
     "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+  performanceRating: 87,
+};
+
+const DEFAULT_METRICS: MetricsContent = {
+  items: [{ value: "0", label: "INSTALLED", order: 1 }],
 };
 
 export default function ASTropicsSection() {
@@ -20,6 +30,8 @@ export default function ASTropicsSection() {
   const [isVisible, setIsVisible] = useState(false);
   const [showText, setShowText] = useState(false);
   const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
+  const metrics = useContent<MetricsContent>("metrics", DEFAULT_METRICS);
+  const installedValue = metrics.items.find((i) => i.label === "INSTALLED")?.value ?? "0";
 
   const headerParts = tropics.header
     .split(/\n|<br\s*\/?\s*>/i)
@@ -67,7 +79,11 @@ export default function ASTropicsSection() {
 
   return (
     <section ref={sectionRef} className="as-tropics-section">
-      <ASTropicsCards isVisible={isVisible} />
+      <ASTropicsCards
+          isVisible={isVisible}
+          assetsDeployed={installedValue}
+          performanceRating={tropics.performanceRating ?? 87}
+        />
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
         <p className="header">

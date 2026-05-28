@@ -4,10 +4,9 @@ import assetsDeployed from "../assets/images/dark/assets_deployed_dark.png";
 
 type ASTropicsCardsProps = {
   isVisible: boolean;
+  assetsDeployed: string;
+  performanceRating: number;
 };
-
-const DEFAULT_ASSETS_DEPLOYED = "210.96kWp";
-const DEFAULT_PERFORMANCE_RATING = 87;
 
 const cards = [
   {
@@ -48,10 +47,9 @@ function useCountUp(target: number, isActive: boolean, duration = 1500, decimals
   return value;
 }
 
-export default function ASTropicsCards({ isVisible }: ASTropicsCardsProps) {
-  const assetsNumber = parseFloat(DEFAULT_ASSETS_DEPLOYED);
-  const assetsUnit = DEFAULT_ASSETS_DEPLOYED.replace(/[\d.]/g, "");
-  const performanceRating = DEFAULT_PERFORMANCE_RATING;
+export default function ASTropicsCards({ isVisible, assetsDeployed, performanceRating }: ASTropicsCardsProps) {
+  const assetsNumber = parseFloat(assetsDeployed);
+  const assetsUnit = assetsDeployed.replace(/[\d.]/g, "");
 
   const rolledAssets = useCountUp(assetsNumber, isVisible, 1600, 2);
   const rolledPerformance = useCountUp(performanceRating, isVisible, 1400, 0);
