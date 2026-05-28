@@ -69,6 +69,11 @@ const propertyTypes = [
 
 const systemPurposes: Array<{ id: SystemPurpose; label: string; description: string }> = [
   {
+    id: "zero-bill",
+    label: "Zero Bill / Off-Grid",
+    description: "Eliminate your electricity bill completely. Covers full day and night load with solar and battery.",
+  },
+  {
     id: "monthly-savings",
     label: "Monthly Savings",
     description: "Target a specific monthly savings amount. Size the system to offset a portion of your electricity bill.",
@@ -77,11 +82,6 @@ const systemPurposes: Array<{ id: SystemPurpose; label: string; description: str
     id: "peak-shaving",
     label: "Peak Shaving",
     description: "Reduce peak demand charges. Battery discharges during peak hours to lower your maximum grid draw.",
-  },
-  {
-    id: "zero-bill",
-    label: "Zero Bill / Off-Grid",
-    description: "Eliminate your electricity bill completely. Covers full day and night load with solar and battery.",
   },
 ];
 
@@ -321,6 +321,7 @@ export default function ASQuotationEngine() {
   const [modal, setModal] = useState<ModalType>(null);
   const [formError, setFormError] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [peakDurationError, setPeakDurationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState<EngineResult | null>(null);
   const [packageCatalog, setPackageCatalog] = useState<SolarPackage[]>(SOLAR_PACKAGES);
@@ -405,7 +406,7 @@ export default function ASQuotationEngine() {
 
     if (systemPurpose === "peak-shaving") {
       const gap = peakPower.num - allowedGridPower.num;
-      if (peakPower.num <= 0 || gap <= 0 || peakDuration.num <= 0) return null;
+      if (peakPower.num <= 0 || gap <= 0 || peakDuration.num <= 0 || peakDuration.num > 24) return null;
       return calculatePeakShaving(peakPower.num, allowedGridPower.num, peakDuration.num);
     }
 
@@ -524,7 +525,7 @@ export default function ASQuotationEngine() {
       if (peakPower.num <= allowedGridPower.num) {
         return "Peak power must be greater than the allowed grid power.";
       }
-      if (peakDuration.num <= 0) return "Please enter a valid peak duration.";
+      if (peakDuration.num <= 0 || peakDuration.num > 24) return "Please enter a valid peak duration (between 0 and 24 hours).";
     }
 
     if (systemPurpose === "zero-bill") {
@@ -738,11 +739,30 @@ export default function ASQuotationEngine() {
                 onChange={(e) => {
                   peakDuration.handleChange(e.target.value);
                   setFormError("");
+                  setPeakDurationError(
+                    e.target.value === "" || e.target.value === "."
+                      ? ""
+                      : Number(e.target.value) > 24
+                        ? "Maximum is 24 hours."
+                        : Number(e.target.value) <= 0
+                          ? "Must be greater than 0."
+                          : ""
+                  );
+                }}
+                onBlur={() => {
+                  if (peakDuration.num > 24) {
+                    peakDuration.handleChange("24");
+                    setPeakDurationError("");
+                  } else if (peakDuration.num <= 0 && peakDuration.str !== "") {
+                    peakDuration.handleChange("");
+                    setPeakDurationError("");
+                  }
                 }}
               />
               <small>hrs</small>
             </div>
-            <p>How many hours per day peak demand charges apply.</p>
+            <p>Decimals count as minutes (e.g. 1.5 = 1h 30m). Max 24 hrs.</p>
+            {peakDurationError && <p className="as-rate-error">{peakDurationError}</p>}
           </div>
         </div>
       </div>
@@ -974,17 +994,14 @@ export default function ASQuotationEngine() {
               </div>
 
               <div className="as-property-grid">
-                {systemPurposes.map((item) => {
-                  const isZeroBillUnavailable =
-                    item.id === "zero-bill" && selectedProperty !== "Residential";
-                  return (
+                {systemPurposes
+                  .filter((item) => !(item.id === "zero-bill" && selectedProperty !== "Residential"))
+                  .map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      disabled={isZeroBillUnavailable}
-                      className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""} ${isZeroBillUnavailable ? "is-disabled" : ""}`}
+                      className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""}`}
                       onClick={() => {
-                        if (isZeroBillUnavailable) return;
                         setSystemPurpose(item.id);
                         setFormError("");
                         setAppliances([]);
@@ -993,12 +1010,8 @@ export default function ASQuotationEngine() {
                       <span className="as-property-check" />
                       <h3>{item.label}</h3>
                       <p>{item.description}</p>
-                      {isZeroBillUnavailable && (
-                        <small className="as-purpose-restricted">Residential only</small>
-                      )}
                     </button>
-                  );
-                })}
+                  ))}
               </div>
             </div>
 

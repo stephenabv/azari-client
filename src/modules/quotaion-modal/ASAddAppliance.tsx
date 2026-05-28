@@ -13,6 +13,41 @@ type ScheduleItem = {
   to: string;
 };
 
+type RatingUnit = "W" | "HP" | "Ton";
+
+const RATING_UNITS: { value: RatingUnit; label: string }[] = [
+  { value: "W", label: "Watts" },
+  { value: "HP", label: "HP" },
+  { value: "Ton", label: "Ton" },
+];
+
+const TO_WATTS: Record<RatingUnit, number> = {
+  W: 1,
+  HP: 746,
+  Ton: 3517,
+};
+
+function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function schedulesOverlap(a: ScheduleItem, b: ScheduleItem): boolean {
+  if (!a.from || !a.to || !b.from || !b.to) return false;
+  const aFrom = timeToMinutes(a.from);
+  const aTo = timeToMinutes(a.to);
+  const bFrom = timeToMinutes(b.from);
+  const bTo = timeToMinutes(b.to);
+  const aIntervals: [number, number][] = aFrom < aTo ? [[aFrom, aTo]] : [[aFrom, 1440], [0, aTo]];
+  const bIntervals: [number, number][] = bFrom < bTo ? [[bFrom, bTo]] : [[bFrom, 1440], [0, bTo]];
+  for (const [s1, e1] of aIntervals) {
+    for (const [s2, e2] of bIntervals) {
+      if (s1 < e2 && e1 > s2) return true;
+    }
+  }
+  return false;
+}
+
 function normalizeDecimalInput(value: string) {
   let cleaned = value.replace(/[^\d.]/g, "");
   cleaned = cleaned.replace(/(\..*?)\..*/g, "$1");
@@ -40,6 +75,7 @@ export default function AddApplianceModal({
 
   const [name, setName] = useState(() => initial?.name ?? "");
   const [watts, setWatts] = useState(() => initial ? String(initial.watts) : "");
+  const [ratingUnit, setRatingUnit] = useState<RatingUnit>("W");
   const [quantity, setQuantity] = useState(() => initial ? String(initial.quantity) : "");
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() =>
     initial?.scheduleItems?.length
@@ -85,7 +121,7 @@ export default function AddApplianceModal({
 
   const handleSubmit = () => {
     const cleanName = name.trim();
-    const wattsValue = Number(watts);
+    const wattsValue = Number(watts) * TO_WATTS[ratingUnit];
     const quantityValue = Number(quantity);
 
     const validSchedules = schedules.filter((item) => item.from && item.to);
@@ -120,6 +156,17 @@ export default function AddApplianceModal({
       return;
     }
 
+    for (let i = 0; i < validSchedules.length; i++) {
+      for (let j = i + 1; j < validSchedules.length; j++) {
+        if (schedulesOverlap(validSchedules[i], validSchedules[j])) {
+          setError(
+            `Schedule entries overlap: ${formatTimeDisplay(validSchedules[i].from)}–${formatTimeDisplay(validSchedules[i].to)} conflicts with ${formatTimeDisplay(validSchedules[j].from)}–${formatTimeDisplay(validSchedules[j].to)}.`
+          );
+          return;
+        }
+      }
+    }
+
     const scheduleText = validSchedules
       .map((item) => `${formatTimeDisplay(item.from)} - ${formatTimeDisplay(item.to)}`)
       .join(", ");
@@ -147,9 +194,7 @@ export default function AddApplianceModal({
         <h2>{isEditing ? "Edit Appliance" : "Add Appliance"}</h2>
 
         <p>
-          Tell us about your appliances and how long you use them. This helps
-          our engineers design a system sized perfectly to wipe out your monthly
-          electricity bill.
+          Tell us about your appliances and how long you use them.
         </p>
 
         <div className="as-appliance-form">
@@ -168,7 +213,7 @@ export default function AddApplianceModal({
 
           <div className="as-appliance-grid">
             <label className="as-appliance-field">
-              <span>Rating (Watts)</span>
+              <span>Power Rating</span>
 
               <div className="as-appliance-input-with-unit">
                 <input
@@ -182,10 +227,24 @@ export default function AddApplianceModal({
                   }}
                 />
 
-                <small>Watts</small>
+                <select
+                  value={ratingUnit}
+                  onChange={(e) => {
+                    setRatingUnit(e.target.value as RatingUnit);
+                    setError("");
+                  }}
+                >
+                  {RATING_UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
               </div>
 
-              <em>Check the sticker on your unit.</em>
+              <em>
+                {ratingUnit === "W" && "Check the sticker on your unit."}
+                {ratingUnit === "HP" && "1 HP = 746 W. Common for motors and compressors."}
+                {ratingUnit === "Ton" && "1 Ton = 3,517 W. Common for AC cooling capacity."}
+              </em>
             </label>
 
             <label className="as-appliance-field">

@@ -847,6 +847,7 @@
   margin: 8px 0 28px;
   font-size: 14px;
   line-height: 1.5;
+  color: #9ca3af;
 }
 
 .as-appliance-form {
@@ -869,6 +870,7 @@
 
 .as-appliance-field span,
 .as-schedule-row label span {
+  font-family: "Outfit", sans-serif;
   font-size: 13px;
   color: #9ca3af;
 }
@@ -882,7 +884,7 @@
   border-radius: 8px;
   outline: none;
   background: #242424;
-  color: #e5e7eb;
+  color: #9ca3af;
   font-size: 14px;
 }
 
@@ -892,7 +894,7 @@
 
 .as-appliance-field em {
   font-size: 11px;
-  color: #6b7280;
+  color: #9ca3af;
 }
 
 .as-appliance-input-with-unit {
@@ -900,9 +902,9 @@
   grid-template-columns: 1fr auto;
   align-items: center;
   height: 48px;
-  padding-right: 14px;
   border-radius: 8px;
   background: #242424;
+  overflow: hidden;
 }
 
 .as-appliance-input-with-unit input {
@@ -914,6 +916,23 @@
 .as-appliance-input-with-unit small {
   font-size: 13px;
   color: #9ca3af;
+  padding-right: 14px;
+}
+
+.as-appliance-input-with-unit select {
+  height: 100%;
+  padding: 0 14px;
+  background: #2e2e2e;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  color: #9ca3af;
+  font-family: "Outfit", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .as-appliance-schedule {
@@ -1335,7 +1354,13 @@
 .light-theme .as-schedule-row input,
 .light-theme .as-appliance-input-with-unit {
   background: #f3f4f6;
-  color: #111827;
+  color: #6b7280;
+}
+
+.light-theme .as-appliance-input-with-unit select {
+  background: #e9eaec;
+  border-left-color: rgba(0, 0, 0, 0.1);
+  color: #6b7280;
 }
 
 .light-theme .as-appliance-field input::placeholder {
