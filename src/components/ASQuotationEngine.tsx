@@ -89,11 +89,6 @@ function formatNumber(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-function formatCompactPeso(value: number) {
-  if (value >= 1_000_000) return `₱${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `₱${Math.round(value / 1_000)}k`;
-  return `₱${formatNumber(value)}`;
-}
 
 function formatFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
@@ -337,7 +332,7 @@ export default function ASQuotationEngine() {
 
 
   const savingsTarget = useNumericInput(quoteState.estimatedMonthlySavings ?? 0);
-  const electricRateMS = useNumericInput(quoteState.electricRate ?? 0);
+  const electricRateMS = useNumericInput(quoteState.electricRate ?? ELECTRIC_RATE_CONFIG.min);
 
 
   const peakPower = useNumericInput(0);
@@ -389,7 +384,7 @@ export default function ASQuotationEngine() {
 
 
   useEffect(() => {
-    fetchPackagesFromApi().then(setPackageCatalog).catch(() => {});
+    fetchPackagesFromApi().then(setPackageCatalog).catch(() => { });
   }, []);
 
 
@@ -404,7 +399,7 @@ export default function ASQuotationEngine() {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
       if (dpt <= 0) return null;
       return systemType === "hybrid"
-        ? calculateMonthlySavingsHybrid(dpt, nwec, duec)
+        ? calculateMonthlySavingsHybrid(dpt, duec)
         : calculateMonthlySavingsGridTied(dpt, duec);
     }
 
@@ -752,14 +747,6 @@ export default function ASQuotationEngine() {
         </div>
       </div>
 
-      <LoadProfileSection
-        label="04"
-        appliances={appliances}
-        totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
-        onRemove={handleRemoveAppliance}
-        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
-      />
     </>
   );
 
@@ -884,51 +871,39 @@ export default function ASQuotationEngine() {
       : "No Battery"
     : "—";
 
-  const savingsSummaryValue =
-    systemPurpose === "monthly-savings"
-      ? savingsTarget.num
-      : systemPurpose === "zero-bill" && hasBill
-        ? monthlyBillZB.num
-        : null;
-
-  const monthlySavingsLabel =
-    savingsSummaryValue !== null && savingsSummaryValue > 0
-      ? formatCompactPeso(savingsSummaryValue)
-      : "—";
-
   const modalLayer =
     modal && typeof document !== "undefined"
       ? createPortal(
-          <>
-            {modal === "add-appliance" && (
-              <AddApplianceModal
-                onClose={() => { setEditingAppliance(null); closeModal(); }}
-                onSubmit={handleApplianceSubmit}
-                initial={editingAppliance ?? undefined}
-              />
-            )}
+        <>
+          {modal === "add-appliance" && (
+            <AddApplianceModal
+              onClose={() => { setEditingAppliance(null); closeModal(); }}
+              onSubmit={handleApplianceSubmit}
+              initial={editingAppliance ?? undefined}
+            />
+          )}
 
-            {modal === "request-proposal" && (
-              <RequestProposalModal
-                onClose={closeModal}
-                onSubmit={handleSubmitProposal}
-                isSubmitting={isSubmitting}
-              />
-            )}
+          {modal === "request-proposal" && (
+            <RequestProposalModal
+              onClose={closeModal}
+              onSubmit={handleSubmitProposal}
+              isSubmitting={isSubmitting}
+            />
+          )}
 
-            {modal === "submitted" && (
-              <ProposalSubmittedModal
-                onClose={closeModal}
-                engineResult={submittedResult}
-                propertyType={selectedProperty}
-                catalog={packageCatalog}
-              />
-            )}
+          {modal === "submitted" && (
+            <ProposalSubmittedModal
+              onClose={closeModal}
+              engineResult={submittedResult}
+              propertyType={selectedProperty}
+              catalog={packageCatalog}
+            />
+          )}
 
-            {modal === "system-error" && <ASSystemError onClose={closeModal} />}
-          </>,
-          document.body
-        )
+          {modal === "system-error" && <ASSystemError onClose={closeModal} />}
+        </>,
+        document.body
+      )
       : null;
 
   return (
@@ -1045,9 +1020,6 @@ export default function ASQuotationEngine() {
 
               <p>Battery Size</p>
               <h2>{batterySizeLabel}</h2>
-
-              <p>Monthly Savings</p>
-              <h2>{monthlySavingsLabel}</h2>
 
               <button
                 type="button"

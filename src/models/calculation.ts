@@ -19,6 +19,9 @@ export const SOLAR_CONSTANTS = {
   daysPerMonth: 30,
 
   zeroBillStorageRatio: 3,
+
+  //A.R.A. revision
+  loadUsageFactor: 0.7,
 };
 
 export const ELECTRIC_RATE_CONFIG = {
@@ -95,8 +98,11 @@ export function computeDailyLoadMetrics(appliances: ApplianceLoadInput[]): {
   let nwec = 0;
   let totalDailyUsageWh = 0;
   for (const a of appliances) {
-    duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
-    nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
+    //A.R.A. revision
+    // duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
+    // nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
+    duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
+    nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
     totalDailyUsageWh += a.usage;
   }
   return { duec, nwec, totalDailyUsageWh };
@@ -212,7 +218,7 @@ export function roundInverterSize(rawKw: number): number {
 }
 
 export function roundStorageCapacity(rawKwh: number): number {
-  if (rawKwh <= 0) return 0;
+  if (rawKwh <= 0) return 5;
   return Math.ceil(rawKwh / 5) * 5;
 }
 
@@ -225,15 +231,15 @@ function solarFromDpt(dpt: number): number {
   return Math.round((dpt / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
 }
 
-export function calculateMonthlySavingsHybrid(dpt: number, nwec: number, duec = 0): EngineResult {
-  const solarKwp = solarFromDpt(Math.max(dpt, duec));
+export function calculateMonthlySavingsHybrid(dpt: number, duec = 0): EngineResult {
+  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : solarFromDpt(Math.max(dpt, duec));
+  const storageKwh = dpt < duec ? roundStorageCapacity(0) : roundStorageCapacity((dpt - duec) / SOLAR_CONSTANTS.systemEfficiency);
   const inverterKw = roundInverterSize(solarKwp);
-  const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
 export function calculateMonthlySavingsGridTied(dpt: number, duec = 0): EngineResult {
-  const solarKwp = solarFromDpt(Math.max(dpt, duec));
+  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.peakSunHours); //make a function for this if you feel like doing it
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh: 0, systemType: "grid-tied" };
 }
@@ -248,7 +254,8 @@ export function calculatePeakShaving(
   const storageKwh = roundStorageCapacity(
     (inverterKw * peakDuration) / SOLAR_CONSTANTS.systemEfficiency
   );
-  const solarKwp = Math.round((inverterKw / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  const solarKwp = Math.round((storageKwh / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
@@ -269,9 +276,9 @@ export function calculateZeroBillWithLoadProfile(
   nwec: number
 ): EngineResult {
   const dpt = computeDpt(monthlyBill, electricRate);
-  const solarKwp = solarFromDpt(Math.max(dpt, nwec));
-  const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
+  const solarKwp = dpt >= storageKwh ? solarFromDpt(Math.max(dpt, nwec)) : storageKwh / SOLAR_CONSTANTS.peakSunHours;
+  const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 

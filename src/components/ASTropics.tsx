@@ -17,7 +17,7 @@ export default function ASTropicsSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
 
-  const [visibleCards, setVisibleCards] = useState(-1);
+  const [isVisible, setIsVisible] = useState(false);
   const [showText, setShowText] = useState(false);
   const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
 
@@ -48,10 +48,8 @@ export default function ASTropicsSection() {
         hasAnimated.current = true;
 
         timeouts.push(
-          window.setTimeout(() => setVisibleCards(0), 200),
-          window.setTimeout(() => setVisibleCards(1), 550),
-          window.setTimeout(() => setVisibleCards(2), 900),
-          window.setTimeout(() => setShowText(true), 1350)
+          window.setTimeout(() => setIsVisible(true), 200),
+          window.setTimeout(() => setShowText(true), 600)
         );
 
         observer.disconnect();
@@ -69,7 +67,7 @@ export default function ASTropicsSection() {
 
   return (
     <section ref={sectionRef} className="as-tropics-section">
-      <ASTropicsCards visibleCards={visibleCards} />
+      <ASTropicsCards isVisible={isVisible} />
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
         <p className="header">

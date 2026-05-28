@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   adminGetStats,
   adminGetAllContent,
@@ -30,30 +30,18 @@ import {
 } from "../services/ASContent";
 import { SOLAR_PACKAGES } from "../models/packages";
 
-type Tab = "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections" | "content" | "footer";
+type Tab =
+  | "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections"
+  | "hero" | "metrics" | "benefits" | "tropics" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
-  hero: boolean;
-  metrics: boolean;
-  benefits: boolean;
-  excellence: boolean;
-  tropics: boolean;
-  process: boolean;
-  clientJourney: boolean;
-  calculator: boolean;
-  callToAction: boolean;
+  hero: boolean; metrics: boolean; benefits: boolean; excellence: boolean;
+  tropics: boolean; process: boolean; clientJourney: boolean; calculator: boolean; callToAction: boolean;
 };
 
 const DEFAULT_VISIBILITY: SectionVisibility = {
-  hero: true,
-  metrics: true,
-  benefits: true,
-  excellence: true,
-  tropics: true,
-  process: true,
-  clientJourney: true,
-  calculator: true,
-  callToAction: true,
+  hero: true, metrics: true, benefits: true, excellence: true,
+  tropics: true, process: true, clientJourney: true, calculator: true, callToAction: true,
 };
 
 interface Stats {
@@ -64,13 +52,6 @@ interface Stats {
     talkInquiries: Array<{ id: string; name: string; email: string; inquiryType: string; status: string; createdAt: string }>;
     quotations: Array<{ id: string; fullName: string; email: string; estimatedSystemSizeDisplayText: string; status: string; createdAt: string }>;
   };
-}
-
-interface ContentItem {
-  key: string;
-  data: unknown;
-  isCustomized: boolean;
-  updatedAt: string | null;
 }
 
 type SubmissionStatus = "received" | "emailed" | "email_failed" | "archived";
@@ -88,16 +69,11 @@ function statusClass(s: string) {
 
 function Toast({ msg }: { msg: string }) {
   if (!msg) return null;
-  const cls = msg.startsWith("Error") ? "is-error" : "is-success";
-  return <div className={`ad-toast ${cls}`}>{msg}</div>;
+  return <div className={`ad-toast ${msg.startsWith("Error") ? "is-error" : "is-success"}`}>{msg}</div>;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`ad-badge ${statusClass(status)}`}>
-      {status.replace(/_/g, " ")}
-    </span>
-  );
+  return <span className={`ad-badge ${statusClass(status)}`}>{status.replace(/_/g, " ")}</span>;
 }
 
 function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error: string }) {
@@ -111,14 +87,12 @@ function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error
     onLogin(trimmed);
   };
 
-  const displayError = localError || error;
-
   return (
     <div className="ad-login-wrap">
       <div className="ad-login-card">
         <div className="ad-login-logo">azari<span>.solar</span></div>
         <div className="ad-login-sub">Admin Panel</div>
-        {displayError && <div className="ad-login-error">{displayError}</div>}
+        {(localError || error) && <div className="ad-login-error">{localError || error}</div>}
         <form onSubmit={handleSubmit}>
           <label className="ad-label">Admin API Key</label>
           <input
@@ -129,9 +103,7 @@ function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error
             placeholder="Enter your admin API key"
             style={{ marginBottom: 20 }}
           />
-          <button type="submit" className="ad-btn" style={{ width: "100%" }}>
-            Sign In
-          </button>
+          <button type="submit" className="ad-btn" style={{ width: "100%" }}>Sign In</button>
         </form>
       </div>
     </div>
@@ -140,10 +112,8 @@ function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error
 
 function OverviewTab({ stats }: { stats: Stats | null }) {
   if (!stats) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading stats…</div>;
-
   const talkCounts = stats.talkInquiries.byStatus;
   const quotCounts = stats.quotations.byStatus;
-
   return (
     <div>
       <div className="ad-stats-grid">
@@ -159,7 +129,6 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
           </div>
         ))}
       </div>
-
       <div className="ad-recent-grid">
         <div className="ad-card">
           <div className="ad-card-title">Recent Inquiries</div>
@@ -228,12 +197,10 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
       const res = await fn(apiKey, { limit, offset, status: statusFilter || undefined }) as { data: unknown[]; total: number };
       setData(res.data);
       setTotal(res.total);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, [offset, statusFilter]);
+  useEffect(() => { void load(); }, [offset, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (id: string, status: string) => {
     setUpdating(id);
@@ -287,8 +254,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
 
   const handleEditSave = async () => {
     if (!editingRow) return;
-    setEditSaving(true);
-    setEditMsg("");
+    setEditSaving(true); setEditMsg("");
     try {
       const fn = type === "talk" ? adminUpdateTalkInquiry : adminUpdateQuotation;
       await fn(apiKey, editingRow.id as string, editForm);
@@ -304,12 +270,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   return (
     <div>
       <div className="ad-filter-bar">
-        <select
-          className="ad-select"
-          style={{ width: "auto" }}
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}
-        >
+        <select className="ad-select" style={{ width: "auto" }} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}>
           <option value="">All Statuses</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
         </select>
@@ -322,7 +283,6 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
             <div className="ad-edit-panel-title">Edit {type === "talk" ? "Inquiry" : "Quotation Request"}</div>
             <button onClick={() => { setEditingRow(null); setEditMsg(""); }} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
           </div>
-
           <div className="ad-form-grid">
             {type === "talk" ? (
               <>
@@ -352,11 +312,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
               </>
             )}
           </div>
-
           <div className="ad-form-actions">
-            <button onClick={() => void handleEditSave()} disabled={editSaving} className="ad-btn">
-              {editSaving ? "Saving…" : "Save Changes"}
-            </button>
+            <button onClick={() => void handleEditSave()} disabled={editSaving} className="ad-btn">{editSaving ? "Saving…" : "Save Changes"}</button>
             <Toast msg={editMsg} />
           </div>
         </div>
@@ -374,9 +331,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                 ) : (
                   <><th>Name</th><th>Email</th><th>System Size</th><th>Monthly Bill</th><th>Property</th></>
                 )}
-                <th>Date</th>
-                <th>Status / Email</th>
-                <th>Actions</th>
+                <th>Date</th><th>Status / Email</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -401,22 +356,12 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                     >
                       {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
                     </select>
-                    <EmailStatusIndicator
-                      status={row.status as string}
-                      id={row.id as string}
-                      onRetry={(id) => void handleRetryEmail(id)}
-                      retrying={retrying === row.id}
-                    />
+                    <EmailStatusIndicator status={row.status as string} id={row.id as string} onRetry={(id) => void handleRetryEmail(id)} retrying={retrying === row.id} />
                   </td>
                   <td>
                     <div className="ad-table-actions">
                       <button onClick={() => openEdit(row)} disabled={!!editingRow || deleting === (row.id as string)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
-                      <button
-                        onClick={() => void handleDelete(row.id as string)}
-                        disabled={deleting === (row.id as string) || !!editingRow}
-                        className="ad-btn ad-btn--danger ad-btn--sm"
-                        style={{ opacity: deleting === (row.id as string) ? 0.5 : 1 }}
-                      >
+                      <button onClick={() => void handleDelete(row.id as string)} disabled={deleting === (row.id as string) || !!editingRow} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === (row.id as string) ? 0.5 : 1 }}>
                         {deleting === (row.id as string) ? "…" : "Delete"}
                       </button>
                     </div>
@@ -437,175 +382,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   );
 }
 
-interface MetricItem { value: string; label: string; order: number }
-
-function MetricsEditorForm({ editorText, onChange }: { editorText: string; onChange: (text: string) => void }) {
-  let items: MetricItem[] = [];
-  try { items = (JSON.parse(editorText) as { items: MetricItem[] }).items ?? []; } catch { }
-
-  const update = (idx: number, key: "value" | "label", val: string) => {
-    const next = items.map((item, i) => i === idx ? { ...item, [key]: val } : item);
-    onChange(JSON.stringify({ items: next }, null, 2));
-  };
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 16 }}>
-        Edit each metric's displayed value and label.
-      </div>
-      {items.map((item, i) => (
-        <div key={i} className="ad-metrics-row">
-          <div>
-            {i === 0 && <div className="ad-label">Value</div>}
-            <input className="ad-input" style={{ textAlign: "center", fontWeight: 700 }} value={item.value} onChange={(e) => update(i, "value", e.target.value)} placeholder="e.g. 25yr" />
-          </div>
-          <div>
-            {i === 0 && <div className="ad-label">Label</div>}
-            <input className="ad-input" value={item.label} onChange={(e) => update(i, "label", e.target.value)} placeholder="e.g. PERFORMANCE WARRANTY" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ContentEditor({ apiKey }: { apiKey: string }) {
-  const [items, setItems] = useState<ContentItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editorText, setEditorText] = useState("");
-  const [jsonError, setJsonError] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await adminGetAllContent(apiKey);
-      setItems(res.data.filter((i) => i.key !== "section-visibility"));
-    } finally { setLoading(false); }
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  const startEdit = (item: ContentItem) => {
-    setEditing(item.key);
-    setEditorText(JSON.stringify(item.data, null, 2));
-    setJsonError("");
-    setMsg("");
-    setTimeout(() => textareaRef.current?.focus(), 50);
-  };
-
-  const validateJson = (text: string) => {
-    try { JSON.parse(text); setJsonError(""); return true; }
-    catch (e) { setJsonError((e as Error).message); return false; }
-  };
-
-  const handleSave = async () => {
-    if (!editing) return;
-    if (!validateJson(editorText)) return;
-    setSaving(true);
-    try {
-      await adminUpsertContent(apiKey, editing, JSON.parse(editorText) as unknown);
-      setMsg("✓ Saved successfully");
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSaving(false); }
-  };
-
-  const handleReset = async (key: string) => {
-    if (!confirm(`Reset "${key}" to default content? This cannot be undone.`)) return;
-    try {
-      await adminResetContent(apiKey, key);
-      setMsg(`✓ "${key}" reset to default`);
-      if (editing === key) setEditing(null);
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    }
-  };
-
-  const SECTION_LABELS: Record<string, string> = {
-    hero: "Hero Section", metrics: "Metrics / Stats", excellence: "Engineered Excellence",
-    process: "Process Steps", tropics: "Tropics Section", cta: "Call to Action",
-    benefits: "Benefits Banner", footer: "Footer",
-  };
-
-  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading content…</div>;
-
-  return (
-    <div>
-      <Toast msg={msg} />
-      <div className="ad-content-layout">
-        <div>
-          {items.map((item) => (
-            <div
-              key={item.key}
-              className={`ad-content-list-item${editing === item.key ? " is-active" : ""}`}
-              onClick={() => startEdit(item)}
-            >
-              <div className="ad-content-list-name">
-                {SECTION_LABELS[item.key] ?? item.key}
-                {item.isCustomized && <span className="ad-badge is-custom">Custom</span>}
-              </div>
-              <div className="ad-content-list-meta">
-                {item.updatedAt ? `Updated ${fmt(item.updatedAt)}` : "Using default"}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {editing && (
-          <div className="ad-card">
-            <div className="ad-edit-panel-header" style={{ marginBottom: 12 }}>
-              <div className="ad-edit-panel-title">{SECTION_LABELS[editing] ?? editing}</div>
-              <div className="ad-table-actions">
-                <button onClick={() => void handleReset(editing)} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
-                <button onClick={() => setEditing(null)} className="ad-btn ad-btn--ghost ad-btn--sm">Close</button>
-              </div>
-            </div>
-
-            {editing === "metrics" ? (
-              <MetricsEditorForm editorText={editorText} onChange={(text) => { setEditorText(text); validateJson(text); }} />
-            ) : (
-              <>
-                <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 8 }}>
-                  Edit JSON — changes take effect on the website after saving.
-                </div>
-                <textarea
-                  ref={textareaRef}
-                  className={`ad-code-textarea${jsonError ? " has-error" : ""}`}
-                  value={editorText}
-                  onChange={(e) => { setEditorText(e.target.value); validateJson(e.target.value); }}
-                  spellCheck={false}
-                />
-                {jsonError && <div className="ad-json-error">JSON error: {jsonError}</div>}
-              </>
-            )}
-
-            <div className="ad-form-actions">
-              <button onClick={() => void handleSave()} disabled={saving || !!jsonError} className="ad-btn">
-                {saving ? "Saving…" : "Save Changes"}
-              </button>
-              {msg && !saving && <Toast msg={msg} />}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-type ProjectForm = {
-  title: string; category: ApiProjectCategory; system: string;
-  savings: string; isRecent: boolean; sortOrder: number;
-};
-
-const EMPTY_PROJECT_FORM: ProjectForm = {
-  title: "", category: "Residential", system: "", savings: "", isRecent: false, sortOrder: 0,
-};
+type ProjectForm = { title: string; category: ApiProjectCategory; system: string; savings: string; isRecent: boolean; sortOrder: number };
+const EMPTY_PROJECT_FORM: ProjectForm = { title: "", category: "Residential", system: "", savings: "", isRecent: false, sortOrder: 0 };
 
 function categoryClass(c: string) {
   if (c === "Commercial") return "is-commercial";
@@ -627,25 +405,18 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 
   const load = async () => {
     setLoading(true);
-    try {
-      const res = await adminGetProjects(apiKey);
-      setProjects(res.data);
-    } finally { setLoading(false); }
+    try { const res = await adminGetProjects(apiKey); setProjects(res.data); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAdd = () => {
-    setEditingId(null); setForm(EMPTY_PROJECT_FORM);
-    setImageFile(null); setImagePreview(""); setMsg(""); setShowForm(true);
-  };
-
+  const openAdd = () => { setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null); setImagePreview(""); setMsg(""); setShowForm(true); };
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
     setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent, sortOrder: p.sortOrder });
     setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setShowForm(true);
   };
-
   const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); };
 
   const handleImageSelect = (file: File | undefined) => {
@@ -656,8 +427,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     reader.readAsDataURL(file);
   };
 
-  const setField = <K extends keyof ProjectForm>(key: K, value: ProjectForm[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const setField = <K extends keyof ProjectForm>(key: K, value: ProjectForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSave = async () => {
     if (!form.title.trim() || !form.system.trim() || !form.savings.trim()) { setMsg("Error: Title, System, and Savings are required."); return; }
@@ -665,29 +435,19 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     setSaving(true); setMsg("");
     try {
       const payload: ProjectInput = { ...form, sortOrder: Number(form.sortOrder), imageFile: imageFile ?? undefined };
-      if (editingId) {
-        await adminUpdateProject(apiKey, editingId, payload);
-        setMsg("✓ Project updated");
-      } else {
-        await adminCreateProject(apiKey, payload);
-        setMsg("✓ Project created");
-      }
+      if (editingId) { await adminUpdateProject(apiKey, editingId, payload); setMsg("✓ Project updated"); }
+      else { await adminCreateProject(apiKey, payload); setMsg("✓ Project created"); }
       await load(); closeForm();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSaving(false); }
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
     setDeleting(id);
-    try {
-      await adminDeleteProject(apiKey, id);
-      setMsg("✓ Project deleted");
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setDeleting(null); }
+    try { await adminDeleteProject(apiKey, id); setMsg("✓ Project deleted"); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setDeleting(null); }
   };
 
   return (
@@ -696,16 +456,13 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         <div className="ad-section-title">Projects Portfolio</div>
         {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Project</button>}
       </div>
-
       <Toast msg={msg} />
-
       {showForm && (
         <div className="ad-card" style={{ marginBottom: 20 }}>
           <div className="ad-edit-panel-header">
             <div className="ad-edit-panel-title">{editingId ? "Edit Project" : "Add New Project"}</div>
             <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
           </div>
-
           <div className="ad-form-grid">
             <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
             <div>
@@ -721,17 +478,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
             <div className="ad-form-full">
               <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
               <div className="ad-image-row">
-                <div
-                  className="ad-image-drop"
-                  style={{ flex: 1 }}
-                  onClick={() => document.getElementById("proj-img-input")?.click()}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}
-                >
+                <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
                   <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
-                  {imageFile
-                    ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span>
-                    : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
+                  {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
                 </div>
                 {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
               </div>
@@ -742,15 +491,11 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
             </div>
           </div>
-
           <div className="ad-form-actions">
-            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
-              {saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}
-            </button>
+            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
           </div>
         </div>
       )}
-
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading projects…</div>
       ) : projects.length === 0 ? (
@@ -761,9 +506,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       ) : (
         <div className="ad-table-wrap">
           <table className="ad-table">
-            <thead>
-              <tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Order</th><th>Actions</th></tr>
-            </thead>
+            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Order</th><th>Actions</th></tr></thead>
             <tbody>
               {projects.map((p) => (
                 <tr key={p.id}>
@@ -774,8 +517,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                     </div>
                   </td>
                   <td><span className={`ad-badge ${categoryClass(p.category)}`}>{p.category}</span></td>
-                  <td>{p.system}</td>
-                  <td>{p.savings}</td>
+                  <td>{p.system}</td><td>{p.savings}</td>
                   <td>{p.isRecent ? <span className="ad-badge is-recent">Recent</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
                   <td style={{ textAlign: "center" }}>{p.sortOrder}</td>
                   <td>
@@ -797,15 +539,15 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 }
 
 const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: string }> = [
-  { key: "hero",         name: "Hero",              desc: "Main hero banner with headline" },
-  { key: "metrics",      name: "Metrics",           desc: "Stats strip (installs, warranty, savings…)" },
-  { key: "benefits",     name: "Benefits",          desc: "Benefits banner row" },
+  { key: "hero",         name: "Hero",                  desc: "Main hero banner with headline" },
+  { key: "metrics",      name: "Metrics",               desc: "Stats strip (installs, warranty, savings…)" },
+  { key: "benefits",     name: "Benefits",              desc: "Benefits banner row" },
   { key: "excellence",   name: "Engineered Excellence", desc: "Products & quality section" },
-  { key: "tropics",      name: "Tropics",           desc: "Designed for the tropics section" },
-  { key: "process",      name: "Process",           desc: "Step-by-step process section" },
-  { key: "clientJourney", name: "Client Journey",   desc: "Testimonials map carousel" },
-  { key: "calculator",   name: "Calculator",        desc: "Solar impact calculator" },
-  { key: "callToAction", name: "Call to Action",    desc: "Final CTA section" },
+  { key: "tropics",      name: "Tropics",               desc: "Designed for the tropics section" },
+  { key: "process",      name: "Process",               desc: "Step-by-step process section" },
+  { key: "clientJourney", name: "Client Journey",       desc: "Testimonials map carousel" },
+  { key: "calculator",   name: "Calculator",            desc: "Solar impact calculator" },
+  { key: "callToAction", name: "Call to Action",        desc: "Final CTA section" },
 ];
 
 function SectionsManager({ apiKey }: { apiKey: string }) {
@@ -818,25 +560,23 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
     const load = async () => {
       try {
         const res = await adminGetAllContent(apiKey);
-        const item = res.data.find((i) => i.key === "section-visibility");
+        const item = res.data.find((i: { key: string }) => i.key === "section-visibility");
         if (item?.data) setVis({ ...DEFAULT_VISIBILITY, ...(item.data as Partial<SectionVisibility>) });
       } finally { setLoading(false); }
     };
     void load();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     setSaving(true); setMsg("");
     try {
       await adminUpsertContent(apiKey, "section-visibility", vis);
       setMsg("✓ Section visibility saved");
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSaving(false); }
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
   };
 
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
-
   return (
     <div>
       <div className="ad-section-header">
@@ -845,7 +585,6 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
           <div style={{ fontSize: 13, color: "var(--ad-text2)", marginTop: 4 }}>Toggle which sections are shown on the public website.</div>
         </div>
       </div>
-
       <div className="ad-sections-grid">
         {SECTION_INFO.map(({ key, name, desc }) => (
           <div key={key} className={`ad-section-toggle-card${vis[key] ? " is-enabled" : ""}`}>
@@ -854,34 +593,22 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
               <div className="ad-section-toggle-desc">{desc}</div>
             </div>
             <label className="ad-toggle-switch">
-              <input
-                type="checkbox"
-                checked={vis[key]}
-                onChange={(e) => setVis((v) => ({ ...v, [key]: e.target.checked }))}
-              />
+              <input type="checkbox" checked={vis[key]} onChange={(e) => setVis((v) => ({ ...v, [key]: e.target.checked }))} />
               <span className="ad-toggle-track" />
             </label>
           </div>
         ))}
       </div>
-
       <div className="ad-sections-save-bar">
-        <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
+        <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
         <Toast msg={msg} />
       </div>
     </div>
   );
 }
 
-type PkgForm = Omit<PackageInput, never>;
-
-const EMPTY_PKG_FORM: PkgForm = {
-  name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0,
-  phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0,
-  isActive: true, sortOrder: 0,
-};
+type PkgForm = PackageInput;
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0, isActive: true, sortOrder: 0 };
 
 function autoName(kwp: number, kw: number, kwh: number) {
   const parts: string[] = [];
@@ -891,25 +618,12 @@ function autoName(kwp: number, kw: number, kwh: number) {
   return parts.join(" · ");
 }
 
-function PkgNumInput({
-  label, hint, value, unit, step = "0.01", onChange,
-}: {
-  label: string; hint: string; value: number; unit: string;
-  step?: string; onChange: (v: number) => void;
-}) {
+function PkgNumInput({ label, hint, value, unit, step = "0.01", onChange }: { label: string; hint: string; value: number; unit: string; step?: string; onChange: (v: number) => void }) {
   return (
     <div>
       <label className="ad-label">{label}</label>
       <div className="ad-pkg-num-wrap">
-        <input
-          type="number"
-          className="ad-input"
-          min={0}
-          step={step}
-          value={value || ""}
-          placeholder="0"
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
+        <input type="number" className="ad-input" min={0} step={step} value={value || ""} placeholder="0" onChange={(e) => onChange(Number(e.target.value))} />
         <span className="ad-pkg-num-unit">{unit}</span>
       </div>
       <p className="ad-pkg-hint">{hint}</p>
@@ -932,32 +646,20 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const load = async () => {
     setLoading(true);
-    try {
-      const res = await adminGetPackages(apiKey);
-      setPackages(res.data);
-    } finally { setLoading(false); }
+    try { const res = await adminGetPackages(apiKey); setPackages(res.data); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAdd = () => {
-    setEditingId(null); setForm(EMPTY_PKG_FORM); setNameEdited(false); setMsg(""); setShowForm(true);
-  };
-
+  const openAdd = () => { setEditingId(null); setForm(EMPTY_PKG_FORM); setNameEdited(false); setMsg(""); setShowForm(true); };
   const openEdit = (p: ApiSolarPackage) => {
     setEditingId(p.id);
-    setForm({
-      name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh,
-      phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin,
-      billRangeMax: p.billRangeMax, isActive: p.isActive, sortOrder: p.sortOrder,
-    });
+    setForm({ name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh, phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax, isActive: p.isActive, sortOrder: p.sortOrder });
     setNameEdited(true); setMsg(""); setShowForm(true);
   };
-
   const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setMsg(""); };
-
-  const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const handleSpecChange = (key: "solarKwp" | "inverterKw" | "storageKwh", val: number) => {
     setForm((f) => {
@@ -982,37 +684,26 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     if (err) { setMsg(`Error: ${err}`); return; }
     setSaving(true); setMsg("");
     try {
-      if (editingId) {
-        await adminUpdatePackage(apiKey, editingId, form);
-      } else {
-        await adminCreatePackage(apiKey, form);
-      }
+      if (editingId) await adminUpdatePackage(apiKey, editingId, form);
+      else await adminCreatePackage(apiKey, form);
       await load(); closeForm();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSaving(false); }
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
   };
 
   const handleToggleActive = async (p: ApiSolarPackage) => {
     setToggling(p.id);
-    try {
-      await adminUpdatePackage(apiKey, p.id, { isActive: !p.isActive });
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setToggling(null); }
+    try { await adminUpdatePackage(apiKey, p.id, { isActive: !p.isActive }); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setToggling(null); }
   };
 
   const handleDelete = async (p: ApiSolarPackage) => {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     setDeleting(p.id);
-    try {
-      await adminDeletePackage(apiKey, p.id);
-      setMsg("✓ Package deleted");
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setDeleting(null); }
+    try { await adminDeletePackage(apiKey, p.id); setMsg("✓ Package deleted"); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setDeleting(null); }
   };
 
   const handleSeedDefaults = async () => {
@@ -1020,18 +711,12 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     setSeeding(true); setMsg("");
     try {
       for (const pkg of SOLAR_PACKAGES) {
-        await adminCreatePackage(apiKey, {
-          name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw,
-          storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice,
-          billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1],
-          isActive: true, sortOrder: 0,
-        });
+        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, sortOrder: 0 });
       }
       setMsg("✓ Default packages loaded — you can now edit or add more.");
       await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSeeding(false); }
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSeeding(false); }
   };
 
   const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
@@ -1042,219 +727,109 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Solar Packages</div>
-          <div className="ad-section-sub">
-            {loading ? "Loading…" : `${activeCount} active · ${packages.length} total — packages shown to customers after their quotation submission.`}
-          </div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — packages shown to customers after their quotation submission.`}</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {packages.length === 0 && !loading && (
-            <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">
-              {seeding ? "Loading…" : "Load Default Packages"}
-            </button>
-          )}
-          {!showForm && (
-            <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>
-          )}
+          {packages.length === 0 && !loading && <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">{seeding ? "Loading…" : "Load Default Packages"}</button>}
+          {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>}
         </div>
       </div>
-
       <Toast msg={msg} />
-
       {showForm && (
         <div className="ad-card" style={{ marginBottom: 20 }}>
           <div className="ad-edit-panel-header">
             <div className="ad-edit-panel-title">{editingId ? "Edit Package" : "Add New Package"}</div>
             <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
           </div>
-
           <div className="ad-pkg-form-phase">
             <div className="ad-label">System Phase</div>
             <div className="ad-pkg-phase-toggle">
-              <button
-                type="button"
-                className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`}
-                onClick={() => setField("phase", "single")}
-              >
-                Single Phase
-                <span>Residential</span>
-              </button>
-              <button
-                type="button"
-                className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`}
-                onClick={() => setField("phase", "three")}
-              >
-                Three Phase
-                <span>Commercial / Industrial</span>
-              </button>
+              <button type="button" className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`} onClick={() => setField("phase", "single")}>Single Phase<span>Residential</span></button>
+              <button type="button" className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`} onClick={() => setField("phase", "three")}>Three Phase<span>Commercial / Industrial</span></button>
             </div>
           </div>
-
           <div className="ad-form-grid" style={{ marginTop: 16 }}>
             <div className="ad-form-full">
               <label className="ad-label">Package Name</label>
-              <input
-                className="ad-input"
-                value={form.name}
-                placeholder="e.g. 3.72 kWp · 3.6 kW · 5.1 kWh"
-                onChange={(e) => { setNameEdited(true); setField("name", e.target.value); }}
-              />
-              <p className="ad-pkg-hint">This name is shown to customers in the recommendation panel. Fill in the specs below first — the name will auto-fill.</p>
+              <input className="ad-input" value={form.name} placeholder="e.g. 3.72 kWp · 3.6 kW · 5.1 kWh" onChange={(e) => { setNameEdited(true); setField("name", e.target.value); }} />
+              <p className="ad-pkg-hint">Fill in the specs below first — the name will auto-fill.</p>
             </div>
-
             <PkgNumInput label="Solar Panel Capacity" hint="Total solar array size." value={form.solarKwp} unit="kWp" onChange={(v) => handleSpecChange("solarKwp", v)} />
             <PkgNumInput label="Inverter Size" hint="The inverter's power output rating." value={form.inverterKw} unit="kW" onChange={(v) => handleSpecChange("inverterKw", v)} />
             <PkgNumInput label="Battery Storage" hint="Battery capacity. Enter 0 for grid-tied (no battery)." value={form.storageKwh} unit="kWh" step="0.1" onChange={(v) => handleSpecChange("storageKwh", v)} />
-
             <div>
               <label className="ad-label">Package Price</label>
               <div className="ad-pkg-num-wrap">
                 <span className="ad-pkg-num-prefix">₱</span>
-                <input
-                  type="number"
-                  className="ad-input"
-                  min={0}
-                  step={1}
-                  value={form.totalPrice || ""}
-                  placeholder="0"
-                  onChange={(e) => setField("totalPrice", Number(e.target.value))}
-                />
+                <input type="number" className="ad-input" min={0} step={1} value={form.totalPrice || ""} placeholder="0" onChange={(e) => setField("totalPrice", Number(e.target.value))} />
               </div>
               <p className="ad-pkg-hint">Indicative starting price shown to customers.</p>
             </div>
-
             <div />
-
             <div>
               <label className="ad-label">Minimum Monthly Bill</label>
               <div className="ad-pkg-num-wrap">
                 <span className="ad-pkg-num-prefix">₱</span>
-                <input
-                  type="number"
-                  className="ad-input"
-                  min={0}
-                  step={100}
-                  value={form.billRangeMin || ""}
-                  placeholder="0"
-                  onChange={(e) => setField("billRangeMin", Number(e.target.value))}
-                />
+                <input type="number" className="ad-input" min={0} step={100} value={form.billRangeMin || ""} placeholder="0" onChange={(e) => setField("billRangeMin", Number(e.target.value))} />
                 <span className="ad-pkg-num-unit">/ mo</span>
               </div>
               <p className="ad-pkg-hint">Customers with bills above this amount are a good fit.</p>
             </div>
-
             <div>
               <label className="ad-label">Maximum Monthly Bill</label>
               <div className="ad-pkg-num-wrap">
                 <span className="ad-pkg-num-prefix">₱</span>
-                <input
-                  type="number"
-                  className="ad-input"
-                  min={0}
-                  step={100}
-                  value={form.billRangeMax || ""}
-                  placeholder="0"
-                  onChange={(e) => setField("billRangeMax", Number(e.target.value))}
-                />
+                <input type="number" className="ad-input" min={0} step={100} value={form.billRangeMax || ""} placeholder="0" onChange={(e) => setField("billRangeMax", Number(e.target.value))} />
                 <span className="ad-pkg-num-unit">/ mo</span>
               </div>
               <p className="ad-pkg-hint">Customers with bills below this amount are best suited.</p>
             </div>
-
             <div>
               <label className="ad-label">Display Order</label>
-              <input
-                type="number"
-                className="ad-input"
-                value={form.sortOrder}
-                onChange={(e) => setField("sortOrder", Number(e.target.value))}
-              />
-              <p className="ad-pkg-hint">Lower numbers appear first. Use 0 for default ordering.</p>
+              <input type="number" className="ad-input" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} />
+              <p className="ad-pkg-hint">Lower numbers appear first.</p>
             </div>
-
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <input
-                type="checkbox"
-                id="pkg-active"
-                checked={form.isActive}
-                onChange={(e) => setField("isActive", e.target.checked)}
-                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }}
-              />
-              <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>
-                Active — visible to customers
-              </label>
+              <input type="checkbox" id="pkg-active" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active — visible to customers</label>
             </div>
           </div>
-
           <div className="ad-form-actions">
-            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
-              {saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}
-            </button>
+            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
           </div>
         </div>
       )}
-
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading packages…</div>
       ) : packages.length === 0 ? (
         <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 380, margin: "0 auto" }}>
-            Click <strong>Load Default Packages</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch.
-          </div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 380, margin: "0 auto" }}>Click <strong>Load Default Packages</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch.</div>
         </div>
       ) : (
         <div className="ad-pkg-mgr-grid">
           {packages.map((p) => (
             <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""} is-${p.phase}-phase`}>
               <div className="ad-pkg-mgr-top">
-                <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>
-                  {p.phase === "single" ? "Single Phase" : "Three Phase"}
-                </span>
+                <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>{p.phase === "single" ? "Single Phase" : "Three Phase"}</span>
                 <label className="ad-toggle-switch" title={p.isActive ? "Active — click to hide" : "Hidden — click to show"}>
-                  <input
-                    type="checkbox"
-                    checked={p.isActive}
-                    disabled={toggling === p.id}
-                    onChange={() => void handleToggleActive(p)}
-                  />
+                  <input type="checkbox" checked={p.isActive} disabled={toggling === p.id} onChange={() => void handleToggleActive(p)} />
                   <span className="ad-toggle-track" />
                 </label>
               </div>
-
               <div className="ad-pkg-mgr-name">{p.name}</div>
-
               <div className="ad-pkg-mgr-specs">
-                <div className="ad-pkg-mgr-spec">
-                  <span>Solar</span>
-                  <strong>{p.solarKwp} kWp</strong>
-                </div>
-                <div className="ad-pkg-mgr-spec">
-                  <span>Inverter</span>
-                  <strong>{p.inverterKw} kW</strong>
-                </div>
-                <div className="ad-pkg-mgr-spec">
-                  <span>Battery</span>
-                  <strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong>
-                </div>
+                <div className="ad-pkg-mgr-spec"><span>Solar</span><strong>{p.solarKwp} kWp</strong></div>
+                <div className="ad-pkg-mgr-spec"><span>Inverter</span><strong>{p.inverterKw} kW</strong></div>
+                <div className="ad-pkg-mgr-spec"><span>Battery</span><strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong></div>
               </div>
-
               <div className="ad-pkg-mgr-price">{peso(p.totalPrice)}</div>
-              <div className="ad-pkg-mgr-bill">
-                For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo
-              </div>
-
+              <div className="ad-pkg-mgr-bill">For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo</div>
               <div className="ad-pkg-mgr-footer">
                 <span className="ad-pkg-mgr-order">Order #{p.sortOrder}</span>
                 <div className="ad-table-actions">
                   <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
-                  <button
-                    onClick={() => void handleDelete(p)}
-                    disabled={deleting === p.id || showForm}
-                    className="ad-btn ad-btn--danger ad-btn--sm"
-                    style={{ opacity: deleting === p.id ? 0.5 : 1 }}
-                  >
-                    {deleting === p.id ? "…" : "Delete"}
-                  </button>
+                  <button onClick={() => void handleDelete(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
                 </div>
               </div>
             </div>
@@ -1265,12 +840,334 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   );
 }
 
-type FooterLink = { name: string; url: string };
-type FooterContent = {
-  phone: string; email: string;
-  socials: Record<string, FooterLink>;
-  footer_text: { credits: string; privacy_policy: FooterLink; terms_conditions: FooterLink };
+// ─── Shared section editor hook ───────────────────────────────────────────────
+
+function useSectionEditor<T extends object>(apiKey: string, contentKey: string, defaults: T) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [form, setForm] = useState<T>(defaults);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    adminGetAllContent(apiKey)
+      .then((res) => {
+        if (cancelled) return;
+        const item = (res.data as Array<{ key: string; data: unknown }>).find((i) => i.key === contentKey);
+        setForm(item?.data ? { ...defaults, ...(item.data as T) } : { ...defaults });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [tick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const save = async (data: T) => {
+    setSaving(true); setMsg("");
+    try { await adminUpsertContent(apiKey, contentKey, data); setMsg("✓ Saved successfully"); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
+  };
+
+  const reset = async () => {
+    if (!confirm("Reset to default content? This cannot be undone.")) return;
+    try { await adminResetContent(apiKey, contentKey); setMsg("✓ Reset to default"); setTick((t) => t + 1); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+  };
+
+  return { loading, saving, msg, form, setForm, save, reset };
+}
+
+function SectionEditorHeader({ title, onReset }: { title: string; onReset: () => void }) {
+  return (
+    <div className="ad-section-header" style={{ marginBottom: 16 }}>
+      <div className="ad-section-title">{title}</div>
+      <button onClick={onReset} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+    </div>
+  );
+}
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+type HeroForm = { headerPart1: string; headerPart2: string; subtext: string; primaryCta: string; secondaryCta: string };
+const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects" };
+
+function HeroEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
+  const ch = (k: keyof HeroForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Hero Section" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        <div className="ad-form-grid">
+          <div>
+            <label className="ad-label">Headline — Accent Word(s)</label>
+            <input className="ad-input" value={form.headerPart1} onChange={ch("headerPart1")} placeholder="Affordable" />
+            <p className="ad-pkg-hint">Displayed in the accent colour before the main headline.</p>
+          </div>
+          <div>
+            <label className="ad-label">Headline — Main Text</label>
+            <input className="ad-input" value={form.headerPart2} onChange={ch("headerPart2")} placeholder="Solar Power for Every Filipino Home and Business" />
+          </div>
+          <div className="ad-form-full">
+            <label className="ad-label">Subtext</label>
+            <input className="ad-input" value={form.subtext} onChange={ch("subtext")} placeholder="We Provide Solar Solutions Tailored For Your Home And Business" />
+          </div>
+          <div>
+            <label className="ad-label">Primary Button Label</label>
+            <input className="ad-input" value={form.primaryCta} onChange={ch("primaryCta")} placeholder="Calculate Your Savings" />
+          </div>
+          <div>
+            <label className="ad-label">Secondary Button Label</label>
+            <input className="ad-input" value={form.secondaryCta} onChange={ch("secondaryCta")} placeholder="View Projects" />
+          </div>
+        </div>
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Metrics ──────────────────────────────────────────────────────────────────
+
+type MetricItem = { value: string; label: string; order: number };
+type MetricsForm = { items: MetricItem[] };
+const DEFAULT_METRICS_FORM: MetricsForm = {
+  items: [
+    { value: "0", label: "INSTALLED", order: 1 },
+    { value: "0", label: "ACTIVE CLIENTS", order: 2 },
+    { value: "0", label: "CERTIFIED COMPLIANT", order: 3 },
+    { value: "0", label: "PERFORMANCE WARRANTY", order: 4 },
+  ],
 };
+
+function MetricsEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "metrics", DEFAULT_METRICS_FORM);
+  const updateItem = (idx: number, key: "value" | "label", val: string) =>
+    setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Metrics / Stats" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 16 }}>These numbers appear in the stats strip below the hero section.</p>
+        {form.items.map((item, i) => (
+          <div key={i} className="ad-metrics-row">
+            <div>
+              {i === 0 && <div className="ad-label">Value</div>}
+              <input className="ad-input" style={{ textAlign: "center", fontWeight: 700 }} value={item.value} onChange={(e) => updateItem(i, "value", e.target.value)} placeholder="e.g. 25yr" />
+            </div>
+            <div>
+              {i === 0 && <div className="ad-label">Label</div>}
+              <input className="ad-input" value={item.label} onChange={(e) => updateItem(i, "label", e.target.value)} placeholder="e.g. PERFORMANCE WARRANTY" />
+            </div>
+          </div>
+        ))}
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Benefits ─────────────────────────────────────────────────────────────────
+
+type BenefitItem = { title: string; description: string; order: number };
+type BenefitsForm = { items: BenefitItem[] };
+const DEFAULT_BENEFITS_FORM: BenefitsForm = {
+  items: [
+    { title: "Long-Term Durability", description: "25-YEAR WARRANTY", order: 1 },
+    { title: "Lower Monthly Bills", description: "CUT YOUR ENERGY COSTS", order: 2 },
+    { title: "Monitoring", description: "TRACK YOUR ENERGY & SAVINGS", order: 3 },
+    { title: "Peace of Mind", description: "WORRY-FREE ENERGY SINCE DAY ONE", order: 4 },
+  ],
+};
+
+function BenefitsEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "benefits", DEFAULT_BENEFITS_FORM);
+  const updateItem = (idx: number, key: "title" | "description", val: string) =>
+    setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Benefits Banner" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        {form.items.map((item, i) => (
+          <div key={i} style={{ marginBottom: i < form.items.length - 1 ? 20 : 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Benefit {i + 1}</div>
+            <div className="ad-form-grid">
+              <div><label className="ad-label">Title</label><input className="ad-input" value={item.title} onChange={(e) => updateItem(i, "title", e.target.value)} /></div>
+              <div><label className="ad-label">Tag / Descriptor</label><input className="ad-input" value={item.description} onChange={(e) => updateItem(i, "description", e.target.value)} /></div>
+            </div>
+          </div>
+        ))}
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tropics ──────────────────────────────────────────────────────────────────
+
+type TropicsForm = { header: string; subtext: string };
+const DEFAULT_TROPICS_FORM: TropicsForm = {
+  header: "Solar Energy for the Tropics",
+  subtext: "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+};
+
+function TropicsEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "tropics", DEFAULT_TROPICS_FORM);
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Tropics Section" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        <div className="ad-form-grid">
+          <div className="ad-form-full">
+            <label className="ad-label">Section Header</label>
+            <input className="ad-input" value={form.header} onChange={(e) => setForm((f) => ({ ...f, header: e.target.value }))} placeholder="Solar Energy for the Tropics" />
+            <p className="ad-pkg-hint">Use &lt;br /&gt; to split into two lines.</p>
+          </div>
+          <div className="ad-form-full">
+            <label className="ad-label">Subtext</label>
+            <textarea className="ad-textarea" rows={3} value={form.subtext} onChange={(e) => setForm((f) => ({ ...f, subtext: e.target.value }))} />
+          </div>
+        </div>
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Engineered Excellence ────────────────────────────────────────────────────
+
+type ExcellenceItem = { number: string; title: string; description: string };
+type ExcellenceForm = { items: ExcellenceItem[] };
+const DEFAULT_EXCELLENCE_FORM: ExcellenceForm = {
+  items: [
+    { number: "01", title: "Zero-Bill Future", description: "Eliminate your dependency on fluctuating grid prices. Our net-metering optimized systems turn your roof into a revenue-generating asset that pays you back." },
+    { number: "02", title: "Global Tier-1 Standards", description: "We exclusively deploy Tier-1 components like SMA inverters and mounting structures tested for typhoons up to 280kph. Built to last 25+ years." },
+    { number: "03", title: "Full Compliance", description: "Navigating local bureaucracy is our headache, not yours. We handle all permits, ERC compliance, and utility interconnection paperwork end-to-end." },
+    { number: "04", title: "Smart Monitoring", description: "Real-time data visualization of your energy harvest and consumption. Control your home's power flow from anywhere in the world." },
+  ],
+};
+
+function ExcellenceEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "excellence", DEFAULT_EXCELLENCE_FORM);
+  const updateItem = (idx: number, key: "title" | "description", val: string) =>
+    setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Engineered Excellence" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        {form.items.map((item, i) => (
+          <div key={i} style={{ marginBottom: i < form.items.length - 1 ? 28 : 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Card {item.number}</div>
+            <div className="ad-form-grid">
+              <div className="ad-form-full"><label className="ad-label">Title</label><input className="ad-input" value={item.title} onChange={(e) => updateItem(i, "title", e.target.value)} /></div>
+              <div className="ad-form-full"><label className="ad-label">Description</label><textarea className="ad-textarea" rows={3} value={item.description} onChange={(e) => updateItem(i, "description", e.target.value)} /></div>
+            </div>
+          </div>
+        ))}
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Process ──────────────────────────────────────────────────────────────────
+
+type ProcessStep = { number: string; title: string; description: string };
+type ProcessForm = { stepsDelay: number; steps: ProcessStep[] };
+const DEFAULT_PROCESS_FORM: ProcessForm = {
+  stepsDelay: 800,
+  steps: [
+    { number: "01", title: "Consumption Audit", description: "We don't guess; we calculate. Our engineers analyze your historical electricity bill data to build a custom ROI map tailored to your specific energy habits. You'll know exactly how much you'll save before we even touch your roof." },
+    { number: "02", title: "Resilient Engineering", description: "A Licensed Professional Electrical Engineer (PEE) conducts a 100-point structural and shading audit. We design your system to withstand 250 kph winds and maintain peak yield in 40°C+ tropical heat using Global Tier-1 components." },
+    { number: "03", title: "Turnkey Activation", description: "From Barangay clearances to energy providers Net-Metering permits, we handle the bureaucracy. Our certified in-house teams manage the full installation and grid interconnection, leaving you with nothing to do but flip the switch." },
+  ],
+};
+
+function ProcessEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "process", DEFAULT_PROCESS_FORM);
+  const updateStep = (idx: number, key: "title" | "description", val: string) =>
+    setForm((f) => ({ ...f, steps: f.steps.map((s, i) => i === idx ? { ...s, [key]: val } : s) }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Process Steps" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        <div style={{ marginBottom: 24 }}>
+          <label className="ad-label">Animation Delay Between Steps (ms)</label>
+          <input type="number" className="ad-input" style={{ maxWidth: 180 }} value={form.stepsDelay} min={0} step={100} onChange={(e) => setForm((f) => ({ ...f, stepsDelay: Number(e.target.value) }))} />
+          <p className="ad-pkg-hint">Time in milliseconds before each step animates in (default: 800).</p>
+        </div>
+        {form.steps.map((step, i) => (
+          <div key={i} style={{ marginBottom: i < form.steps.length - 1 ? 28 : 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Step {step.number}</div>
+            <div className="ad-form-grid">
+              <div className="ad-form-full"><label className="ad-label">Title</label><input className="ad-input" value={step.title} onChange={(e) => updateStep(i, "title", e.target.value)} /></div>
+              <div className="ad-form-full"><label className="ad-label">Description</label><textarea className="ad-textarea" rows={4} value={step.description} onChange={(e) => updateStep(i, "description", e.target.value)} /></div>
+            </div>
+          </div>
+        ))}
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Call to Action ───────────────────────────────────────────────────────────
+
+type CtaForm = { title: string; description: string; primaryCta: string; secondaryCta: string };
+const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote ↗", secondaryCta: "Talk to an Expert" };
+
+function CtaEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
+  const ch = (k: keyof CtaForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Call to Action" onReset={reset} />
+      <Toast msg={msg} />
+      <div className="ad-card">
+        <div className="ad-form-grid">
+          <div className="ad-form-full"><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={ch("title")} placeholder="Ready to engineer your energy independence?" /></div>
+          <div className="ad-form-full"><label className="ad-label">Description</label><input className="ad-input" value={form.description} onChange={ch("description")} placeholder="Take control of your energy bills…" /></div>
+          <div><label className="ad-label">Primary Button</label><input className="ad-input" value={form.primaryCta} onChange={ch("primaryCta")} placeholder="Get a free Quote ↗" /></div>
+          <div><label className="ad-label">Secondary Button</label><input className="ad-input" value={form.secondaryCta} onChange={ch("secondaryCta")} placeholder="Talk to an Expert" /></div>
+        </div>
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+type FooterLink = { name: string; url: string };
+type FooterContent = { phone: string; email: string; socials: Record<string, FooterLink>; footer_text: { credits: string; privacy_policy: FooterLink; terms_conditions: FooterLink } };
 
 function FooterEditor({ apiKey }: { apiKey: string }) {
   const [loading, setLoading] = useState(true);
@@ -1297,50 +1194,41 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
     setLoading(true);
     try {
       const res = await adminGetAllContent(apiKey);
-      const item = res.data.find((i) => i.key === "footer");
+      const item = res.data.find((i: { key: string }) => i.key === "footer");
       if (item) populate(item.data as Partial<FooterContent>);
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buildPayload = (): FooterContent => ({
     phone, email,
     socials: Object.fromEntries(socials.filter((s) => s.key.trim()).map((s) => [s.key.trim(), { name: s.name, url: s.url }])),
-    footer_text: {
-      credits,
-      privacy_policy: { name: privacyName, url: privacyUrl },
-      terms_conditions: { name: termsName, url: termsUrl },
-    },
+    footer_text: { credits, privacy_policy: { name: privacyName, url: privacyUrl }, terms_conditions: { name: termsName, url: termsUrl } },
   });
 
   const handleSave = async () => {
     setSaving(true); setMsg("");
-    try {
-      await adminUpsertContent(apiKey, "footer", buildPayload());
-      setMsg("✓ Footer saved successfully");
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    } finally { setSaving(false); }
+    try { await adminUpsertContent(apiKey, "footer", buildPayload()); setMsg("✓ Footer saved successfully"); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
   };
 
   const handleReset = async () => {
     if (!confirm("Reset footer to default content? This cannot be undone.")) return;
-    try {
-      await adminResetContent(apiKey, "footer");
-      setMsg("✓ Footer reset to default");
-      await load();
-    } catch (e) {
-      setMsg(`Error: ${(e as Error).message}`);
-    }
+    try { await adminResetContent(apiKey, "footer"); setMsg("✓ Footer reset to default"); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading footer…</div>;
 
   return (
     <div className="ad-footer-wrap">
+      <div className="ad-section-header" style={{ marginBottom: 16 }}>
+        <div className="ad-section-title">Footer</div>
+        <button onClick={() => void handleReset()} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+      </div>
       <Toast msg={msg} />
-
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <div className="ad-card-title">Contact Info</div>
         <div className="ad-form-grid">
@@ -1348,7 +1236,6 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
           <div><label className="ad-label">Email</label><input className="ad-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sales@azari.solar" /></div>
         </div>
       </div>
-
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <div className="ad-section-header" style={{ marginBottom: 12 }}>
           <div className="ad-card-title" style={{ margin: 0 }}>Social Links</div>
@@ -1376,7 +1263,6 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
           </div>
         ))}
       </div>
-
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <div className="ad-card-title">Footer Text</div>
         <div style={{ marginBottom: 16 }}>
@@ -1392,14 +1278,14 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
           <div><label className="ad-label">Terms & Conditions URL</label><input className="ad-input" value={termsUrl} onChange={(e) => setTermsUrl(e.target.value)} placeholder="https://..." /></div>
         </div>
       </div>
-
       <div className="ad-form-actions">
         <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
-        <button onClick={() => void handleReset()} className="ad-btn ad-btn--danger">Reset to Default</button>
       </div>
     </div>
   );
 }
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function ASAdmin() {
   const [apiKey, setApiKey] = useState<string>(() => sessionStorage.getItem("azari_admin_key") ?? "");
@@ -1412,12 +1298,8 @@ export default function ASAdmin() {
     try {
       const res = await adminGetStats(key) as { success: boolean; data: Stats };
       sessionStorage.setItem("azari_admin_key", key);
-      setApiKey(key);
-      setStats(res.data);
-      setAuthError("");
-    } catch {
-      setAuthError("Invalid API key. Please try again.");
-    }
+      setApiKey(key); setStats(res.data); setAuthError("");
+    } catch { setAuthError("Invalid API key. Please try again."); }
   };
 
   useEffect(() => {
@@ -1426,12 +1308,9 @@ export default function ASAdmin() {
         .then((res) => setStats((res as { data: Stats }).data))
         .catch(() => { sessionStorage.removeItem("azari_admin_key"); setApiKey(""); });
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("azari_admin_key");
-    setApiKey(""); setStats(null);
-  };
+  const handleLogout = () => { sessionStorage.removeItem("azari_admin_key"); setApiKey(""); setStats(null); };
 
   const toggleTheme = () => {
     const next = !isLight;
@@ -1442,11 +1321,17 @@ export default function ASAdmin() {
   const TABS: Array<{ id: Tab; label: string }> = [
     { id: "overview",   label: "Overview" },
     { id: "inquiries",  label: "Talk Inquiries" },
-    { id: "quotations", label: "Quotation Requests" },
+    { id: "quotations", label: "Quotations" },
     { id: "projects",   label: "Projects" },
-    { id: "packages",   label: "Solar Packages" },
-    { id: "sections",   label: "Sections" },
-    { id: "content",    label: "Site Content" },
+    { id: "packages",   label: "Packages" },
+    { id: "sections",   label: "Visibility" },
+    { id: "hero",       label: "Hero" },
+    { id: "metrics",    label: "Metrics" },
+    { id: "benefits",   label: "Benefits" },
+    { id: "tropics",    label: "Tropics" },
+    { id: "excellence", label: "Excellence" },
+    { id: "process",    label: "Process" },
+    { id: "cta",        label: "Call to Action" },
     { id: "footer",     label: "Footer" },
   ];
 
@@ -1465,23 +1350,14 @@ export default function ASAdmin() {
         <span className="ad-topnav-badge">Admin</span>
         <div className="ad-topnav-spacer" />
         <div className="ad-topnav-actions">
-          <button
-            className={`ad-theme-toggle${isLight ? " is-light" : ""}`}
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            title={isLight ? "Switch to dark mode" : "Switch to light mode"}
-          />
+          <button className={`ad-theme-toggle${isLight ? " is-light" : ""}`} onClick={toggleTheme} aria-label="Toggle theme" title={isLight ? "Switch to dark mode" : "Switch to light mode"} />
           <button onClick={handleLogout} className="ad-btn ad-btn--ghost ad-btn--sm">Sign Out</button>
         </div>
       </nav>
 
       <div className="ad-tabs">
         {TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`ad-tab-btn${tab === t.id ? " is-active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
+          <button key={t.id} className={`ad-tab-btn${tab === t.id ? " is-active" : ""}`} onClick={() => setTab(t.id)}>
             {t.label}
           </button>
         ))}
@@ -1494,7 +1370,13 @@ export default function ASAdmin() {
         {tab === "projects"   && <ProjectsManager apiKey={apiKey} />}
         {tab === "packages"   && <PackagesManager apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
-        {tab === "content"    && <ContentEditor apiKey={apiKey} />}
+        {tab === "hero"       && <HeroEditor apiKey={apiKey} />}
+        {tab === "metrics"    && <MetricsEditor apiKey={apiKey} />}
+        {tab === "benefits"   && <BenefitsEditor apiKey={apiKey} />}
+        {tab === "tropics"    && <TropicsEditor apiKey={apiKey} />}
+        {tab === "excellence" && <ExcellenceEditor apiKey={apiKey} />}
+        {tab === "process"    && <ProcessEditor apiKey={apiKey} />}
+        {tab === "cta"        && <CtaEditor apiKey={apiKey} />}
         {tab === "footer"     && <FooterEditor apiKey={apiKey} />}
       </div>
     </div>
