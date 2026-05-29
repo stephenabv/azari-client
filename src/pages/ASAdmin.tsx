@@ -22,6 +22,8 @@ import {
   adminCreatePackage,
   adminUpdatePackage,
   adminDeletePackage,
+  adminUpdateTalkProjectStatus,
+  adminUpdateQuotationProjectStatus,
   type ApiProject,
   type ProjectInput,
   type ProjectCategory as ApiProjectCategory,
@@ -38,11 +40,13 @@ type Tab =
 type SectionVisibility = {
   hero: boolean; metrics: boolean; benefits: boolean; excellence: boolean;
   tropics: boolean; process: boolean; clientJourney: boolean; calculator: boolean; callToAction: boolean;
+  packages: boolean;
 };
 
 const DEFAULT_VISIBILITY: SectionVisibility = {
   hero: true, metrics: true, benefits: true, excellence: true,
   tropics: true, process: true, clientJourney: true, calculator: true, callToAction: true,
+  packages: true,
 };
 
 interface Stats {
@@ -176,13 +180,37 @@ function EmailStatusIndicator({ status, id, onRetry, retrying }: { status: strin
   return null;
 }
 
+const PROJECT_STATUS_OPTIONS = [
+  { value: "new",             label: "New" },
+  { value: "site_assessment", label: "Site Assessment" },
+  { value: "proposal_sent",   label: "Proposal Sent" },
+  { value: "ongoing",         label: "Ongoing" },
+  { value: "completed",       label: "Completed" },
+];
+
+const PROJECT_STATUS_COLORS: Record<string, string> = {
+  new:             "var(--ad-text3)",
+  site_assessment: "#f59e0b",
+  proposal_sent:   "#3b82f6",
+  ongoing:         "#a855f7",
+  completed:       "#22c55e",
+};
+
+function fmtRef(id: string, type: "talk" | "quotations"): string {
+  const prefix = type === "talk" ? "INQ" : "QUO";
+  return `${prefix}-${(id as string).slice(0, 8).toUpperCase()}`;
+}
+
 function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "quotations" }) {
   const [data, setData] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [updatingProject, setUpdatingProject] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
@@ -191,17 +219,22 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   const [editMsg, setEditMsg] = useState("");
   const limit = 20;
 
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const load = async () => {
     setLoading(true);
     try {
       const fn = type === "talk" ? adminGetTalkInquiries : adminGetQuotations;
-      const res = await fn(apiKey, { limit, offset, status: statusFilter || undefined }) as { data: unknown[]; total: number };
+      const res = await fn(apiKey, { limit, offset, status: statusFilter || undefined, search: debouncedSearch || undefined }) as { data: unknown[]; total: number };
       setData(res.data);
       setTotal(res.total);
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, [offset, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [offset, statusFilter, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (id: string, status: string) => {
     setUpdating(id);
@@ -210,6 +243,16 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
       await fn(apiKey, id, status);
       await load();
     } finally { setUpdating(null); }
+  };
+
+  const handleProjectStatusChange = async (id: string, projectStatus: string) => {
+    setUpdatingProject(id);
+    try {
+      const fn = type === "talk" ? adminUpdateTalkProjectStatus : adminUpdateQuotationProjectStatus;
+      await fn(apiKey, id, projectStatus);
+      setData(prev => (prev as Array<Record<string, unknown>>).map(r => r.id === id ? { ...r, projectStatus } : r));
+    } catch (e) { alert(`Failed: ${(e as Error).message}`); }
+    finally { setUpdatingProject(null); }
   };
 
   const handleRetryEmail = async (id: string) => {
@@ -271,8 +314,16 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   return (
     <div>
       <div className="ad-filter-bar">
+        <input
+          type="search"
+          className="ad-input"
+          style={{ flex: 1, minWidth: 0, maxWidth: 280 }}
+          placeholder={`Search by ref (${type === "talk" ? "INQ-" : "QUO-"}...), name or email`}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
+        />
         <select className="ad-select" style={{ width: "auto" }} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setOffset(0); }}>
-          <option value="">All Statuses</option>
+          <option value="">All Email Statuses</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
         </select>
         <span className="ad-filter-count">{total} records</span>
@@ -327,27 +378,33 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
           <table className="ad-table">
             <thead>
               <tr>
+                <th>Reference</th>
                 {type === "talk" ? (
-                  <><th>Name</th><th>Email</th><th>Phone</th><th>Location</th><th>Type</th></>
+                  <><th>Name</th><th>Email</th><th>Location</th><th>Type</th></>
                 ) : (
-                  <><th>Name</th><th>Email</th><th>System Size</th><th>Monthly Bill</th><th>Property</th></>
+                  <><th>Name</th><th>Email</th><th>System Size</th><th>Property</th></>
                 )}
-                <th>Date</th><th>Status / Email</th><th>Actions</th>
+                <th>Date</th><th>Email Status</th><th>Project Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {(data as Array<Record<string, unknown>>).map((row) => (
                 <tr key={row.id as string}>
+                  <td>
+                    <span style={{ fontFamily: "monospace", fontSize: 12, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 5, padding: "2px 7px", color: "var(--ad-accent)", fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+                      {fmtRef(row.id as string, type)}
+                    </span>
+                  </td>
                   {type === "talk" ? (
-                    <><td>{row.name as string}</td><td>{row.email as string}</td><td>{row.phone as string}</td>
-                    <td>{row.city as string}, {row.province as string}</td><td>{row.inquiryType as string}</td></>
+                    <><td>{row.name as string}</td><td style={{ fontSize: 12 }}>{row.email as string}</td>
+                    <td style={{ fontSize: 12 }}>{[row.city, row.province].filter(Boolean).join(", ")}</td>
+                    <td>{row.inquiryType as string}</td></>
                   ) : (
-                    <><td>{row.fullName as string}</td><td>{row.email as string}</td>
+                    <><td>{row.fullName as string}</td><td style={{ fontSize: 12 }}>{row.email as string}</td>
                     <td>{row.estimatedSystemSizeDisplayText as string}</td>
-                    <td>₱{Number(row.averageMonthlyBillPhp).toLocaleString()}</td>
                     <td>{row.propertyClassification as string}</td></>
                   )}
-                  <td>{fmt(row.createdAt as string)}</td>
+                  <td style={{ fontSize: 12 }}>{fmt(row.createdAt as string)}</td>
                   <td>
                     <select
                       className="ad-status-select"
@@ -358,6 +415,19 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                       {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
                     </select>
                     <EmailStatusIndicator status={row.status as string} id={row.id as string} onRetry={(id) => void handleRetryEmail(id)} retrying={retrying === row.id} />
+                  </td>
+                  <td>
+                    <select
+                      className="ad-status-select"
+                      value={(row.projectStatus as string) ?? "new"}
+                      disabled={updatingProject === row.id}
+                      onChange={(e) => void handleProjectStatusChange(row.id as string, e.target.value)}
+                      style={{ color: PROJECT_STATUS_COLORS[(row.projectStatus as string) ?? "new"] ?? "inherit" }}
+                    >
+                      {PROJECT_STATUS_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value} style={{ color: PROJECT_STATUS_COLORS[o.value] }}>{o.label}</option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     <div className="ad-table-actions">
@@ -549,6 +619,7 @@ const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: st
   { key: "clientJourney", name: "Client Journey",       desc: "Testimonials map carousel" },
   { key: "calculator",   name: "Calculator",            desc: "Solar impact calculator" },
   { key: "callToAction", name: "Call to Action",        desc: "Final CTA section" },
+  { key: "packages",     name: "Packages Page",         desc: "Public /packages route — hides nav link and redirects when off" },
 ];
 
 function SectionsManager({ apiKey }: { apiKey: string }) {
@@ -609,7 +680,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0, isActive: true, sortOrder: 0 };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 0 };
 
 function autoName(kwp: number, kw: number, kwh: number) {
   const parts: string[] = [];
@@ -656,7 +727,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const openAdd = () => { setEditingId(null); setForm(EMPTY_PKG_FORM); setNameEdited(false); setMsg(""); setShowForm(true); };
   const openEdit = (p: ApiSolarPackage) => {
     setEditingId(p.id);
-    setForm({ name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh, phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax, isActive: p.isActive, sortOrder: p.sortOrder });
+    setForm({ name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh, phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax, isActive: p.isActive, isRecommended: p.isRecommended ?? false, sortOrder: p.sortOrder });
     setNameEdited(true); setMsg(""); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setMsg(""); };
@@ -712,7 +783,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     setSeeding(true); setMsg("");
     try {
       for (const pkg of SOLAR_PACKAGES) {
-        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, sortOrder: 0 });
+        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, isRecommended: false, sortOrder: 0 });
       }
       setMsg("✓ Default packages loaded — you can now edit or add more.");
       await load();
@@ -728,10 +799,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Solar Packages</div>
-          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — packages shown to customers after their quotation submission.`}</div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — these packages appear on the public /packages page and in quotation recommendations.`}</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {packages.length === 0 && !loading && <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">{seeding ? "Loading…" : "Load Default Packages"}</button>}
+          {!loading && <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">{seeding ? "Loading…" : "Load Defaults"}</button>}
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>}
         </div>
       </div>
@@ -794,6 +865,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               <input type="checkbox" id="pkg-active" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
               <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active — visible to customers</label>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4 }}>
+              <input type="checkbox" id="pkg-recommended" checked={form.isRecommended} onChange={(e) => setField("isRecommended", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="pkg-recommended" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Recommended — highlighted on the packages page</label>
+            </div>
           </div>
           <div className="ad-form-actions">
             <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
@@ -805,14 +880,17 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       ) : packages.length === 0 ? (
         <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 380, margin: "0 auto" }}>Click <strong>Load Default Packages</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch.</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 400, margin: "0 auto" }}>Click <strong>Load Defaults</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch. Active packages appear on the public <strong>/packages</strong> page.</div>
         </div>
       ) : (
         <div className="ad-pkg-mgr-grid">
           {packages.map((p) => (
-            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""} is-${p.phase}-phase`}>
+            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`}>
               <div className="ad-pkg-mgr-top">
-                <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>{p.phase === "single" ? "Single Phase" : "Three Phase"}</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>{p.phase === "single" ? "Single Phase" : "Three Phase"}</span>
+                  {(p.isRecommended ?? false) && <span className="ad-badge" style={{ background: "rgba(252,97,90,0.15)", color: "#fc615a", border: "1px solid rgba(252,97,90,0.3)", fontSize: 10 }}>★ Recommended</span>}
+                </div>
                 <label className="ad-toggle-switch" title={p.isActive ? "Active — click to hide" : "Hidden — click to show"}>
                   <input type="checkbox" checked={p.isActive} disabled={toggling === p.id} onChange={() => void handleToggleActive(p)} />
                   <span className="ad-toggle-track" />

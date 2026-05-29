@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useContent } from "../hooks/useContent";
 
 import lightModeToggle from "../assets/images/light-toggle-v2.png";
 import darkModeToggle from "../assets/images/dark-toggle-v2.png";
@@ -23,12 +24,15 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
-  const tabs = ["Home", "Projects", "Technology"];
+  const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
+  const showPackages = pageVis.packages !== false;
+
+  const tabs = ["Home", "Projects", ...(showPackages ? ["Packages"] : []), "Client Journey"];
 
   const tabRoutes: Record<string, string> = {
     Home: "/",
     Projects: "/projects",
-    Technology: "/technology",
+    Packages: "/packages",
   };
 
   const updateIndicator = (tab: string) => {
@@ -131,14 +135,25 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   }, []);
 
   const handleTabClick = (tab: string) => {
-    setActiveTab(tab);
     setIsMobileMenuOpen(false);
 
+    if (tab === "Client Journey") {
+      const scroll = () => {
+        document.getElementById("client-journey")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      if (location.pathname !== "/") {
+        navigate("/");
+        setTimeout(scroll, 220);
+      } else {
+        scroll();
+      }
+      return;
+    }
+
+    setActiveTab(tab);
+
     if (tab === "Home" && location.pathname === "/") {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 

@@ -88,11 +88,12 @@ export async function adminGetStats(apiKey: string) {
   return res.json();
 }
 
-export async function adminGetTalkInquiries(apiKey: string, params: { limit?: number; offset?: number; status?: string } = {}) {
+export async function adminGetTalkInquiries(apiKey: string, params: { limit?: number; offset?: number; status?: string; search?: string } = {}) {
   const qs = new URLSearchParams();
-  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.limit  != null) qs.set('limit',  String(params.limit));
   if (params.offset != null) qs.set('offset', String(params.offset));
-  if (params.status) qs.set('status', params.status);
+  if (params.status)         qs.set('status', params.status);
+  if (params.search)         qs.set('search', params.search);
 
   const res = await fetch(`${API_BASE}/admin/talk-inquiries?${qs}`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
@@ -102,11 +103,12 @@ export async function adminGetTalkInquiries(apiKey: string, params: { limit?: nu
   return res.json();
 }
 
-export async function adminGetQuotations(apiKey: string, params: { limit?: number; offset?: number; status?: string } = {}) {
+export async function adminGetQuotations(apiKey: string, params: { limit?: number; offset?: number; status?: string; search?: string } = {}) {
   const qs = new URLSearchParams();
-  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.limit  != null) qs.set('limit',  String(params.limit));
   if (params.offset != null) qs.set('offset', String(params.offset));
-  if (params.status) qs.set('status', params.status);
+  if (params.status)         qs.set('status', params.status);
+  if (params.search)         qs.set('search', params.search);
 
   const res = await fetch(`${API_BASE}/admin/quotation-requests?${qs}`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
@@ -132,6 +134,28 @@ export async function adminUpdateQuotationStatus(apiKey: string, id: string, sta
     method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ status })
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUpdateTalkProjectStatus(apiKey: string, id: string, projectStatus: string) {
+  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}/project-status`, {
+    method: 'PATCH',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ projectStatus })
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUpdateQuotationProjectStatus(apiKey: string, id: string, projectStatus: string) {
+  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}/project-status`, {
+    method: 'PATCH',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ projectStatus })
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) throw new Error(`Update failed: ${res.status}`);
@@ -310,6 +334,7 @@ export interface ApiSolarPackage {
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;
+  isRecommended: boolean;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -325,6 +350,7 @@ export interface PackageInput {
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;
+  isRecommended: boolean;
   sortOrder: number;
 }
 

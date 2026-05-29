@@ -1,0 +1,259 @@
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import type { ApiSolarPackage } from "../../services/ASContent";
+import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
+
+type Props = {
+  isOpen: boolean;
+  pkg: ApiSolarPackage | null;
+  onClose: () => void;
+};
+
+const PANEL_KWP = 0.5;
+const BATTERY_KWH = 5.12;
+
+type FormState = { name: string; location: string; email: string; phone: string };
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+function pesoFmt(v: number) {
+  return `₱${v.toLocaleString("en-PH")}`;
+}
+
+function getComponents(pkg: ApiSolarPackage): string[] {
+  const panels = Math.max(1, Math.round(pkg.solarKwp / PANEL_KWP));
+  const batteries = pkg.storageKwh > 0 ? Math.max(1, Math.round(pkg.storageKwh / BATTERY_KWH)) : 0;
+  const sysType = pkg.storageKwh > 0 ? "Hybrid" : "Grid-Tied";
+  const list = [
+    `${panels}pcs ${(PANEL_KWP * 1000).toFixed(0)}W Solar Panel`,
+    `1pc ${pkg.inverterKw}kW ${sysType} Inverter`,
+  ];
+  if (batteries > 0) list.push(`${batteries}pc ${pkg.storageKwh}kWh Battery Pack`);
+  return list;
+}
+
+function validate(f: FormState): FormErrors {
+  const e: FormErrors = {};
+  if (!f.name.trim()) e.name = "Name is required.";
+  if (!f.location.trim()) e.location = "Location is required.";
+  if (!f.email.trim()) e.email = "Email is required.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = "Enter a valid email address.";
+  if (!f.phone.trim()) e.phone = "Phone number is required.";
+  else if (!/^9\d{9}$/.test(f.phone.trim())) e.phone = "Enter a valid 10-digit number starting with 9.";
+  return e;
+}
+
+const EMPTY: FormState = { name: "", location: "", email: "", phone: "" };
+
+export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
+  const [isClosing, setIsClosing] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (isOpen) return;
+    const t = window.setTimeout(() => {
+      setForm(EMPTY);
+      setErrors({});
+      setSuccess(false);
+      setSubmitError("");
+    }, 260);
+    return () => clearTimeout(t);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const y = window.scrollY;
+    const o = { overflow: document.body.style.overflow, position: document.body.style.position, top: document.body.style.top, width: document.body.style.width };
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${y}px`;
+    document.body.style.width = "100%";
+    return () => {
+      document.body.style.overflow = o.overflow;
+      document.body.style.position = o.position;
+      document.body.style.top = o.top;
+      document.body.style.width = o.width;
+      window.scrollTo(0, y);
+    };
+  }, [isOpen]);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    window.setTimeout(() => { setIsClosing(false); onClose(); }, 220);
+  };
+
+  const setField = (key: keyof FormState, val: string) => {
+    setForm(prev => ({ ...prev, [key]: val }));
+    if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }));
+  };
+
+  const handleSubmit = async () => {
+    if (!pkg) return;
+    const errs = validate(form);
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      const res = await fetch("/api/talk/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: `+63${form.phone.trim()}`,
+          city: form.location.trim(),
+          province: "",
+          inquiryType: "quote",
+          message: `Package Inquiry — ${pkg.name}\nLoad Capacity: ${pkg.inverterKw} kW\nMonthly Savings: ${pesoFmt(pkg.billRangeMin)} – ${pesoFmt(pkg.billRangeMax)}/mo`,
+        }),
+      });
+      const data = await res.json().catch(() => null) as { success?: boolean; message?: string } | null;
+      if (!res.ok || data?.success === false) { setSubmitError(data?.message ?? "Something went wrong. Please try again."); return; }
+      setSuccess(true);
+    } catch {
+      setSubmitError("Network error. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className={`as-inq-overlay${isClosing ? " is-closing" : ""}`}
+      onClick={handleClose}
+    >
+      <div
+        className={`as-inq-modal${isClosing ? " is-closing" : ""}${success ? " is-success" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
+      >
+        <button type="button" className="as-inq-close" onClick={handleClose} aria-label="Close">×</button>
+
+        {success && pkg ? (
+          <div className="as-inq-success">
+            <div className="as-inq-success-icon">
+              <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+                <path d="M6 17.5L13.5 25L28 10" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <h2 className="as-inq-success-title">Inquiry Submitted</h2>
+            <p className="as-inq-success-desc">
+              Thank you! We've received your inquiry. One of our solar experts will get back to you within 1–2 business days.
+            </p>
+
+            <div className="as-inq-success-pkg">
+              <div className="as-inq-success-pkg-name">{pkg.name}</div>
+              <div className="as-inq-success-pkg-cap">{pkg.inverterKw} kW Load Capacity</div>
+              <div className="as-inq-success-pkg-savings">
+                Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
+              </div>
+              <ul className="as-inq-success-components">
+                {getComponents(pkg).map(c => <li key={c}>{c}</li>)}
+              </ul>
+            </div>
+
+            <button type="button" className="as-inq-success-close-btn" onClick={handleClose}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <div className="as-inq-form-panel">
+            <p className="as-inq-intro">
+              You're almost there! Provide your details below. Our team will reach out to schedule your free site assessment.
+            </p>
+
+            {pkg && (
+              <div className="as-inq-pkg-summary">
+                <div className="as-inq-pkg-summary-label">System</div>
+                <div className="as-inq-pkg-summary-name">{pkg.name}</div>
+                <div className="as-inq-pkg-summary-cap">{pkg.inverterKw} kW Load Capacity</div>
+                <div className="as-inq-pkg-summary-savings">
+                  Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
+                </div>
+              </div>
+            )}
+
+            <div className="as-inq-field">
+              <label className="as-inq-label">Name</label>
+              <input
+                className={`as-inq-input${errors.name ? " has-error" : ""}`}
+                type="text"
+                value={form.name}
+                onChange={e => setField("name", e.target.value)}
+                placeholder="Juan dela Cruz"
+                autoComplete="name"
+              />
+              {errors.name && <span className="as-inq-field-error">{errors.name}</span>}
+            </div>
+
+            <div className="as-inq-field">
+              <label className="as-inq-label">Location</label>
+              <LocationAutocompleteInput
+                value={form.location}
+                onChange={v => setField("location", v)}
+                placeholder="Ex. Tagbilaran City"
+                inputClassName={`as-inq-input${errors.location ? " has-error" : ""}`}
+              />
+              {errors.location && <span className="as-inq-field-error">{errors.location}</span>}
+            </div>
+
+            <div className="as-inq-field">
+              <label className="as-inq-label">Email address</label>
+              <input
+                className={`as-inq-input${errors.email ? " has-error" : ""}`}
+                type="email"
+                value={form.email}
+                onChange={e => setField("email", e.target.value)}
+                placeholder="juandelacruz@gmail.com"
+                autoComplete="email"
+              />
+              {errors.email && <span className="as-inq-field-error">{errors.email}</span>}
+            </div>
+
+            <div className="as-inq-field">
+              <label className="as-inq-label">Phone number</label>
+              <div className={`as-inq-phone-wrap${errors.phone ? " has-error" : ""}`}>
+                <span className="as-inq-phone-prefix">+63</span>
+                <input
+                  className="as-inq-phone-input"
+                  type="tel"
+                  value={form.phone}
+                  onChange={e => setField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="9123456789"
+                  inputMode="numeric"
+                  autoComplete="tel-local"
+                />
+              </div>
+              {errors.phone && <span className="as-inq-field-error">{errors.phone}</span>}
+            </div>
+
+            {submitError && <div className="as-inq-submit-error">{submitError}</div>}
+
+            <p className="as-inq-privacy">
+              We value your privacy. Your information is only used for your solar assessment &amp; inquiries.
+            </p>
+
+            <div className="as-inq-actions">
+              <button
+                type="button"
+                className="as-inq-submit-btn"
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting…" : "Submit Inquiry"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}

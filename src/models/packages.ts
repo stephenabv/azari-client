@@ -9,6 +9,7 @@ export type SolarPackage = {
   phase: "single" | "three";
   totalPrice: number;
   monthlyBillRange: [number, number];
+  isRecommended?: boolean;
 };
 
 export const SOLAR_PACKAGES: SolarPackage[] = [

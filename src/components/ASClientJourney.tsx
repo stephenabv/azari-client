@@ -210,6 +210,7 @@ export default function ASClientJourney() {
   const firstSlideRef = useRef<HTMLDivElement | null>(null);
   const hasAnimated = useRef(false);
   const [isVisible, setIsVisible] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const CARD_GAP = 20;
 
   useEffect(() => {
@@ -246,9 +247,23 @@ export default function ASClientJourney() {
     setActiveIndex(Math.max(0, Math.min(index, entries.length - 1)));
   }, [entries.length]);
 
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    goTo(dx < 0 ? activeIndex + 1 : activeIndex - 1);
+  }, [activeIndex, goTo]);
+
   return (
     <section
       ref={sectionRef}
+      id="client-journey"
       className={`ASClientJourney${isVisible ? " is-visible" : ""}`}
     >
       {videoUrl && (
@@ -260,7 +275,11 @@ export default function ASClientJourney() {
           Our clients journey to<br />Energy Independence
         </h2>
 
-        <div className="as-journey-carousel-wrapper">
+        <div
+          className="as-journey-carousel-wrapper"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <div
             className="as-journey-track"
             style={{ transform: `translateX(-${activeIndex * (slideWidth + CARD_GAP)}px)` }}
@@ -312,9 +331,16 @@ export default function ASClientJourney() {
               <path d="M7 1L1 7L7 13" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
-          <span className="as-journey-counter">
-            {activeIndex + 1}/{entries.length}
-          </span>
+          <div className="as-journey-dots">
+            {entries.map((_, i) => (
+              <button
+                key={i}
+                className={`as-journey-dot${i === activeIndex ? " is-active" : ""}`}
+                onClick={() => goTo(i)}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
           <button
             className="as-journey-nav-btn"
             onClick={() => goTo(activeIndex + 1)}

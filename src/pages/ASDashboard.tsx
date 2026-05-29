@@ -19,6 +19,7 @@ type SectionVisibility = {
   clientJourney: boolean;
   calculator: boolean;
   callToAction: boolean;
+  packages: boolean;
 };
 
 const DEFAULT_VISIBILITY: SectionVisibility = {
@@ -31,6 +32,7 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
   clientJourney: true,
   calculator: true,
   callToAction: true,
+  packages: true,
 };
 
 export default function ASDashboard() {
