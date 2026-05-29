@@ -375,32 +375,29 @@
 }
 
 .as-packages-cta {
-  margin-top: clamp(48px, 6vw, 96px);
-  padding: clamp(36px, 5vw, 72px) clamp(28px, 5vw, 72px);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  margin-top: clamp(60px, 8vw, 120px);
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(24px, 4vw, 64px);
+  min-height: clamp(320px, 40vw, 560px);
   position: relative;
   overflow: hidden;
+}
 
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 80% 50%, rgba(252, 97, 90, 0.06) 0%, transparent 65%);
-    pointer-events: none;
-  }
+.as-packages-cta-content {
+  flex: 0 0 56%;
+  min-width: 0;
+  padding-bottom: clamp(36px, 5vw, 72px);
 }
 
 .as-packages-cta-title {
   font-family: "Outfit", sans-serif;
-  font-size: clamp(26px, 3.6vw, 50px);
+  font-size: clamp(30px, 4.2vw, 60px);
   font-weight: 500;
   color: #e8e8e8;
-  margin: 0 0 14px;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  max-width: 700px;
+  margin: 0 0 16px;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
 }
 
 .as-packages-cta-accent {
@@ -408,13 +405,23 @@
   font-weight: 700;
 }
 
+.as-packages-cta-tagline {
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(17px, 1.8vw, 24px);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.35;
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+}
+
 .as-packages-cta-sub {
   font-family: "Inter", sans-serif;
-  font-size: clamp(13px, 1.2vw, 16px);
-  color: rgba(255, 255, 255, 0.45);
-  max-width: 560px;
-  line-height: 1.65;
-  margin: 0 0 30px;
+  font-size: clamp(13px, 1.1vw, 15px);
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.7;
+  margin: 0 0 32px;
+  max-width: 520px;
 }
 
 .as-packages-cta-actions {
@@ -425,12 +432,12 @@
 
 .as-packages-cta-btn {
   padding: 13px 26px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: "Inter", sans-serif;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   white-space: nowrap;
 
   &.is-primary {
@@ -446,8 +453,8 @@
 
   &.is-secondary {
     background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.75);
 
     &:hover {
       background: rgba(255, 255, 255, 0.06);
@@ -455,6 +462,38 @@
       color: #ffffff;
     }
   }
+}
+
+.as-packages-cta-visual {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  align-self: stretch;
+  position: relative;
+}
+
+.as-packages-cta-person {
+  width: 100%;
+  max-width: clamp(240px, 38vw, 520px);
+  height: auto;
+  display: block;
+  object-fit: contain;
+}
+
+.as-ceo-dark {
+  // SVG has built-in dark-to-transparent gradient on left — fade in from left via CSS mask
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.65) 26%, black 52%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.65) 26%, black 52%);
+}
+
+.as-ceo-light {
+  display: none;
+  // SVG has built-in white-to-transparent gradient on left — fade both edges
+  -webkit-mask-image: linear-gradient(to right, transparent 3%, rgba(0, 0, 0, 0.9) 20%, black 38%, black 72%, rgba(0, 0, 0, 0.4) 88%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 3%, rgba(0, 0, 0, 0.9) 20%, black 38%, black 72%, rgba(0, 0, 0, 0.4) 88%, transparent 100%);
+  filter: url(#pkg-ceo-sharpen);
 }
 
 @media (max-width: 1024px) {
@@ -471,9 +510,24 @@
   .as-pkg-card {
     border-radius: 14px;
   }
+}
 
+@media (max-width: 768px) {
   .as-packages-cta {
-    border-radius: 18px;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: unset;
+    gap: 0;
+  }
+
+  .as-packages-cta-content {
+    flex: none;
+    width: 100%;
+    padding-bottom: 32px;
+  }
+
+  .as-packages-cta-visual {
+    display: none;
   }
 }
 

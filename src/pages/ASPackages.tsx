@@ -5,6 +5,8 @@ import { SOLAR_PACKAGES } from "../models/packages";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
+import ceoPerson from "../assets/images/ceo.svg";
+import ceoPersonLight from "../assets/images/ceo-light.svg";
 
 const PANEL_KWP = 0.5;
 const BATTERY_KWH = 5.12;
@@ -291,21 +293,30 @@ export default function ASPackages() {
         )}
 
         <div className="as-packages-cta">
-          <h2 className="as-packages-cta-title">
-            <span className="as-packages-cta-accent">Future-proof</span> your business infrastructure.
-          </h2>
-          <p className="as-packages-cta-sub">
-            Commercial and industrial energy demands require sophisticated, scalable engineering. Get in touch
-            with our specialist team for a comprehensive energy audit, financial feasibility breakdown, and
-            custom system design.
-          </p>
-          <div className="as-packages-cta-actions">
-            <button className="as-packages-cta-btn is-primary" onClick={() => setCtaModalOpen(true)}>
-              Contact Our C&amp;I Team →
-            </button>
-            <button className="as-packages-cta-btn is-secondary" onClick={() => setCtaModalOpen(true)}>
-              Schedule a Consultation
-            </button>
+          <div className="as-packages-cta-content">
+            <h2 className="as-packages-cta-title">
+              <span className="as-packages-cta-accent">Future-proof</span> your business infrastructure.
+            </h2>
+            <p className="as-packages-cta-tagline">
+              Turn your operational overhead into a strategic advantage.
+            </p>
+            <p className="as-packages-cta-sub">
+              Commercial and industrial energy demands require sophisticated, scalable engineering. Get in touch
+              with our specialist team for a comprehensive energy audit, financial feasibility breakdown, and
+              custom system design.
+            </p>
+            <div className="as-packages-cta-actions">
+              <button className="as-packages-cta-btn is-primary" onClick={() => setCtaModalOpen(true)}>
+                Contact Our C&amp;I Team →
+              </button>
+              <button className="as-packages-cta-btn is-secondary" onClick={() => setCtaModalOpen(true)}>
+                Schedule a Consultation
+              </button>
+            </div>
+          </div>
+          <div className="as-packages-cta-visual" aria-hidden="true">
+            <img src={ceoPerson}      alt="" className="as-packages-cta-person as-ceo-dark" />
+            <img src={ceoPersonLight} alt="" className="as-packages-cta-person as-ceo-light" />
           </div>
         </div>
 
