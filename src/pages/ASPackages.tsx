@@ -239,6 +239,13 @@ export default function ASPackages() {
 
   return (
     <div className="route-page">
+      <svg style={{ display: "none" }} width="0" height="0">
+        <defs>
+          <filter id="pkg-ceo-sharpen">
+            <feConvolveMatrix type="matrix" kernelMatrix="0 -0.5 0 -0.5 3 -0.5 0 -0.5 0" divisor="1" />
+          </filter>
+        </defs>
+      </svg>
       <div className="ASPackages page-container">
 
         <div className="as-packages-header">
