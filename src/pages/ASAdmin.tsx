@@ -29,6 +29,7 @@ import {
   type PackageInput,
 } from "../services/ASContent";
 import { SOLAR_PACKAGES } from "../models/packages";
+import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections"
@@ -1147,7 +1148,13 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
               <div>
                 <label className="ad-label">Location</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <input className="ad-input" value={entry.location} onChange={(e) => updateEntry(i, "location", e.target.value)} placeholder="Quezon City, Metro Manila" style={{ flex: 1 }} />
+                  <LocationAutocompleteInput
+                    value={entry.location}
+                    onChange={(val) => updateEntry(i, "location", val)}
+                    placeholder="Quezon City, Metro Manila"
+                    inputClassName="ad-input"
+                    wrapperStyle={{ flex: 1, minWidth: 0 }}
+                  />
                   <button
                     className="ad-btn ad-btn--sm"
                     onClick={() => void locate(i)}

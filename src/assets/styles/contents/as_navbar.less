@@ -81,65 +81,28 @@
 }
 
 .theme-toggle-btn {
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 18px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.06) 45%,
-      rgba(255, 255, 255, 0.03) 100%
-    );
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  border: none;
+  background: transparent;
   cursor: pointer;
 }
 
-.theme-toggle-btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.34) 0%,
-      rgba(255, 255, 255, 0.14) 16%,
-      rgba(255, 255, 255, 0.02) 42%,
-      transparent 70%
-    );
-  opacity: 0.72;
-}
-
 .theme-toggle-img {
+  height: 44px;
   width: auto;
-  height: 32px;
-  position: relative;
-  z-index: 1;
   display: block;
-  transition:
-    transform 0.3s ease,
-    opacity 0.3s ease,
-    filter 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
 .theme-toggle-btn:hover .theme-toggle-img {
-  transform: scale(1.02);
+  transform: scale(1.06);
 }
 
 .theme-toggle-btn:active .theme-toggle-img {
-  transform: scale(0.97);
+  transform: scale(0.94);
 }
 
 .mobile-menu-btn {
@@ -290,7 +253,7 @@
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 42px;
   }
 }
 
@@ -322,7 +285,7 @@
   }
 
   .theme-toggle-img {
-    height: 34px;
+    height: 36px;
   }
 }
 
@@ -346,7 +309,7 @@
   }
 
   .theme-toggle-img {
-    height: 32px;
+    height: 34px;
   }
 
   .mobile-menu-btn {
@@ -379,7 +342,7 @@
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 32px;
   }
 
   .mobile-menu-btn {
@@ -427,6 +390,6 @@
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 34px;
   }
 }

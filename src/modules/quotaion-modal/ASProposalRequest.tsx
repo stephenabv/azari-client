@@ -7,6 +7,7 @@ import {
   type ProposalRequestField,
 } from "../../models/quotation";
 import type { FieldErrors } from "../../models/common";
+import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
 
 type RequestProposalModalProps = {
   onClose: () => void;
@@ -93,11 +94,11 @@ export default function RequestProposalModal({
 
           <label>
             Location
-            <input
-              className={errors.location ? "as-input-error" : ""}
-              placeholder="Search map location or manually input address"
+            <LocationAutocompleteInput
               value={formData.location}
-              onChange={(e) => handleChange("location", e.target.value)}
+              onChange={(val) => handleChange("location", val)}
+              placeholder="Search map location or manually input address"
+              inputClassName={errors.location ? "as-input-error" : ""}
             />
             {errors.location && (
               <small className="as-field-error">{errors.location}</small>
