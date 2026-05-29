@@ -193,6 +193,13 @@
   display: block;
   background: transparent;
   outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.as-ph-marker image {
+  pointer-events: none;
+  outline: none;
 }
 
 .as-ph-marker {
@@ -282,6 +289,61 @@
 
   .as-journey-map {
     max-width: 280px;
+  }
+}
+
+.as-video-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  backdrop-filter: blur(6px);
+}
+
+.as-video-container {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+}
+
+.as-video-frame,
+.as-video-player {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.as-video-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 

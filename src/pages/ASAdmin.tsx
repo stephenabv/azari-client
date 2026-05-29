@@ -32,7 +32,7 @@ import { SOLAR_PACKAGES } from "../models/packages";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections"
-  | "hero" | "metrics" | "benefits" | "tropics" | "excellence" | "process" | "cta" | "footer";
+  | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
   hero: boolean; metrics: boolean; benefits: boolean; excellence: boolean;
@@ -1068,6 +1068,124 @@ function TropicsEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
+// ─── Client Journey ───────────────────────────────────────────────────────────
+
+type JourneyEntry = { id: string; name: string; location: string; testimonial: string; videoUrl: string; coords: [number, number] };
+type ClientJourneyForm = { entries: JourneyEntry[] };
+const DEFAULT_JOURNEY_FORM: ClientJourneyForm = {
+  entries: [
+    { id: "1", name: "Santos Family", location: "Quezon City, Metro Manila", testimonial: "Our Meralco bill dropped by 87% in the first month. The team handled the entire Net-Metering application perfectly, and now we literally earn credits while we sleep.", videoUrl: "", coords: [121.05, 14.68] },
+    { id: "2", name: "Cruz Commercial", location: "Cebu City, Cebu", testimonial: "Operating costs dropped significantly since we installed our solar array. The team handled everything from permits to final inspection.", videoUrl: "", coords: [123.90, 10.32] },
+    { id: "3", name: "Reyes Residence", location: "Davao City, Davao del Sur", testimonial: "We were skeptical at first, but the numbers don't lie. Within 18 months we recovered a significant portion of our investment.", videoUrl: "", coords: [125.61, 7.07] },
+    { id: "4", name: "De Leon Residence", location: "Angeles City, Pampanga", testimonial: "Professional installation completed in just two days. Our home now runs entirely on solar during daytime hours.", videoUrl: "", coords: [120.59, 15.15] },
+    { id: "5", name: "Garcia Business", location: "Iloilo City, Iloilo", testimonial: "As a business owner, the ROI was clear from the start. Our electricity expenses went from our highest operating cost to nearly negligible.", videoUrl: "", coords: [122.57, 10.72] },
+    { id: "6", name: "Torres Family", location: "Batangas City, Batangas", testimonial: "Consistent monthly savings since day one. The process from quotation to installation was seamless.", videoUrl: "", coords: [121.05, 13.76] },
+    { id: "7", name: "Chua Enterprise", location: "Cagayan de Oro, Misamis Oriental", testimonial: "We installed a 50kWp commercial system across our warehouse rooftops. The project was completed on schedule and within budget.", videoUrl: "", coords: [124.63, 8.48] },
+  ],
+};
+
+async function geocodePhLocation(location: string): Promise<[number, number] | null> {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&countrycodes=ph&limit=1`);
+    const data = await res.json() as Array<{ lon: string; lat: string }>;
+    if (!data.length) return null;
+    return [parseFloat(data[0].lon), parseFloat(data[0].lat)];
+  } catch { return null; }
+}
+
+function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  const [geocoding, setGeocoding] = useState<Set<number>>(new Set());
+  const [geoMsg, setGeoMsg] = useState("");
+
+  const updateEntry = (idx: number, key: keyof JourneyEntry, val: string) =>
+    setForm((f) => ({ ...f, entries: f.entries.map((e, i) => i === idx ? { ...e, [key]: val } : e) }));
+
+  const addEntry = () =>
+    setForm((f) => ({
+      ...f,
+      entries: [...f.entries, { id: crypto.randomUUID(), name: "", location: "", testimonial: "", videoUrl: "", coords: [122.0, 12.0] }],
+    }));
+
+  const removeEntry = (idx: number) =>
+    setForm((f) => ({ ...f, entries: f.entries.filter((_, i) => i !== idx) }));
+
+  const locate = async (idx: number) => {
+    const loc = form.entries[idx]?.location?.trim();
+    if (!loc) return;
+    setGeocoding((s) => new Set(s).add(idx));
+    setGeoMsg("");
+    const coords = await geocodePhLocation(loc);
+    if (coords) {
+      setForm((f) => ({ ...f, entries: f.entries.map((e, i) => i === idx ? { ...e, coords } : e) }));
+      setGeoMsg(`✓ Located: ${coords[1].toFixed(4)}°N, ${coords[0].toFixed(4)}°E`);
+    } else {
+      setGeoMsg("Location not found. Try a more specific place name.");
+    }
+    setGeocoding((s) => { const n = new Set(s); n.delete(idx); return n; });
+  };
+
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+  return (
+    <div>
+      <SectionEditorHeader title="Client Journey" onReset={reset} />
+      <Toast msg={msg} />
+      {geoMsg && <div style={{ padding: "8px 0 4px", fontSize: 12, color: geoMsg.startsWith("✓") ? "#22c55e" : "#f87171" }}>{geoMsg}</div>}
+      <div className="ad-card">
+        <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 20 }}>Each entry appears as a testimonial card and a location pin on the Philippines map.</p>
+        {form.entries.map((entry, i) => (
+          <div key={entry.id} style={{ marginBottom: i < form.entries.length - 1 ? 32 : 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Entry {i + 1}{entry.name ? ` — ${entry.name}` : ""}</div>
+              <button onClick={() => removeEntry(i)} className="ad-btn ad-btn--danger ad-btn--sm" style={{ fontSize: 11 }}>Remove</button>
+            </div>
+            <div className="ad-form-grid">
+              <div>
+                <label className="ad-label">Client / Business Name</label>
+                <input className="ad-input" value={entry.name} onChange={(e) => updateEntry(i, "name", e.target.value)} placeholder="Santos Family" />
+              </div>
+              <div>
+                <label className="ad-label">Location</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="ad-input" value={entry.location} onChange={(e) => updateEntry(i, "location", e.target.value)} placeholder="Quezon City, Metro Manila" style={{ flex: 1 }} />
+                  <button
+                    className="ad-btn ad-btn--sm"
+                    onClick={() => void locate(i)}
+                    disabled={geocoding.has(i) || !entry.location.trim()}
+                    title="Auto-fill map pin from location name"
+                    style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {geocoding.has(i) ? "Locating…" : "Locate Pin"}
+                  </button>
+                </div>
+                {entry.coords[0] !== 0 && (
+                  <p className="ad-pkg-hint">Pin: {entry.coords[1].toFixed(4)}°N, {entry.coords[0].toFixed(4)}°E</p>
+                )}
+              </div>
+              <div className="ad-form-full">
+                <label className="ad-label">Testimonial</label>
+                <textarea className="ad-textarea" rows={3} value={entry.testimonial} onChange={(e) => updateEntry(i, "testimonial", e.target.value)} placeholder="What the client said about their experience…" />
+              </div>
+              <div className="ad-form-full">
+                <label className="ad-label">Video URL (optional)</label>
+                <input className="ad-input" value={entry.videoUrl} onChange={(e) => updateEntry(i, "videoUrl", e.target.value)} placeholder="https://youtube.com/watch?v=... or direct video URL" />
+                <p className="ad-pkg-hint">YouTube links are auto-converted to embeds. Leave blank to hide the Watch button.</p>
+              </div>
+            </div>
+            {i < form.entries.length - 1 && <hr style={{ margin: "24px 0 0", border: "none", borderTop: "1px solid var(--ad-border)" }} />}
+          </div>
+        ))}
+        <div style={{ marginTop: 24 }}>
+          <button onClick={addEntry} className="ad-btn ad-btn--ghost">+ Add Entry</button>
+        </div>
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Engineered Excellence ────────────────────────────────────────────────────
 
 type ExcellenceItem = { number: string; title: string; description: string };
@@ -1346,6 +1464,7 @@ export default function ASAdmin() {
     { id: "metrics",    label: "Metrics" },
     { id: "benefits",   label: "Benefits" },
     { id: "tropics",    label: "Tropics" },
+    { id: "journey",    label: "Journey" },
     { id: "excellence", label: "Excellence" },
     { id: "process",    label: "Process" },
     { id: "cta",        label: "Call to Action" },
@@ -1391,6 +1510,7 @@ export default function ASAdmin() {
         {tab === "metrics"    && <MetricsEditor apiKey={apiKey} />}
         {tab === "benefits"   && <BenefitsEditor apiKey={apiKey} />}
         {tab === "tropics"    && <TropicsEditor apiKey={apiKey} />}
+        {tab === "journey"    && <ClientJourneyEditor apiKey={apiKey} />}
         {tab === "excellence" && <ExcellenceEditor apiKey={apiKey} />}
         {tab === "process"    && <ProcessEditor apiKey={apiKey} />}
         {tab === "cta"        && <CtaEditor apiKey={apiKey} />}

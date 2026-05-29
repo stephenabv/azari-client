@@ -8,6 +8,7 @@ export type ContentKey =
   | 'excellence'
   | 'process'
   | 'tropics'
+  | 'clientJourney'
   | 'cta'
   | 'benefits'
   | 'footer'
