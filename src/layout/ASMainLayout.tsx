@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
+import ASRateLimitBanner from "../components/ASRateLimitBanner";
 
 const getSystemTheme = (): "light-theme" | "dark-theme" => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -47,6 +48,7 @@ export default function ASMainLayout() {
 
   return (
     <main className="app-main">
+      <ASRateLimitBanner />
       <header className="navbar-section">
         <div className="navbar-inner">
           <ASNavbar theme={theme} toggleTheme={toggleTheme} />

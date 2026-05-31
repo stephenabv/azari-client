@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
   adminGetStats,
   adminGetAllContent,
@@ -943,7 +944,11 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
 
   const save = async (data: T) => {
     setSaving(true); setMsg("");
-    try { await adminUpsertContent(apiKey, contentKey, data); setMsg("✓ Saved successfully"); }
+    try {
+      const res = await adminUpsertContent(apiKey, contentKey, data) as { success: boolean; data?: unknown };
+      if (res?.data) setForm((f) => ({ ...f, ...(res.data as T) }));
+      setMsg("✓ Saved successfully");
+    }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
     finally { setSaving(false); }
   };
@@ -968,8 +973,8 @@ function SectionEditorHeader({ title, onReset }: { title: string; onReset: () =>
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-type HeroForm = { headerPart1: string; headerPart2: string; subtext: string; primaryCta: string; secondaryCta: string };
-const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects" };
+type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: string; subtext: string; primaryCta: string; secondaryCta: string };
+const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects" };
 
 function HeroEditor({ apiKey }: { apiKey: string }) {
   const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
@@ -982,13 +987,17 @@ function HeroEditor({ apiKey }: { apiKey: string }) {
       <div className="ad-card">
         <div className="ad-form-grid">
           <div>
-            <label className="ad-label">Headline — Accent Word(s)</label>
+            <label className="ad-label">Headline — Part 1</label>
             <input className="ad-input" value={form.headerPart1} onChange={ch("headerPart1")} placeholder="Affordable" />
-            <p className="ad-pkg-hint">Displayed in the accent colour before the main headline.</p>
           </div>
           <div>
-            <label className="ad-label">Headline — Main Text</label>
+            <label className="ad-label">Headline — Part 2</label>
             <input className="ad-input" value={form.headerPart2} onChange={ch("headerPart2")} placeholder="Solar Power for Every Filipino Home and Business" />
+          </div>
+          <div className="ad-form-full">
+            <label className="ad-label">Highlighted Words <span style={{ fontWeight: 400, opacity: 0.6 }}>(comma-separated)</span></label>
+            <input className="ad-input" value={form.highlightWords} onChange={ch("highlightWords")} placeholder="Affordable, Filipino" />
+            <p className="ad-pkg-hint">Words in Part 1 + Part 2 that match will be shown in the accent colour. Separate multiple words with a comma.</p>
           </div>
           <div className="ad-form-full">
             <label className="ad-label">Subtext</label>
@@ -1566,6 +1575,7 @@ export default function ASAdmin() {
 
   return (
     <div className={`as-admin${isLight ? " is-light" : ""}`}>
+      <ASRateLimitBanner />
       <nav className="ad-topnav">
         <div className="ad-topnav-logo">azari<span>.solar</span></div>
         <span className="ad-topnav-badge">Admin</span>

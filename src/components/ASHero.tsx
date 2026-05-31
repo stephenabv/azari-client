@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
@@ -11,6 +11,7 @@ type LayoutContext = {
 type HeroContent = {
   headerPart1: string;
   headerPart2: string;
+  highlightWords: string;
   subtext: string;
   primaryCta: string;
   secondaryCta: string;
@@ -19,10 +20,23 @@ type HeroContent = {
 const DEFAULT_HERO: HeroContent = {
   headerPart1: "Affordable",
   headerPart2: "Solar Power for Every Filipino Home and Business",
+  highlightWords: "Affordable",
   subtext: "We Provide Solar Solutions Tailored For Your Home And Business",
   primaryCta: "Calculate Your Savings",
   secondaryCta: "View Projects",
 };
+
+function renderHighlighted(text: string, highlights: string): React.ReactNode {
+  const words = highlights.split(",").map((w) => w.trim()).filter(Boolean);
+  if (!words.length) return text;
+  const escaped = words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`(${escaped.join("|")})`, "gi");
+  const parts = text.split(pattern);
+  const lower = words.map((w) => w.toLowerCase());
+  return parts.map((part, i) =>
+    lower.includes(part.toLowerCase()) ? <span key={i}>{part}</span> : part
+  );
+}
 
 export default function ASHero() {
   const [show, setShow] = useState(false);
@@ -69,7 +83,10 @@ export default function ASHero() {
       <div className="hero_banner_overlay">
         <div className="hero_text">
           <p className={`hero_header_text ${show ? "animate-in delay-1" : ""}`}>
-            <span>{hero.headerPart1}</span> {hero.headerPart2}
+            {renderHighlighted(
+              `${hero.headerPart1} ${hero.headerPart2}`,
+              hero.highlightWords ?? hero.headerPart1
+            )}
           </p>
 
           <p className={`hero_subtext ${show ? "animate-in delay-2" : ""}`}>

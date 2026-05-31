@@ -1,6 +1,29 @@
 
-
 const API_BASE = '/api';
+
+// ─── Rate-limit pub/sub ────────────────────────────────────────────────────────
+// Any fetch that receives a 429 fires this so components can show the banner.
+
+export type RateLimitInfo = { retryAfterSec: number; resetAt: number };
+const _rlSubs = new Set<(info: RateLimitInfo) => void>();
+
+export function subscribeRateLimit(fn: (info: RateLimitInfo) => void): () => void {
+  _rlSubs.add(fn);
+  return () => _rlSubs.delete(fn);
+}
+
+function notifyRateLimit(res: Response): never {
+  const sec = parseInt(res.headers.get('Retry-After') ?? '60', 10);
+  _rlSubs.forEach(fn => fn({ retryAfterSec: sec, resetAt: Date.now() + sec * 1000 }));
+  throw new Error(`rate_limited:${sec}`);
+}
+
+// Central fetch wrapper — intercepts 429 before callers see it
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(url, init);
+  if (res.status === 429) notifyRateLimit(res);
+  return res;
+}
 
 export type ContentKey =
   | 'hero'
@@ -16,7 +39,7 @@ export type ContentKey =
 
 export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE}/content/${key}`, {
+    const res = await apiFetch(`${API_BASE}/content/${key}`, {
       headers: { Accept: 'application/json' }
     });
     if (!res.ok) return null;
@@ -29,7 +52,7 @@ export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | nu
 
 export async function fetchAllContent(): Promise<Record<string, unknown> | null> {
   try {
-    const res = await fetch(`${API_BASE}/content`, {
+    const res = await apiFetch(`${API_BASE}/content`, {
       headers: { Accept: 'application/json' }
     });
     if (!res.ok) return null;
@@ -43,7 +66,7 @@ export async function fetchAllContent(): Promise<Record<string, unknown> | null>
 
 
 export async function adminGetAllContent(apiKey: string) {
-  const res = await fetch(`${API_BASE}/admin/content`, {
+  const res = await apiFetch(`${API_BASE}/admin/content`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -52,7 +75,7 @@ export async function adminGetAllContent(apiKey: string) {
 }
 
 export async function adminUpsertContent(apiKey: string, key: string, data: unknown) {
-  const res = await fetch(`${API_BASE}/admin/content/${key}`, {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
     method: 'PUT',
     headers: {
       'x-admin-api-key': apiKey,
@@ -70,7 +93,7 @@ export async function adminUpsertContent(apiKey: string, key: string, data: unkn
 }
 
 export async function adminResetContent(apiKey: string, key: string) {
-  const res = await fetch(`${API_BASE}/admin/content/${key}`, {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -80,7 +103,7 @@ export async function adminResetContent(apiKey: string, key: string) {
 }
 
 export async function adminGetStats(apiKey: string) {
-  const res = await fetch(`${API_BASE}/admin/stats`, {
+  const res = await apiFetch(`${API_BASE}/admin/stats`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -95,7 +118,7 @@ export async function adminGetTalkInquiries(apiKey: string, params: { limit?: nu
   if (params.status)         qs.set('status', params.status);
   if (params.search)         qs.set('search', params.search);
 
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries?${qs}`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries?${qs}`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -110,7 +133,7 @@ export async function adminGetQuotations(apiKey: string, params: { limit?: numbe
   if (params.status)         qs.set('status', params.status);
   if (params.search)         qs.set('search', params.search);
 
-  const res = await fetch(`${API_BASE}/admin/quotation-requests?${qs}`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests?${qs}`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -119,7 +142,7 @@ export async function adminGetQuotations(apiKey: string, params: { limit?: numbe
 }
 
 export async function adminUpdateTalkStatus(apiKey: string, id: string, status: string) {
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}/status`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries/${id}/status`, {
     method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ status })
@@ -130,7 +153,7 @@ export async function adminUpdateTalkStatus(apiKey: string, id: string, status: 
 }
 
 export async function adminUpdateQuotationStatus(apiKey: string, id: string, status: string) {
-  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}/status`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests/${id}/status`, {
     method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ status })
@@ -141,7 +164,7 @@ export async function adminUpdateQuotationStatus(apiKey: string, id: string, sta
 }
 
 export async function adminUpdateTalkProjectStatus(apiKey: string, id: string, projectStatus: string) {
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}/project-status`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries/${id}/project-status`, {
     method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ projectStatus })
@@ -152,7 +175,7 @@ export async function adminUpdateTalkProjectStatus(apiKey: string, id: string, p
 }
 
 export async function adminUpdateQuotationProjectStatus(apiKey: string, id: string, projectStatus: string) {
-  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}/project-status`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests/${id}/project-status`, {
     method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ projectStatus })
@@ -163,7 +186,7 @@ export async function adminUpdateQuotationProjectStatus(apiKey: string, id: stri
 }
 
 export async function adminRetryTalkEmail(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}/retry-email`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries/${id}/retry-email`, {
     method: 'POST',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -173,7 +196,7 @@ export async function adminRetryTalkEmail(apiKey: string, id: string) {
 }
 
 export async function adminRetryQuotationEmail(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}/retry-email`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests/${id}/retry-email`, {
     method: 'POST',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -183,7 +206,7 @@ export async function adminRetryQuotationEmail(apiKey: string, id: string) {
 }
 
 export async function adminDeleteTalkInquiry(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -193,7 +216,7 @@ export async function adminDeleteTalkInquiry(apiKey: string, id: string) {
 }
 
 export async function adminUpdateTalkInquiry(apiKey: string, id: string, data: Record<string, string>) {
-  const res = await fetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/talk-inquiries/${id}`, {
     method: 'PUT',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(data)
@@ -204,7 +227,7 @@ export async function adminUpdateTalkInquiry(apiKey: string, id: string, data: R
 }
 
 export async function adminDeleteQuotation(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -214,7 +237,7 @@ export async function adminDeleteQuotation(apiKey: string, id: string) {
 }
 
 export async function adminUpdateQuotation(apiKey: string, id: string, data: Record<string, string>) {
-  const res = await fetch(`${API_BASE}/admin/quotation-requests/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/quotation-requests/${id}`, {
     method: 'PUT',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(data)
@@ -253,7 +276,7 @@ export interface ProjectInput {
 
 export async function fetchProjects(): Promise<ApiProject[]> {
   try {
-    const res = await fetch(`${API_BASE}/projects`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/projects`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiProject[] };
     return json.data ?? [];
@@ -263,7 +286,7 @@ export async function fetchProjects(): Promise<ApiProject[]> {
 }
 
 export async function adminGetProjects(apiKey: string) {
-  const res = await fetch(`${API_BASE}/admin/projects`, {
+  const res = await apiFetch(`${API_BASE}/admin/projects`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -284,7 +307,7 @@ function buildProjectFormData(data: ProjectInput): FormData {
 }
 
 export async function adminCreateProject(apiKey: string, data: ProjectInput) {
-  const res = await fetch(`${API_BASE}/admin/projects`, {
+  const res = await apiFetch(`${API_BASE}/admin/projects`, {
     method: 'POST',
     headers: { 'x-admin-api-key': apiKey },
     body: buildProjectFormData(data)
@@ -298,7 +321,7 @@ export async function adminCreateProject(apiKey: string, data: ProjectInput) {
 }
 
 export async function adminUpdateProject(apiKey: string, id: string, data: ProjectInput) {
-  const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/projects/${id}`, {
     method: 'PUT',
     headers: { 'x-admin-api-key': apiKey },
     body: buildProjectFormData(data)
@@ -312,7 +335,7 @@ export async function adminUpdateProject(apiKey: string, id: string, data: Proje
 }
 
 export async function adminDeleteProject(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/projects/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/projects/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -356,7 +379,7 @@ export interface PackageInput {
 
 export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
   try {
-    const res = await fetch(`${API_BASE}/packages`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/packages`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiSolarPackage[] };
     return json.data ?? [];
@@ -366,7 +389,7 @@ export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
 }
 
 export async function adminGetPackages(apiKey: string) {
-  const res = await fetch(`${API_BASE}/admin/packages`, {
+  const res = await apiFetch(`${API_BASE}/admin/packages`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -375,7 +398,7 @@ export async function adminGetPackages(apiKey: string) {
 }
 
 export async function adminCreatePackage(apiKey: string, data: PackageInput) {
-  const res = await fetch(`${API_BASE}/admin/packages`, {
+  const res = await apiFetch(`${API_BASE}/admin/packages`, {
     method: 'POST',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(data)
@@ -389,7 +412,7 @@ export async function adminCreatePackage(apiKey: string, data: PackageInput) {
 }
 
 export async function adminUpdatePackage(apiKey: string, id: string, data: Partial<PackageInput>) {
-  const res = await fetch(`${API_BASE}/admin/packages/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/packages/${id}`, {
     method: 'PUT',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(data)
@@ -403,7 +426,7 @@ export async function adminUpdatePackage(apiKey: string, id: string, data: Parti
 }
 
 export async function adminDeletePackage(apiKey: string, id: string) {
-  const res = await fetch(`${API_BASE}/admin/packages/${id}`, {
+  const res = await apiFetch(`${API_BASE}/admin/packages/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
