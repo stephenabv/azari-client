@@ -346,6 +346,45 @@ export async function adminDeleteProject(apiKey: string, id: string) {
 
 
 
+// ─── Component inventory ─────────────────────────────────────────────────────
+
+export interface ApiSolarComponent {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  category: string;
+  unit: string;
+  unitPrice: number | null;
+  pricingEnabled: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComponentInput {
+  name: string;
+  brand: string;
+  model: string;
+  category: string;
+  unit: string;
+  unitPrice?: number;
+  pricingEnabled: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface ApiPackageComponent {
+  id: string;
+  packageId: string;
+  componentId: string;
+  quantity: number;
+  component: ApiSolarComponent;
+}
+
+// ─── Packages ─────────────────────────────────────────────────────────────────
+
 export interface ApiSolarPackage {
   id: string;
   name: string;
@@ -353,14 +392,20 @@ export interface ApiSolarPackage {
   inverterKw: number;
   storageKwh: number;
   phase: 'single' | 'three';
-  totalPrice: number;
+  totalPrice: number | null;   // null = components not fully priced yet
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
   sortOrder: number;
+  components: ApiPackageComponent[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PackageComponentLine {
+  componentId: string;
+  quantity: number;
 }
 
 export interface PackageInput {
@@ -369,12 +414,12 @@ export interface PackageInput {
   inverterKw: number;
   storageKwh: number;
   phase: 'single' | 'three';
-  totalPrice: number;
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
   sortOrder: number;
+  components?: PackageComponentLine[];
 }
 
 export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
@@ -432,5 +477,68 @@ export async function adminDeletePackage(apiKey: string, id: string) {
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+// ─── Component inventory API ──────────────────────────────────────────────────
+
+export async function adminGetComponents(apiKey: string) {
+  const res = await apiFetch(`${API_BASE}/admin/components`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load components: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: ApiSolarComponent[] };
+}
+
+export async function adminCreateComponent(apiKey: string, data: ComponentInput) {
+  const res = await apiFetch(`${API_BASE}/admin/components`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUpdateComponent(apiKey: string, id: string, data: Partial<ComponentInput>) {
+  const res = await apiFetch(`${API_BASE}/admin/components/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Update failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDeleteComponent(apiKey: string, id: string) {
+  const res = await apiFetch(`${API_BASE}/admin/components/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminLoadDefaultComponents(apiKey: string, force = false) {
+  const res = await apiFetch(`${API_BASE}/admin/components/load-defaults`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ force })
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Failed: ${res.status}`);
+  }
   return res.json();
 }

@@ -23,6 +23,11 @@ import {
   adminCreatePackage,
   adminUpdatePackage,
   adminDeletePackage,
+  adminGetComponents,
+  adminCreateComponent,
+  adminUpdateComponent,
+  adminDeleteComponent,
+  adminLoadDefaultComponents,
   adminUpdateTalkProjectStatus,
   adminUpdateQuotationProjectStatus,
   type ApiProject,
@@ -30,12 +35,14 @@ import {
   type ProjectCategory as ApiProjectCategory,
   type ApiSolarPackage,
   type PackageInput,
+  type ApiSolarComponent,
+  type ComponentInput,
 } from "../services/ASContent";
 import { SOLAR_PACKAGES } from "../models/packages";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
-  | "overview" | "inquiries" | "quotations" | "projects" | "packages" | "sections"
+  | "overview" | "inquiries" | "quotations" | "projects" | "components" | "packages" | "sections"
   | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
@@ -681,7 +688,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", totalPrice: 0, billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 0 };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 0, components: [] };
 
 function autoName(kwp: number, kw: number, kwh: number) {
   const parts: string[] = [];
@@ -704,32 +711,256 @@ function PkgNumInput({ label, hint, value, unit, step = "0.01", onChange }: { la
   );
 }
 
-function PackagesManager({ apiKey }: { apiKey: string }) {
-  const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<PkgForm>(EMPTY_PKG_FORM);
-  const [nameEdited, setNameEdited] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [toggling, setToggling] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [seeding, setSeeding] = useState(false);
-  const [msg, setMsg] = useState("");
+// ─── ComponentsManager ────────────────────────────────────────────────────────
+
+const COMPONENT_CATEGORIES = [
+  "Solar Panel", "Inverter", "Battery", "Mounting & Racking",
+  "Wiring & Protection", "Monitoring", "Others",
+];
+
+const EMPTY_COMP: ComponentInput = {
+  name: "", brand: "", model: "", category: "Solar Panel",
+  unit: "pc", pricingEnabled: false, isActive: true, sortOrder: 0,
+};
+
+function ComponentsManager({ apiKey }: { apiKey: string }) {
+  const [components, setComponents] = useState<ApiSolarComponent[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [showForm, setShowForm]     = useState(false);
+  const [editingId, setEditingId]   = useState<string | null>(null);
+  const [form, setForm]             = useState<ComponentInput>(EMPTY_COMP);
+  const [saving, setSaving]         = useState(false);
+  const [deleting, setDeleting]     = useState<string | null>(null);
+  const [msg, setMsg]               = useState("");
 
   const load = async () => {
     setLoading(true);
-    try { const res = await adminGetPackages(apiKey); setPackages(res.data); }
+    try { const r = await adminGetComponents(apiKey); setComponents(r.data); }
     finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setF = <K extends keyof ComponentInput>(k: K, v: ComponentInput[K]) =>
+    setForm(f => ({ ...f, [k]: v }));
+
+  const openAdd  = () => { setEditingId(null); setForm(EMPTY_COMP); setMsg(""); setShowForm(true); };
+  const openEdit = (c: ApiSolarComponent) => {
+    setEditingId(c.id);
+    setForm({ name: c.name, brand: c.brand, model: c.model, category: c.category,
+      unit: c.unit, unitPrice: c.unitPrice ?? undefined,
+      pricingEnabled: c.pricingEnabled, isActive: c.isActive, sortOrder: c.sortOrder });
+    setMsg(""); setShowForm(true);
+  };
+  const closeForm = () => { setShowForm(false); setMsg(""); };
+
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.brand.trim() || !form.model.trim()) {
+      setMsg("Error: Name, brand and model are required."); return;
+    }
+    if (form.pricingEnabled && !form.unitPrice) {
+      setMsg("Error: Unit price is required when pricing is enabled."); return;
+    }
+    setSaving(true); setMsg("");
+    try {
+      const payload = { ...form, unitPrice: form.pricingEnabled ? form.unitPrice : undefined };
+      if (editingId) await adminUpdateComponent(apiKey, editingId, payload);
+      else           await adminCreateComponent(apiKey, payload);
+      await load(); closeForm();
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? Packages using it may be affected.`)) return;
+    setDeleting(id);
+    try { await adminDeleteComponent(apiKey, id); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setDeleting(null); }
+  };
+
+  const handleLoadDefaults = async () => {
+    const force = components.length > 0
+      ? confirm("Components already exist. Overwrite all with defaults?")
+      : true;
+    if (!force) return;
+    try {
+      const r = await adminLoadDefaultComponents(apiKey, force);
+      setMsg(`✓ Loaded ${(r as { count: number }).count} default components`);
+      await load();
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+  };
+
+  const grouped = COMPONENT_CATEGORIES.map(cat => ({
+    cat,
+    items: components.filter(c => c.category === cat),
+  })).filter(g => g.items.length > 0);
+
+  const pesoCmp = (n: number | null) => n == null ? "—" : `₱${n.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
+
+  return (
+    <div>
+      <div className="ad-section-header">
+        <div className="ad-section-title">Component Inventory</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => void handleLoadDefaults()} className="ad-btn ad-btn--ghost ad-btn--sm">Load Defaults</button>
+          {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Component</button>}
+        </div>
+      </div>
+      <Toast msg={msg} />
+
+      {showForm && (
+        <div className="ad-card" style={{ marginBottom: 20 }}>
+          <div className="ad-edit-panel-header">
+            <div className="ad-edit-panel-title">{editingId ? "Edit Component" : "Add Component"}</div>
+            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
+          </div>
+          <div className="ad-form-grid">
+            <div><label className="ad-label">Name</label>
+              <input className="ad-input" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="410W Monocrystalline Panel" /></div>
+            <div><label className="ad-label">Brand</label>
+              <input className="ad-input" value={form.brand} onChange={e => setF("brand", e.target.value)} placeholder="Canadian Solar" /></div>
+            <div><label className="ad-label">Model</label>
+              <input className="ad-input" value={form.model} onChange={e => setF("model", e.target.value)} placeholder="CS6R-410MS" /></div>
+            <div><label className="ad-label">Category</label>
+              <select className="ad-select" value={form.category} onChange={e => setF("category", e.target.value)}>
+                {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select></div>
+            <div><label className="ad-label">Unit</label>
+              <input className="ad-input" value={form.unit} onChange={e => setF("unit", e.target.value)} placeholder="pc / set / m / kWp" /></div>
+            <div><label className="ad-label">Sort Order</label>
+              <input type="number" className="ad-input" value={form.sortOrder} onChange={e => setF("sortOrder", Number(e.target.value))} /></div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+              <input type="checkbox" id="comp-pricing" checked={form.pricingEnabled}
+                onChange={e => setF("pricingEnabled", e.target.checked)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="comp-pricing" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>
+                Has pricing (contributes to package total)
+              </label>
+            </div>
+
+            {form.pricingEnabled && (
+              <div><label className="ad-label">Unit Price (₱) <span style={{ color: "#fc615a" }}>*</span></label>
+                <input type="number" className="ad-input" value={form.unitPrice ?? ""} min={0}
+                  onChange={e => setF("unitPrice", e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="0.00" /></div>
+            )}
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+              <input type="checkbox" id="comp-active" checked={form.isActive}
+                onChange={e => setF("isActive", e.target.checked)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="comp-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active</label>
+            </div>
+          </div>
+          <div className="ad-form-actions">
+            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
+              {saving ? "Saving…" : editingId ? "Update Component" : "Add Component"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>
+      ) : components.length === 0 ? (
+        <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No components yet</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Click "Load Defaults" to populate the inventory with common solar components.</div>
+        </div>
+      ) : (
+        grouped.map(({ cat, items }) => (
+          <div key={cat} style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", letterSpacing: "1.4px", textTransform: "uppercase", marginBottom: 8 }}>{cat}</div>
+            <div className="ad-table-wrap">
+              <table className="ad-table">
+                <thead>
+                  <tr><th>Name</th><th>Brand / Model</th><th>Unit</th><th>Unit Price</th><th>Pricing</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {items.map(c => (
+                    <tr key={c.id}>
+                      <td>{c.name}</td>
+                      <td style={{ fontSize: 12 }}>{c.brand} <span style={{ opacity: 0.5 }}>·</span> {c.model}</td>
+                      <td>{c.unit}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                        {c.pricingEnabled ? pesoCmp(c.unitPrice) : <span style={{ opacity: 0.4 }}>—</span>}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
+                          background: c.pricingEnabled ? "rgba(252,97,90,0.12)" : "rgba(255,255,255,0.06)",
+                          color: c.pricingEnabled ? "#fc615a" : "var(--ad-text3)" }}>
+                          {c.pricingEnabled ? "Priced" : "No price"}
+                        </span>
+                      </td>
+                      <td><span style={{ color: c.isActive ? "#22c55e" : "var(--ad-text3)", fontSize: 12 }}>{c.isActive ? "Yes" : "No"}</span></td>
+                      <td>
+                        <div className="ad-table-actions">
+                          <button onClick={() => openEdit(c)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                          <button onClick={() => void handleDelete(c.id, c.name)} disabled={deleting === c.id}
+                            className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === c.id ? 0.5 : 1 }}>
+                            {deleting === c.id ? "…" : "Delete"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// ─── PackagesManager ──────────────────────────────────────────────────────────
+
+function PackagesManager({ apiKey }: { apiKey: string }) {
+  const [packages, setPackages]       = useState<ApiSolarPackage[]>([]);
+  const [allComponents, setAllComponents] = useState<ApiSolarComponent[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [showForm, setShowForm]       = useState(false);
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [form, setForm]               = useState<PkgForm>(EMPTY_PKG_FORM);
+  const [nameEdited, setNameEdited]   = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [toggling, setToggling]       = useState<string | null>(null);
+  const [deleting, setDeleting]       = useState<string | null>(null);
+  const [seeding, setSeeding]         = useState(false);
+  const [addCompId, setAddCompId]     = useState("");
+  const [addCompQty, setAddCompQty]   = useState(1);
+  const [msg, setMsg]                 = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [pkgRes, cmpRes] = await Promise.all([
+        adminGetPackages(apiKey),
+        adminGetComponents(apiKey).catch(() => ({ data: [] as ApiSolarComponent[] }))
+      ]);
+      setPackages(pkgRes.data);
+      setAllComponents(cmpRes.data);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAdd = () => { setEditingId(null); setForm(EMPTY_PKG_FORM); setNameEdited(false); setMsg(""); setShowForm(true); };
+  const openAdd = () => {
+    setEditingId(null); setForm(EMPTY_PKG_FORM);
+    setNameEdited(false); setAddCompId(""); setAddCompQty(1); setMsg(""); setShowForm(true);
+  };
   const openEdit = (p: ApiSolarPackage) => {
     setEditingId(p.id);
-    setForm({ name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw, storageKwh: p.storageKwh, phase: p.phase, totalPrice: p.totalPrice, billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax, isActive: p.isActive, isRecommended: p.isRecommended ?? false, sortOrder: p.sortOrder });
-    setNameEdited(true); setMsg(""); setShowForm(true);
+    setForm({
+      name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw,
+      storageKwh: p.storageKwh, phase: p.phase,
+      billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax,
+      isActive: p.isActive, isRecommended: p.isRecommended ?? false, sortOrder: p.sortOrder,
+      components: (p.components ?? []).map(pc => ({ componentId: pc.componentId, quantity: pc.quantity })),
+    });
+    setNameEdited(true); setAddCompId(""); setAddCompQty(1); setMsg(""); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setMsg(""); };
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -747,7 +978,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     if (form.solarKwp <= 0) return "Solar panel capacity must be greater than 0.";
     if (form.inverterKw <= 0) return "Inverter size must be greater than 0.";
     if (form.storageKwh < 0) return "Battery storage cannot be negative.";
-    if (form.totalPrice <= 0) return "Package price must be greater than 0.";
     if (form.billRangeMax < form.billRangeMin) return "Maximum bill must be ≥ minimum bill.";
     return "";
   };
@@ -784,7 +1014,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     setSeeding(true); setMsg("");
     try {
       for (const pkg of SOLAR_PACKAGES) {
-        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, totalPrice: pkg.totalPrice, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, isRecommended: false, sortOrder: 0 });
+        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, isRecommended: false, sortOrder: 0, components: [] });
       }
       setMsg("✓ Default packages loaded — you can now edit or add more.");
       await load();
@@ -830,15 +1060,106 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             <PkgNumInput label="Solar Panel Capacity" hint="Total solar array size." value={form.solarKwp} unit="kWp" onChange={(v) => handleSpecChange("solarKwp", v)} />
             <PkgNumInput label="Inverter Size" hint="The inverter's power output rating." value={form.inverterKw} unit="kW" onChange={(v) => handleSpecChange("inverterKw", v)} />
             <PkgNumInput label="Battery Storage" hint="Battery capacity. Enter 0 for grid-tied (no battery)." value={form.storageKwh} unit="kWh" step="0.1" onChange={(v) => handleSpecChange("storageKwh", v)} />
-            <div>
-              <label className="ad-label">Package Price</label>
-              <div className="ad-pkg-num-wrap">
-                <span className="ad-pkg-num-prefix">₱</span>
-                <input type="number" className="ad-input" min={0} step={1} value={form.totalPrice || ""} placeholder="0" onChange={(e) => setField("totalPrice", Number(e.target.value))} />
+            <div className="ad-form-full">
+              <label className="ad-label">Components <span style={{ fontWeight: 400, opacity: 0.5 }}>(price auto-calculated)</span></label>
+              {/* Selected component lines */}
+              {(form.components ?? []).length > 0 && (() => {
+                const lines = form.components ?? [];
+                const calcTotal = () => {
+                  const priced = lines.filter(l => {
+                    const c = allComponents.find(c => c.id === l.componentId);
+                    return c?.pricingEnabled && c?.unitPrice != null;
+                  });
+                  const allPriced = lines.every(l => {
+                    const c = allComponents.find(c => c.id === l.componentId);
+                    return !c?.pricingEnabled || c?.unitPrice != null;
+                  });
+                  if (!allPriced || priced.length === 0) return null;
+                  return priced.reduce((s, l) => {
+                    const c = allComponents.find(c => c.id === l.componentId);
+                    return s + (c?.unitPrice ?? 0) * l.quantity;
+                  }, 0);
+                };
+                const total = calcTotal();
+                return (
+                  <div style={{ marginBottom: 8 }}>
+                    <table className="ad-table" style={{ marginBottom: 8 }}>
+                      <thead><tr><th>Component</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr></thead>
+                      <tbody>
+                        {lines.map((line, idx) => {
+                          const comp = allComponents.find(c => c.id === line.componentId);
+                          const sub = comp?.pricingEnabled && comp?.unitPrice != null
+                            ? comp.unitPrice * line.quantity : null;
+                          return (
+                            <tr key={idx}>
+                              <td style={{ fontSize: 12 }}>
+                                {comp ? <><strong>{comp.name}</strong><br /><span style={{ opacity: 0.5 }}>{comp.brand} · {comp.model}</span></> : <span style={{ color: "#fc615a" }}>Unknown</span>}
+                              </td>
+                              <td>
+                                <input type="number" min={1} value={line.quantity} style={{ width: 60, background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", color: "var(--ad-text)", borderRadius: 6, padding: "4px 8px", fontSize: 12 }}
+                                  onChange={e => {
+                                    const qty = Math.max(1, Number(e.target.value));
+                                    setField("components", lines.map((l, i) => i === idx ? { ...l, quantity: qty } : l));
+                                  }} />
+                              </td>
+                              <td style={{ fontSize: 12 }}>
+                                {comp?.pricingEnabled ? (comp.unitPrice != null ? `₱${comp.unitPrice.toLocaleString()}` : <span style={{ color: "#f59e0b" }}>No price</span>) : <span style={{ opacity: 0.4 }}>—</span>}
+                              </td>
+                              <td style={{ fontSize: 12, fontFamily: "monospace" }}>
+                                {sub != null ? `₱${sub.toLocaleString()}` : "—"}
+                              </td>
+                              <td>
+                                <button className="ad-btn ad-btn--danger ad-btn--sm"
+                                  onClick={() => setField("components", lines.filter((_, i) => i !== idx))}>×</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: total != null ? "var(--ad-text)" : "var(--ad-text3)" }}>
+                      {total != null
+                        ? <>Total: <span style={{ color: "#fc615a", fontFamily: "monospace" }}>₱{total.toLocaleString()}</span></>
+                        : "⚠ Some components missing pricing — total not available"}
+                    </div>
+                  </div>
+                );
+              })()}
+              {/* Add component row */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select className="ad-select" style={{ flex: 1, minWidth: 200 }} value={addCompId} onChange={e => setAddCompId(e.target.value)}>
+                  <option value="">— Select component —</option>
+                  {COMPONENT_CATEGORIES.map(cat => {
+                    const catItems = allComponents.filter(c => c.category === cat && c.isActive);
+                    if (!catItems.length) return null;
+                    return (
+                      <optgroup key={cat} label={cat}>
+                        {catItems.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.brand}) {c.pricingEnabled && c.unitPrice ? `— ₱${c.unitPrice.toLocaleString()}/${c.unit}` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+                <input type="number" min={1} value={addCompQty} onChange={e => setAddCompQty(Math.max(1, Number(e.target.value)))}
+                  style={{ width: 70, background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", color: "var(--ad-text)", borderRadius: 6, padding: "8px 10px", fontSize: 13 }} placeholder="Qty" />
+                <button className="ad-btn ad-btn--sm" onClick={() => {
+                  if (!addCompId) return;
+                  const existing = (form.components ?? []).find(l => l.componentId === addCompId);
+                  if (existing) {
+                    setField("components", (form.components ?? []).map(l => l.componentId === addCompId ? { ...l, quantity: l.quantity + addCompQty } : l));
+                  } else {
+                    setField("components", [...(form.components ?? []), { componentId: addCompId, quantity: addCompQty }]);
+                  }
+                  setAddCompId(""); setAddCompQty(1);
+                }}>+ Add</button>
               </div>
-              <p className="ad-pkg-hint">Indicative starting price shown to customers.</p>
+              {allComponents.length === 0 && (
+                <p className="ad-pkg-hint" style={{ color: "#f59e0b" }}>⚠ No components in inventory. Go to the Components tab to add them first.</p>
+              )}
             </div>
-            <div />
             <div>
               <label className="ad-label">Minimum Monthly Bill</label>
               <div className="ad-pkg-num-wrap">
@@ -903,7 +1224,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                 <div className="ad-pkg-mgr-spec"><span>Inverter</span><strong>{p.inverterKw} kW</strong></div>
                 <div className="ad-pkg-mgr-spec"><span>Battery</span><strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong></div>
               </div>
-              <div className="ad-pkg-mgr-price">{peso(p.totalPrice)}</div>
+              <div className="ad-pkg-mgr-price">
+                {p.totalPrice != null ? peso(p.totalPrice) : <span style={{ fontSize: 11, opacity: 0.5 }}>Price TBD</span>}
+                {(p.components?.length ?? 0) > 0 && <span style={{ fontSize: 10, opacity: 0.4, display: "block" }}>{p.components.length} component{p.components.length !== 1 ? "s" : ""}</span>}
+              </div>
               <div className="ad-pkg-mgr-bill">For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo</div>
               <div className="ad-pkg-mgr-footer">
                 <span className="ad-pkg-mgr-order">Order #{p.sortOrder}</span>
@@ -1551,8 +1875,9 @@ export default function ASAdmin() {
     { id: "overview",   label: "Overview" },
     { id: "inquiries",  label: "Talk Inquiries" },
     { id: "quotations", label: "Quotations" },
-    { id: "projects",   label: "Projects" },
-    { id: "packages",   label: "Packages" },
+    { id: "projects",    label: "Projects" },
+    { id: "components",  label: "Components" },
+    { id: "packages",    label: "Packages" },
     { id: "sections",   label: "Visibility" },
     { id: "hero",       label: "Hero" },
     { id: "metrics",    label: "Metrics" },
@@ -1598,8 +1923,9 @@ export default function ASAdmin() {
         {tab === "overview"   && <OverviewTab stats={stats} />}
         {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
         {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
-        {tab === "projects"   && <ProjectsManager apiKey={apiKey} />}
-        {tab === "packages"   && <PackagesManager apiKey={apiKey} />}
+        {tab === "projects"    && <ProjectsManager   apiKey={apiKey} />}
+        {tab === "components"  && <ComponentsManager apiKey={apiKey} />}
+        {tab === "packages"    && <PackagesManager   apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
         {tab === "hero"       && <HeroEditor apiKey={apiKey} />}
         {tab === "metrics"    && <MetricsEditor apiKey={apiKey} />}

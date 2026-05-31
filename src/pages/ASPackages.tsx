@@ -51,12 +51,13 @@ function toApiPackages(pkgs: typeof SOLAR_PACKAGES): ApiSolarPackage[] {
     inverterKw: p.inverterKw,
     storageKwh: p.storageKwh,
     phase: p.phase,
-    totalPrice: p.totalPrice,
+    totalPrice: p.totalPrice ?? null,
     billRangeMin: p.monthlyBillRange[0],
     billRangeMax: p.monthlyBillRange[1],
     isActive: true,
     isRecommended: p.isRecommended ?? false,
     sortOrder: i,
+    components: [],
     createdAt: "",
     updatedAt: "",
   }));
@@ -118,7 +119,9 @@ function PackageCard({
 
       <div className="as-pkg-top">
         <div className="as-pkg-name">{pkg.name}</div>
-        <div className="as-pkg-price">{pesoFmt(pkg.totalPrice)}</div>
+        {pkg.totalPrice != null && (
+          <div className="as-pkg-price">{pesoFmt(pkg.totalPrice)}</div>
+        )}
         <div className="as-pkg-size-label">{pkg.solarKwp} kWp System</div>
         <div className="as-pkg-savings">
           Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
@@ -169,7 +172,7 @@ function PackageCard({
             ["Solar Array", `${pkg.solarKwp} kWp`],
             ["Inverter", `${pkg.inverterKw} kW`],
             ...(pkg.storageKwh > 0 ? [["Battery Storage", `${pkg.storageKwh} kWh`]] : []),
-            ["Total Price", pesoFmt(pkg.totalPrice)],
+            ...(pkg.totalPrice != null ? [["Total Price", pesoFmt(pkg.totalPrice)]] : []),
             ["Suitable for Bills", `${pesoFmt(pkg.billRangeMin)} – ${pesoFmt(pkg.billRangeMax)}/mo`],
           ].map(([label, val]) => (
             <div key={label} className="as-pkg-detail-row">
