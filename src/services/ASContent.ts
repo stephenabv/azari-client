@@ -359,6 +359,9 @@ export interface ApiSolarComponent {
   pricingEnabled: boolean;
   isActive: boolean;
   sortOrder: number;
+  productionCapacityKwp: number;
+  loadCapacityKw: number;
+  storageCapacityKwh: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -373,6 +376,9 @@ export interface ComponentInput {
   pricingEnabled: boolean;
   isActive: boolean;
   sortOrder: number;
+  productionCapacityKwp: number;
+  loadCapacityKw: number;
+  storageCapacityKwh: number;
 }
 
 export interface ApiPackageComponent {
@@ -418,7 +424,6 @@ export interface PackageInput {
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
-  sortOrder: number;
   components?: PackageComponentLine[];
 }
 

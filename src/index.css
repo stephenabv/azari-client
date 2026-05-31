@@ -21,3 +21,95 @@ body {
   -webkit-user-select: none;
   -ms-user-select: none;
 }
+
+/* Number Input Spinner Styling */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  width: 20px;
+  cursor: pointer;
+  opacity: 1 !important;
+}
+
+input[type="number"]::-webkit-outer-spin-button {
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  background: transparent;
+}
+
+input[type="number"]::-webkit-inner-spin-up,
+input[type="number"]::-webkit-inner-spin-down {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 1 !important;
+  font-weight: bold;
+}
+
+input[type="number"]::-webkit-inner-spin-up:hover,
+input[type="number"]::-webkit-inner-spin-down:hover {
+  color: #00d9ff;
+  text-shadow: 0 0 8px #00d9ff;
+}
+
+/* Firefox */
+input[type="number"]::-moz-number-spin-box {
+  margin: 0;
+  height: 100%;
+}
+
+input[type="number"]::-moz-number-spin-up,
+input[type="number"]::-moz-number-spin-down {
+  -moz-appearance: none;
+  appearance: none;
+  width: 20px;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s;
+  opacity: 1 !important;
+  font-weight: bold;
+}
+
+input[type="number"]::-moz-number-spin-up:hover,
+input[type="number"]::-moz-number-spin-down:hover {
+  color: #00d9ff;
+  text-shadow: 0 0 8px #00d9ff;
+}
+
+/* Scrollbar Styling - Theme Aware */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ad-bg, #0a0a0a);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ad-border, #333);
+  border-radius: 4px;
+  transition: background 0.15s;
+  border: 2px solid var(--ad-bg, #0a0a0a);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ad-text3, #999);
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-color: var(--ad-border, #333) var(--ad-bg, #0a0a0a);
+  scrollbar-width: thin;
+}

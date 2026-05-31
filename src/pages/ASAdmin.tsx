@@ -27,7 +27,6 @@ import {
   adminCreateComponent,
   adminUpdateComponent,
   adminDeleteComponent,
-  adminLoadDefaultComponents,
   adminUpdateTalkProjectStatus,
   adminUpdateQuotationProjectStatus,
   type ApiProject,
@@ -38,7 +37,6 @@ import {
   type ApiSolarComponent,
   type ComponentInput,
 } from "../services/ASContent";
-import { SOLAR_PACKAGES } from "../models/packages";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
@@ -688,27 +686,30 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 0, components: [] };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false };
 
 function autoName(kwp: number, kw: number, kwh: number) {
   const parts: string[] = [];
-  if (kwp > 0) parts.push(`${kwp} kWp`);
-  if (kw > 0) parts.push(`${kw} kW`);
-  if (kwh > 0) parts.push(`${kwh} kWh`);
-  return parts.join(" · ");
+  if (kwp > 0) parts.push(`${kwp.toFixed(2)} kWp`);
+  if (kw > 0) parts.push(`${kw.toFixed(1)} kW`);
+  if (kwh > 0) parts.push(`${kwh.toFixed(2)} kWh`);
+  return parts.length > 0 ? parts.join(" · ") : "Package";
 }
 
-function PkgNumInput({ label, hint, value, unit, step = "0.01", onChange }: { label: string; hint: string; value: number; unit: string; step?: string; onChange: (v: number) => void }) {
-  return (
-    <div>
-      <label className="ad-label">{label}</label>
-      <div className="ad-pkg-num-wrap">
-        <input type="number" className="ad-input" min={0} step={step} value={value || ""} placeholder="0" onChange={(e) => onChange(Number(e.target.value))} />
-        <span className="ad-pkg-num-unit">{unit}</span>
-      </div>
-      <p className="ad-pkg-hint">{hint}</p>
-    </div>
-  );
+// PC Builder - Component Selector
+type SelectedComponent = { componentId: string; quantity: number };
+
+function computePackageSpecs(selected: SelectedComponent[], components: ApiSolarComponent[]): { solarKwp: number; inverterKw: number; storageKwh: number } {
+  let solarKwp = 0, inverterKw = 0, storageKwh = 0;
+  selected.forEach(sel => {
+    const comp = components.find(c => c.id === sel.componentId);
+    if (!comp) return;
+    // Only add to totals if the component has a non-zero spec value
+    if (comp.productionCapacityKwp > 0) solarKwp += comp.productionCapacityKwp * sel.quantity;
+    if (comp.loadCapacityKw > 0) inverterKw += comp.loadCapacityKw * sel.quantity;
+    if (comp.storageCapacityKwh > 0) storageKwh += comp.storageCapacityKwh * sel.quantity;
+  });
+  return { solarKwp: Math.round(solarKwp * 100) / 100, inverterKw: Math.round(inverterKw * 10) / 10, storageKwh: Math.round(storageKwh * 100) / 100 };
 }
 
 // ─── ComponentsManager ────────────────────────────────────────────────────────
@@ -721,6 +722,7 @@ const COMPONENT_CATEGORIES = [
 const EMPTY_COMP: ComponentInput = {
   name: "", brand: "", model: "", category: "Solar Panel",
   unit: "pc", pricingEnabled: false, isActive: true, sortOrder: 0,
+  productionCapacityKwp: 0, loadCapacityKw: 0, storageCapacityKwh: 0,
 };
 
 function ComponentsManager({ apiKey }: { apiKey: string }) {
@@ -732,6 +734,8 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState<string | null>(null);
   const [msg, setMsg]               = useState("");
+  const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
+  const [componentPage, setComponentPage] = useState<Record<string, number>>({}); // Page per category
 
   const load = async () => {
     setLoading(true);
@@ -743,19 +747,32 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   const setF = <K extends keyof ComponentInput>(k: K, v: ComponentInput[K]) =>
     setForm(f => ({ ...f, [k]: v }));
 
-  const openAdd  = () => { setEditingId(null); setForm(EMPTY_COMP); setMsg(""); setShowForm(true); };
+  const openAdd  = () => { setEditingId(null); setForm(EMPTY_COMP); setCatSearches({}); setMsg(""); setShowForm(true); };
   const openEdit = (c: ApiSolarComponent) => {
     setEditingId(c.id);
     setForm({ name: c.name, brand: c.brand, model: c.model, category: c.category,
       unit: c.unit, unitPrice: c.unitPrice ?? undefined,
-      pricingEnabled: c.pricingEnabled, isActive: c.isActive, sortOrder: c.sortOrder });
+      pricingEnabled: c.pricingEnabled, isActive: c.isActive, sortOrder: c.sortOrder,
+      productionCapacityKwp: c.productionCapacityKwp,
+      loadCapacityKw: c.loadCapacityKw,
+      storageCapacityKwh: c.storageCapacityKwh });
     setMsg(""); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setMsg(""); };
+  const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); };
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.brand.trim() || !form.model.trim()) {
       setMsg("Error: Name, brand and model are required."); return;
+    }
+    // Validate required specs based on category
+    if (form.category === 'Solar Panel' && form.productionCapacityKwp === 0) {
+      setMsg("Error: Production capacity (kWp) is required for Solar Panels."); return;
+    }
+    if (form.category === 'Inverter' && form.loadCapacityKw === 0) {
+      setMsg("Error: Load capacity (kW) is required for Inverters."); return;
+    }
+    if (form.category === 'Battery' && form.storageCapacityKwh === 0) {
+      setMsg("Error: Storage capacity (kWh) is required for Batteries."); return;
     }
     if (form.pricingEnabled && !form.unitPrice) {
       setMsg("Error: Unit price is required when pricing is enabled."); return;
@@ -778,18 +795,6 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
     finally { setDeleting(null); }
   };
 
-  const handleLoadDefaults = async () => {
-    const force = components.length > 0
-      ? confirm("Components already exist. Overwrite all with defaults?")
-      : true;
-    if (!force) return;
-    try {
-      const r = await adminLoadDefaultComponents(apiKey, force);
-      setMsg(`✓ Loaded ${(r as { count: number }).count} default components`);
-      await load();
-    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
-  };
-
   const grouped = COMPONENT_CATEGORIES.map(cat => ({
     cat,
     items: components.filter(c => c.category === cat),
@@ -802,63 +807,134 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
       <div className="ad-section-header">
         <div className="ad-section-title">Component Inventory</div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => void handleLoadDefaults()} className="ad-btn ad-btn--ghost ad-btn--sm">Load Defaults</button>
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Component</button>}
         </div>
       </div>
       <Toast msg={msg} />
 
       {showForm && (
-        <div className="ad-card" style={{ marginBottom: 20 }}>
-          <div className="ad-edit-panel-header">
-            <div className="ad-edit-panel-title">{editingId ? "Edit Component" : "Add Component"}</div>
-            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
-          </div>
-          <div className="ad-form-grid">
-            <div><label className="ad-label">Name</label>
-              <input className="ad-input" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="410W Monocrystalline Panel" /></div>
-            <div><label className="ad-label">Brand</label>
-              <input className="ad-input" value={form.brand} onChange={e => setF("brand", e.target.value)} placeholder="Canadian Solar" /></div>
-            <div><label className="ad-label">Model</label>
-              <input className="ad-input" value={form.model} onChange={e => setF("model", e.target.value)} placeholder="CS6R-410MS" /></div>
-            <div><label className="ad-label">Category</label>
-              <select className="ad-select" value={form.category} onChange={e => setF("category", e.target.value)}>
-                {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select></div>
-            <div><label className="ad-label">Unit</label>
-              <input className="ad-input" value={form.unit} onChange={e => setF("unit", e.target.value)} placeholder="pc / set / m / kWp" /></div>
-            <div><label className="ad-label">Sort Order</label>
-              <input type="number" className="ad-input" value={form.sortOrder} onChange={e => setF("sortOrder", Number(e.target.value))} /></div>
+        <>
+          {/* Modal Overlay */}
+          <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)", zIndex: 999,
+            display: "flex", alignItems: "flex-start", justifyContent: "center",
+            padding: "16px", overflow: "auto", paddingTop: "max(16px, 10vh)"
+          }} onClick={closeForm}>
+            {/* Modal Container - Responsive */}
+            <div style={{
+              background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              width: "100%", maxWidth: "min(90vw, 650px)", maxHeight: "85vh",
+              overflow: "auto", zIndex: 1000, display: "flex", flexDirection: "column"
+            }} onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header - Sticky */}
+              <div style={{
+                padding: "16px 20px", borderBottom: "1px solid var(--ad-border)",
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                flexShrink: 0, position: "sticky", top: 0, background: "var(--ad-bg)", zIndex: 10
+              }}>
+                <div style={{
+                  fontSize: "clamp(14px, 4vw, 18px)", fontWeight: 700, color: "var(--ad-text)",
+                  minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                }}>
+                  {editingId ? "Edit Component" : "Add Component"}
+                </div>
+                <button
+                  onClick={closeForm}
+                  style={{
+                    background: "none", border: "none", fontSize: "24px", color: "var(--ad-text3)",
+                    cursor: "pointer", padding: 0, width: 32, height: 32,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, transition: "color 0.15s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.color = "var(--ad-accent)"}
+                  onMouseLeave={(e) => e.currentTarget.style.color = "var(--ad-text3)"}
+                >
+                  ✕
+                </button>
+              </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <input type="checkbox" id="comp-pricing" checked={form.pricingEnabled}
-                onChange={e => setF("pricingEnabled", e.target.checked)}
-                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
-              <label htmlFor="comp-pricing" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>
-                Has pricing (contributes to package total)
-              </label>
+              {/* Modal Body - Scrollable */}
+              <div style={{
+                padding: "clamp(12px, 4vw, 20px)", overflow: "auto", flex: 1, display: "flex", flexDirection: "column"
+              }}>
+                <div style={{
+                  display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+                  gap: "clamp(12px, 3vw, 16px)"
+                }}>
+                  <div><label className="ad-label">Name</label>
+                    <input className="ad-input" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="410W Monocrystalline Panel" /></div>
+                  <div><label className="ad-label">Brand</label>
+                    <input className="ad-input" value={form.brand} onChange={e => setF("brand", e.target.value)} placeholder="Canadian Solar" /></div>
+                  <div><label className="ad-label">Model</label>
+                    <input className="ad-input" value={form.model} onChange={e => setF("model", e.target.value)} placeholder="CS6R-410MS" /></div>
+                  <div><label className="ad-label">Category</label>
+                    <select className="ad-select" value={form.category} onChange={e => setF("category", e.target.value)}>
+                      {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select></div>
+                  <div><label className="ad-label">Unit</label>
+                    <input className="ad-input" value={form.unit} onChange={e => setF("unit", e.target.value)} placeholder="pc / set / m / kWp" /></div>
+                  <div><label className="ad-label">Sort Order</label>
+                    <input type="number" className="ad-input" value={form.sortOrder} onChange={e => setF("sortOrder", Number(e.target.value))} /></div>
+                  {(form.category === 'Solar Panel' || form.category === 'Inverter' || form.category === 'Battery') && (
+                    <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
+                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Component Specs <span style={{ color: "#fc615a" }}>*</span></div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "clamp(8px, 2vw, 12px)" }}>
+                        {form.category === 'Solar Panel' && (
+                          <div><label className="ad-label">Production Capacity (kWp) <span style={{ color: "#fc615a" }}>*</span></label>
+                            <input type="number" className="ad-input" value={form.productionCapacityKwp || ""} step="0.01" min={0}
+                              onChange={e => setF("productionCapacityKwp", e.target.value ? Number(e.target.value) : 0)}
+                              placeholder="0.41" required /></div>
+                        )}
+                        {form.category === 'Inverter' && (
+                          <div><label className="ad-label">Load Capacity (kW) <span style={{ color: "#fc615a" }}>*</span></label>
+                            <input type="number" className="ad-input" value={form.loadCapacityKw || ""} step="0.1" min={0}
+                              onChange={e => setF("loadCapacityKw", e.target.value ? Number(e.target.value) : 0)}
+                              placeholder="3" required /></div>
+                        )}
+                        {form.category === 'Battery' && (
+                          <div><label className="ad-label">Storage Capacity (kWh) <span style={{ color: "#fc615a" }}>*</span></label>
+                            <input type="number" className="ad-input" value={form.storageCapacityKwh || ""} step="0.1" min={0}
+                              onChange={e => setF("storageCapacityKwh", e.target.value ? Number(e.target.value) : 0)}
+                              placeholder="5.12" required /></div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
+                    <input type="checkbox" id="comp-pricing" checked={form.pricingEnabled}
+                      onChange={e => setF("pricingEnabled", e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+                    <label htmlFor="comp-pricing" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>
+                      Has pricing (contributes to package total)
+                    </label>
+                  </div>
+                  {form.pricingEnabled && (
+                    <div style={{ gridColumn: "1 / -1" }}><label className="ad-label">Unit Price (₱) <span style={{ color: "#fc615a" }}>*</span></label>
+                      <input type="number" className="ad-input" value={form.unitPrice ?? ""} min={0}
+                        onChange={e => setF("unitPrice", e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="0.00" /></div>
+                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
+                    <input type="checkbox" id="comp-active" checked={form.isActive}
+                      onChange={e => setF("isActive", e.target.checked)}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+                    <label htmlFor="comp-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active</label>
+                  </div>
+                </div>
+                <div style={{
+                  display: "flex", gap: "clamp(8px, 2vw, 12px)", marginTop: "clamp(16px, 3vw, 20px)",
+                  flexWrap: "wrap-reverse", justifyContent: "flex-end"
+                }}>
+                  <button onClick={closeForm} className="ad-btn ad-btn--ghost" style={{ flex: "1 1 auto", minWidth: "100px" }}>Cancel</button>
+                  <button onClick={() => void handleSave()} disabled={saving} className="ad-btn" style={{ flex: "1 1 auto", minWidth: "120px" }}>
+                    {saving ? "Saving…" : editingId ? "Update" : "Add"}
+                  </button>
+                </div>
+              </div>
             </div>
-
-            {form.pricingEnabled && (
-              <div><label className="ad-label">Unit Price (₱) <span style={{ color: "#fc615a" }}>*</span></label>
-                <input type="number" className="ad-input" value={form.unitPrice ?? ""} min={0}
-                  onChange={e => setF("unitPrice", e.target.value ? Number(e.target.value) : undefined)}
-                  placeholder="0.00" /></div>
-            )}
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <input type="checkbox" id="comp-active" checked={form.isActive}
-                onChange={e => setF("isActive", e.target.checked)}
-                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
-              <label htmlFor="comp-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active</label>
-            </div>
           </div>
-          <div className="ad-form-actions">
-            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">
-              {saving ? "Saving…" : editingId ? "Update Component" : "Add Component"}
-            </button>
-          </div>
-        </div>
+        </>
       )}
 
       {loading ? (
@@ -869,47 +945,123 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
           <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Click "Load Defaults" to populate the inventory with common solar components.</div>
         </div>
       ) : (
-        grouped.map(({ cat, items }) => (
-          <div key={cat} style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", letterSpacing: "1.4px", textTransform: "uppercase", marginBottom: 8 }}>{cat}</div>
-            <div className="ad-table-wrap">
-              <table className="ad-table">
-                <thead>
-                  <tr><th>Name</th><th>Brand / Model</th><th>Unit</th><th>Unit Price</th><th>Pricing</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                  {items.map(c => (
-                    <tr key={c.id}>
-                      <td>{c.name}</td>
-                      <td style={{ fontSize: 12 }}>{c.brand} <span style={{ opacity: 0.5 }}>·</span> {c.model}</td>
-                      <td>{c.unit}</td>
-                      <td style={{ fontFamily: "monospace", fontSize: 12 }}>
-                        {c.pricingEnabled ? pesoCmp(c.unitPrice) : <span style={{ opacity: 0.4 }}>—</span>}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
-                          background: c.pricingEnabled ? "rgba(252,97,90,0.12)" : "rgba(255,255,255,0.06)",
-                          color: c.pricingEnabled ? "#fc615a" : "var(--ad-text3)" }}>
-                          {c.pricingEnabled ? "Priced" : "No price"}
-                        </span>
-                      </td>
-                      <td><span style={{ color: c.isActive ? "#22c55e" : "var(--ad-text3)", fontSize: 12 }}>{c.isActive ? "Yes" : "No"}</span></td>
-                      <td>
-                        <div className="ad-table-actions">
-                          <button onClick={() => openEdit(c)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
-                          <button onClick={() => void handleDelete(c.id, c.name)} disabled={deleting === c.id}
-                            className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === c.id ? 0.5 : 1 }}>
-                            {deleting === c.id ? "…" : "Delete"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        grouped.map(({ cat, items }) => {
+          const search = catSearches[cat] ?? '';
+          const filtered = items.filter(c =>
+            c.name.toLowerCase().includes(search.toLowerCase()) ||
+            c.brand.toLowerCase().includes(search.toLowerCase()) ||
+            c.model.toLowerCase().includes(search.toLowerCase())
+          );
+          if (filtered.length === 0 && !search) return null;
+
+          const itemsPerPage = 20;
+          const page = componentPage[cat] ?? 0;
+          const maxPages = Math.ceil(Math.max(1, filtered.length) / itemsPerPage);
+          const paginatedItems = filtered.slice(page * itemsPerPage, (page + 1) * itemsPerPage);
+
+          const categoryEmojis: Record<string, string> = {
+            'Solar Panel': '☀',
+            'Inverter': '⚡',
+            'Battery': '🔋',
+            'Mounting & Racking': '📦',
+            'Wiring & Protection': '🔌',
+            'Monitoring': '📊',
+            'Others': '📦',
+          };
+          const emoji = categoryEmojis[cat] ?? '📦';
+
+          return (
+            <div key={cat} style={{ marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", letterSpacing: "1.4px", textTransform: "uppercase" }}>
+                  {emoji} {cat}
+                </div>
+              </div>
+              <input
+                type="search"
+                className="ad-input"
+                placeholder={`Search ${cat}...`}
+                value={search}
+                onChange={(e) => { setCatSearches(s => ({ ...s, [cat]: e.target.value })); setComponentPage(p => ({ ...p, [cat]: 0 })); }}
+                style={{ marginBottom: 12 }}
+              />
+              {filtered.length === 0 ? (
+                <div style={{ padding: 24, textAlign: "center", color: "var(--ad-text3)" }}>
+                  {search ? "No components match your search" : "No components in this category"}
+                </div>
+              ) : (
+                <>
+                  <div className="ad-table-wrap">
+                    <table className="ad-table">
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th style={{ width: "15%" }}>Brand / Model</th>
+                          <th style={{ width: "8%" }}>Unit</th>
+                          <th style={{ width: "10%" }}>Unit Price</th>
+                          <th style={{ width: "8%" }}>Pricing</th>
+                          <th style={{ width: "6%" }}>Active</th>
+                          <th style={{ width: "12%" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedItems.map(c => (
+                          <tr key={c.id}>
+                            <td>
+                              <div style={{ fontWeight: 500 }}>{c.name}</div>
+                              {c.productionCapacityKwp && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>☀ {c.productionCapacityKwp} kWp</div>}
+                              {c.loadCapacityKw && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>⚙️ {c.loadCapacityKw} kW</div>}
+                              {c.storageCapacityKwh && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>🔋 {c.storageCapacityKwh} kWh</div>}
+                            </td>
+                            <td style={{ fontSize: 12 }}>{c.brand}<br /><span style={{ opacity: 0.6, fontSize: 10 }}>{c.model}</span></td>
+                            <td style={{ fontSize: 12 }}>{c.unit}</td>
+                            <td style={{ fontFamily: "monospace", fontSize: 12 }}>
+                              {c.pricingEnabled ? pesoCmp(c.unitPrice) : <span style={{ opacity: 0.4 }}>—</span>}
+                            </td>
+                            <td>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99,
+                                background: c.pricingEnabled ? "rgba(252,97,90,0.12)" : "rgba(255,255,255,0.06)",
+                                color: c.pricingEnabled ? "#fc615a" : "var(--ad-text3)", whiteSpace: "nowrap" }}>
+                                {c.pricingEnabled ? "Priced" : "No price"}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: 12 }}><span style={{ color: c.isActive ? "#22c55e" : "var(--ad-text3)" }}>{c.isActive ? "Yes" : "No"}</span></td>
+                            <td>
+                              <div className="ad-table-actions" style={{ display: "flex", gap: 4 }}>
+                                <button onClick={() => openEdit(c)} className="ad-btn ad-btn--ghost ad-btn--sm" style={{ fontSize: 11 }}>Edit</button>
+                                <button onClick={() => void handleDelete(c.id, c.name)} disabled={deleting === c.id}
+                                  className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === c.id ? 0.5 : 1, fontSize: 11 }}>
+                                  {deleting === c.id ? "…" : "Delete"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {maxPages > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12 }}>
+                      <button
+                        className="ad-btn ad-btn--ghost ad-btn--sm"
+                        onClick={() => setComponentPage(m => ({ ...m, [cat]: Math.max(0, (m[cat] ?? 0) - 1) }))}
+                        disabled={page === 0}
+                      >← Prev</button>
+                      <span style={{ fontSize: 12, color: "var(--ad-text)", minWidth: 40, textAlign: "center" }}>
+                        {page + 1} / {maxPages}
+                      </span>
+                      <button
+                        className="ad-btn ad-btn--ghost ad-btn--sm"
+                        onClick={() => setComponentPage(m => ({ ...m, [cat]: Math.min(maxPages - 1, (m[cat] ?? 0) + 1) }))}
+                        disabled={page >= maxPages - 1}
+                      >Next →</button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
@@ -928,10 +1080,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [saving, setSaving]           = useState(false);
   const [toggling, setToggling]       = useState<string | null>(null);
   const [deleting, setDeleting]       = useState<string | null>(null);
-  const [seeding, setSeeding]         = useState(false);
-  const [addCompId, setAddCompId]     = useState("");
-  const [addCompQty, setAddCompQty]   = useState(1);
   const [msg, setMsg]                 = useState("");
+  const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
 
   const load = async () => {
     setLoading(true);
@@ -949,7 +1099,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const openAdd = () => {
     setEditingId(null); setForm(EMPTY_PKG_FORM);
-    setNameEdited(false); setAddCompId(""); setAddCompQty(1); setMsg(""); setShowForm(true);
+    setNameEdited(false); setCatSearches({}); setMsg(""); setShowForm(true);
+    // Ensure components are loaded
+    if (allComponents.length === 0) {
+      adminGetComponents(apiKey).then(res => setAllComponents(res.data)).catch(() => {});
+    }
   };
   const openEdit = (p: ApiSolarPackage) => {
     setEditingId(p.id);
@@ -957,21 +1111,17 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw,
       storageKwh: p.storageKwh, phase: p.phase,
       billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax,
-      isActive: p.isActive, isRecommended: p.isRecommended ?? false, sortOrder: p.sortOrder,
+      isActive: p.isActive, isRecommended: p.isRecommended ?? false,
       components: (p.components ?? []).map(pc => ({ componentId: pc.componentId, quantity: pc.quantity })),
     });
-    setNameEdited(true); setAddCompId(""); setAddCompQty(1); setMsg(""); setShowForm(true);
+    setNameEdited(true); setCatSearches({}); setMsg(""); setShowForm(true);
+    // Ensure components are loaded
+    if (allComponents.length === 0) {
+      adminGetComponents(apiKey).then(res => setAllComponents(res.data)).catch(() => {});
+    }
   };
-  const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setMsg(""); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setNameEdited(false); setCatSearches({}); setMsg(""); };
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
-
-  const handleSpecChange = (key: "solarKwp" | "inverterKw" | "storageKwh", val: number) => {
-    setForm((f) => {
-      const next = { ...f, [key]: val };
-      if (!nameEdited) next.name = autoName(next.solarKwp, next.inverterKw, next.storageKwh);
-      return next;
-    });
-  };
 
   const validateForm = (): string => {
     if (!form.name.trim()) return "Package name is required.";
@@ -1009,18 +1159,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     finally { setDeleting(null); }
   };
 
-  const handleSeedDefaults = async () => {
-    if (!confirm("Add the 7 built-in KSTAR packages to your catalog? You can edit them afterward.")) return;
-    setSeeding(true); setMsg("");
-    try {
-      for (const pkg of SOLAR_PACKAGES) {
-        await adminCreatePackage(apiKey, { name: pkg.name, solarKwp: pkg.solarKwp, inverterKw: pkg.inverterKw, storageKwh: pkg.storageKwh, phase: pkg.phase, billRangeMin: pkg.monthlyBillRange[0], billRangeMax: pkg.monthlyBillRange[1], isActive: true, isRecommended: false, sortOrder: 0, components: [] });
-      }
-      setMsg("✓ Default packages loaded — you can now edit or add more.");
-      await load();
-    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
-    finally { setSeeding(false); }
-  };
 
   const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
   const activeCount = packages.filter((p) => p.isActive).length;
@@ -1030,136 +1168,254 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Solar Packages</div>
-          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — these packages appear on the public /packages page and in quotation recommendations.`}</div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — these packages reference components from your inventory and auto-calculate pricing.`}</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {!loading && <button onClick={() => void handleSeedDefaults()} disabled={seeding} className="ad-btn ad-btn--secondary ad-btn--sm">{seeding ? "Loading…" : "Load Defaults"}</button>}
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>}
         </div>
       </div>
       <Toast msg={msg} />
       {showForm && (
-        <div className="ad-card" style={{ marginBottom: 20 }}>
-          <div className="ad-edit-panel-header">
-            <div className="ad-edit-panel-title">{editingId ? "Edit Package" : "Add New Package"}</div>
-            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
-          </div>
-          <div className="ad-pkg-form-phase">
+        <>
+          {/* Modal Overlay */}
+          <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)", zIndex: 999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16, overflow: "auto"
+          }} onClick={closeForm}>
+            {/* Modal Container */}
+            <div style={{
+              background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              maxWidth: 800, width: "100%", maxHeight: "90vh", overflow: "auto", zIndex: 1000
+            }} onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div style={{
+                padding: 20, borderBottom: "1px solid var(--ad-border)",
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12
+              }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ad-text)" }}>
+                  {editingId ? "Edit Package" : "Create New Package"}
+                </div>
+                <button
+                  onClick={closeForm}
+                  style={{
+                    background: "none", border: "none", fontSize: 24, color: "var(--ad-text3)",
+                    cursor: "pointer", padding: 0, width: 32, height: 32,
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: 20 }}>
+                <div className="ad-pkg-form-phase">
             <div className="ad-label">System Phase</div>
             <div className="ad-pkg-phase-toggle">
               <button type="button" className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`} onClick={() => setField("phase", "single")}>Single Phase<span>Residential</span></button>
               <button type="button" className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`} onClick={() => setField("phase", "three")}>Three Phase<span>Commercial / Industrial</span></button>
             </div>
           </div>
-          <div className="ad-form-grid" style={{ marginTop: 16 }}>
-            <div className="ad-form-full">
-              <label className="ad-label">Package Name</label>
-              <input className="ad-input" value={form.name} placeholder="e.g. 3.72 kWp · 3.6 kW · 5.1 kWh" onChange={(e) => { setNameEdited(true); setField("name", e.target.value); }} />
-              <p className="ad-pkg-hint">Fill in the specs below first — the name will auto-fill.</p>
+
+          {/* Component Selection with Per-Category Dropdowns */}
+          <div style={{ marginTop: 16 }}>
+            {/* Per-Category Component Selection */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Build Your System</div>
+              <div style={{ fontSize: 11, color: "var(--ad-text2)", marginBottom: 12 }}>Select components from multiple categories below. You can add solar panels, inverters, batteries, and accessories — they'll auto-calculate your system specs and price.</div>
             </div>
-            <PkgNumInput label="Solar Panel Capacity" hint="Total solar array size." value={form.solarKwp} unit="kWp" onChange={(v) => handleSpecChange("solarKwp", v)} />
-            <PkgNumInput label="Inverter Size" hint="The inverter's power output rating." value={form.inverterKw} unit="kW" onChange={(v) => handleSpecChange("inverterKw", v)} />
-            <PkgNumInput label="Battery Storage" hint="Battery capacity. Enter 0 for grid-tied (no battery)." value={form.storageKwh} unit="kWh" step="0.1" onChange={(v) => handleSpecChange("storageKwh", v)} />
-            <div className="ad-form-full">
-              <label className="ad-label">Components <span style={{ fontWeight: 400, opacity: 0.5 }}>(price auto-calculated)</span></label>
-              {/* Selected component lines */}
-              {(form.components ?? []).length > 0 && (() => {
-                const lines = form.components ?? [];
-                const calcTotal = () => {
-                  const priced = lines.filter(l => {
-                    const c = allComponents.find(c => c.id === l.componentId);
-                    return c?.pricingEnabled && c?.unitPrice != null;
-                  });
-                  const allPriced = lines.every(l => {
-                    const c = allComponents.find(c => c.id === l.componentId);
-                    return !c?.pricingEnabled || c?.unitPrice != null;
-                  });
-                  if (!allPriced || priced.length === 0) return null;
-                  return priced.reduce((s, l) => {
-                    const c = allComponents.find(c => c.id === l.componentId);
-                    return s + (c?.unitPrice ?? 0) * l.quantity;
-                  }, 0);
-                };
-                const total = calcTotal();
-                return (
-                  <div style={{ marginBottom: 8 }}>
-                    <table className="ad-table" style={{ marginBottom: 8 }}>
-                      <thead><tr><th>Component</th><th>Qty</th><th>Unit Price</th><th>Subtotal</th><th></th></tr></thead>
-                      <tbody>
-                        {lines.map((line, idx) => {
-                          const comp = allComponents.find(c => c.id === line.componentId);
-                          const sub = comp?.pricingEnabled && comp?.unitPrice != null
-                            ? comp.unitPrice * line.quantity : null;
-                          return (
-                            <tr key={idx}>
-                              <td style={{ fontSize: 12 }}>
-                                {comp ? <><strong>{comp.name}</strong><br /><span style={{ opacity: 0.5 }}>{comp.brand} · {comp.model}</span></> : <span style={{ color: "#fc615a" }}>Unknown</span>}
-                              </td>
-                              <td>
-                                <input type="number" min={1} value={line.quantity} style={{ width: 60, background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", color: "var(--ad-text)", borderRadius: 6, padding: "4px 8px", fontSize: 12 }}
-                                  onChange={e => {
-                                    const qty = Math.max(1, Number(e.target.value));
-                                    setField("components", lines.map((l, i) => i === idx ? { ...l, quantity: qty } : l));
-                                  }} />
-                              </td>
-                              <td style={{ fontSize: 12 }}>
-                                {comp?.pricingEnabled ? (comp.unitPrice != null ? `₱${comp.unitPrice.toLocaleString()}` : <span style={{ color: "#f59e0b" }}>No price</span>) : <span style={{ opacity: 0.4 }}>—</span>}
-                              </td>
-                              <td style={{ fontSize: 12, fontFamily: "monospace" }}>
-                                {sub != null ? `₱${sub.toLocaleString()}` : "—"}
-                              </td>
-                              <td>
-                                <button className="ad-btn ad-btn--danger ad-btn--sm"
-                                  onClick={() => setField("components", lines.filter((_, i) => i !== idx))}>×</button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    <div style={{ textAlign: "right", fontSize: 13, fontWeight: 700, color: total != null ? "var(--ad-text)" : "var(--ad-text3)" }}>
-                      {total != null
-                        ? <>Total: <span style={{ color: "#fc615a", fontFamily: "monospace" }}>₱{total.toLocaleString()}</span></>
-                        : "⚠ Some components missing pricing — total not available"}
+            {['Solar Panel', 'Inverter', 'Battery', 'Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'].map((category) => {
+              const catComps = allComponents.filter(c => c.isActive && c.category === category).sort((a, b) => a.sortOrder - b.sortOrder);
+              const search = catSearches[category] ?? '';
+              const filtered = catComps.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.brand.toLowerCase().includes(search.toLowerCase()) || c.model.toLowerCase().includes(search.toLowerCase()));
+
+              const categoryEmojis: Record<string, string> = {
+                'Solar Panel': '☀',
+                'Inverter': '⚡',
+                'Battery': '🔋',
+                'Mounting & Racking': '📦',
+                'Wiring & Protection': '🔌',
+                'Monitoring': '📊',
+                'Others': '📦',
+              };
+              const emoji = categoryEmojis[category] ?? '📦';
+
+              return (
+                <div key={category} style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 8 }}>{emoji} {category}</div>
+
+                  {/* Per-category search */}
+                  <input
+                    type="search"
+                    className="ad-input"
+                    placeholder={`Search ${category}...`}
+                    value={search}
+                    onChange={(e) => setCatSearches(s => ({ ...s, [category]: e.target.value }))}
+                    style={{ marginBottom: 8, width: "100%" }}
+                  />
+
+                  {/* Filtered results */}
+                  {filtered.length === 0 ? (
+                    <div style={{ fontSize: 11, color: "var(--ad-text3)", textAlign: "center", padding: "8px 0" }}>
+                      {search ? "No matches" : "None available"}
                     </div>
-                  </div>
-                );
-              })()}
-              {/* Add component row */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <select className="ad-select" style={{ flex: 1, minWidth: 200 }} value={addCompId} onChange={e => setAddCompId(e.target.value)}>
-                  <option value="">— Select component —</option>
-                  {COMPONENT_CATEGORIES.map(cat => {
-                    const catItems = allComponents.filter(c => c.category === cat && c.isActive);
-                    if (!catItems.length) return null;
-                    return (
-                      <optgroup key={cat} label={cat}>
-                        {catItems.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({c.brand}) {c.pricingEnabled && c.unitPrice ? `— ₱${c.unitPrice.toLocaleString()}/${c.unit}` : ""}
+                  ) : (
+                    <select
+                      className="ad-input"
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const comp = allComponents.find(c => c.id === e.target.value);
+                          if (comp) {
+                            const existing = (form.components ?? []).find(l => l.componentId === comp.id);
+                            if (existing) {
+                              setField("components", (form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
+                            } else {
+                              setField("components", [...(form.components ?? []), { componentId: comp.id, quantity: 1 }]);
+                            }
+                            setCatSearches(s => ({ ...s, [category]: '' }));
+                            e.target.value = '';
+                          }
+                        }
+                      }}
+                      style={{ fontSize: 11, padding: "6px 8px", width: "100%" }}
+                    >
+                      <option value="">Select component</option>
+                      {filtered.map(comp => {
+                        const spec = comp.productionCapacityKwp ? ` (${comp.productionCapacityKwp} kWp)` :
+                                     comp.loadCapacityKw ? ` (${comp.loadCapacityKw} kW)` :
+                                     comp.storageCapacityKwh ? ` (${comp.storageCapacityKwh} kWh)` : '';
+                        return (
+                          <option key={comp.id} value={comp.id}>
+                            {comp.name} {spec}
                           </option>
-                        ))}
-                      </optgroup>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Selected Components Summary */}
+            {(form.components ?? []).length > 0 && (
+              <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, marginBottom: 16, marginTop: 16, borderTop: "2px solid var(--ad-border)" }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>📦 Selected Components ({(form.components ?? []).length})</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 8 }}>
+                  {(form.components ?? []).map((line, idx) => {
+                    const comp = allComponents.find(c => c.id === line.componentId);
+                    if (!comp) return null;
+                    const spec = comp.productionCapacityKwp ? `${(comp.productionCapacityKwp * line.quantity).toFixed(2)} kWp` :
+                                 comp.loadCapacityKw ? `${(comp.loadCapacityKw * line.quantity).toFixed(1)} kW` :
+                                 comp.storageCapacityKwh ? `${(comp.storageCapacityKwh * line.quantity).toFixed(2)} kWh` : '';
+                    return (
+                      <div key={idx} style={{ background: "var(--ad-input-bg)", padding: 10, borderRadius: 4, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text)" }}>{comp.name}</div>
+                          <div style={{ fontSize: 9, color: "var(--ad-text3)", marginTop: 2 }}>{spec}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--ad-bg)", borderRadius: 3, padding: "2px 6px" }}>
+                            <button
+                              onClick={() => {
+                                if (line.quantity > 1) {
+                                  setField("components", (form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity - 1 } : c));
+                                }
+                              }}
+                              style={{
+                                background: "none", border: "none", color: "var(--ad-text3)", cursor: "pointer",
+                                fontSize: 14, padding: "0 4px", fontWeight: "bold", transition: "color 0.15s"
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = "var(--ad-accent)"}
+                              onMouseLeave={(e) => e.currentTarget.style.color = "var(--ad-text3)"}
+                            >−</button>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text)", minWidth: 20, textAlign: "center" }}>{line.quantity}</span>
+                            <button
+                              onClick={() => {
+                                setField("components", (form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c));
+                              }}
+                              style={{
+                                background: "none", border: "none", color: "var(--ad-text3)", cursor: "pointer",
+                                fontSize: 14, padding: "0 4px", fontWeight: "bold", transition: "color 0.15s"
+                              }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = "var(--ad-accent)"}
+                              onMouseLeave={(e) => e.currentTarget.style.color = "var(--ad-text3)"}
+                            >+</button>
+                          </div>
+                          <button
+                            className="ad-btn ad-btn--danger ad-btn--sm"
+                            style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
+                            onClick={() => setField("components", (form.components ?? []).filter((_, i) => i !== idx))}
+                          >Remove</button>
+                        </div>
+                      </div>
                     );
                   })}
-                </select>
-                <input type="number" min={1} value={addCompQty} onChange={e => setAddCompQty(Math.max(1, Number(e.target.value)))}
-                  style={{ width: 70, background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", color: "var(--ad-text)", borderRadius: 6, padding: "8px 10px", fontSize: 13 }} placeholder="Qty" />
-                <button className="ad-btn ad-btn--sm" onClick={() => {
-                  if (!addCompId) return;
-                  const existing = (form.components ?? []).find(l => l.componentId === addCompId);
-                  if (existing) {
-                    setField("components", (form.components ?? []).map(l => l.componentId === addCompId ? { ...l, quantity: l.quantity + addCompQty } : l));
-                  } else {
-                    setField("components", [...(form.components ?? []), { componentId: addCompId, quantity: addCompQty }]);
-                  }
-                  setAddCompId(""); setAddCompQty(1);
-                }}>+ Add</button>
+                </div>
               </div>
-              {allComponents.length === 0 && (
-                <p className="ad-pkg-hint" style={{ color: "#f59e0b" }}>⚠ No components in inventory. Go to the Components tab to add them first.</p>
-              )}
-            </div>
+            )}
+
+            {/* Computed Specs */}
+            {allComponents.length > 0 && (form.components ?? []).length > 0 && (() => {
+              const specs = computePackageSpecs(form.components ?? [], allComponents);
+              const autoName_ = autoName(specs.solarKwp, specs.inverterKw, specs.storageKwh);
+              if (!nameEdited && form.name !== autoName_) {
+                setField("name", autoName_);
+              }
+              return (
+                <div className="ad-form-full" style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 16, marginTop: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-accent)", marginBottom: 12 }}>📊 Computed System Specs</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+                    <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Solar Array</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.solarKwp.toFixed(2)} kWp</div>
+                    </div>
+                    <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Inverter</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.inverterKw.toFixed(1)} kW</div>
+                    </div>
+                    <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Battery</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: specs.storageKwh > 0 ? "var(--ad-accent)" : "var(--ad-text3)" }}>{specs.storageKwh > 0 ? `${specs.storageKwh.toFixed(2)} kWh` : "—"}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {(() => {
+              const calcTotal = () => {
+                const lines = form.components ?? [];
+                const priced = lines.filter(l => {
+                  const c = allComponents.find(c => c.id === l.componentId);
+                  return c?.pricingEnabled && c?.unitPrice != null;
+                });
+                const allPriced = lines.every(l => {
+                  const c = allComponents.find(c => c.id === l.componentId);
+                  return !c?.pricingEnabled || c?.unitPrice != null;
+                });
+                if (!allPriced || priced.length === 0) return null;
+                return priced.reduce((s, l) => {
+                  const c = allComponents.find(c => c.id === l.componentId);
+                  return s + (c?.unitPrice ?? 0) * l.quantity;
+                }, 0);
+              };
+              const total = calcTotal();
+              return (
+                <div className="ad-form-full" style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 16, marginTop: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: total != null ? "#22c55e" : "var(--ad-text3)", marginBottom: 12 }}>💰 Total Package Price</div>
+                  {total != null ? (
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#22c55e", fontFamily: "monospace", marginBottom: 4 }}>
+                      ₱{total.toLocaleString()}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: "var(--ad-text2)", fontStyle: "italic" }}>
+                      ⚠ Some components missing pricing — total not available
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div>
               <label className="ad-label">Minimum Monthly Bill</label>
               <div className="ad-pkg-num-wrap">
@@ -1178,11 +1434,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               </div>
               <p className="ad-pkg-hint">Customers with bills below this amount are best suited.</p>
             </div>
-            <div>
-              <label className="ad-label">Display Order</label>
-              <input type="number" className="ad-input" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} />
-              <p className="ad-pkg-hint">Lower numbers appear first.</p>
-            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
               <input type="checkbox" id="pkg-active" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
               <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active — visible to customers</label>
@@ -1192,17 +1443,21 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               <label htmlFor="pkg-recommended" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Recommended — highlighted on the packages page</label>
             </div>
           </div>
-          <div className="ad-form-actions">
-            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
+                <div className="ad-form-actions" style={{ display: "flex", gap: 8, marginTop: 20 }}>
+                  <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
+                  <button onClick={closeForm} className="ad-btn ad-btn--ghost">Cancel</button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading packages…</div>
       ) : packages.length === 0 ? (
         <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 400, margin: "0 auto" }}>Click <strong>Load Defaults</strong> to seed the 7 built-in KSTAR configurations, or <strong>+ Add Package</strong> to create one from scratch. Active packages appear on the public <strong>/packages</strong> page.</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 400, margin: "0 auto" }}>Click <strong>+ Add Package</strong> to create a new package. Select components from your inventory to auto-calculate the total price. Active packages appear on the public <strong>/packages</strong> page.</div>
         </div>
       ) : (
         <div className="ad-pkg-mgr-grid">
@@ -1230,7 +1485,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               </div>
               <div className="ad-pkg-mgr-bill">For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo</div>
               <div className="ad-pkg-mgr-footer">
-                <span className="ad-pkg-mgr-order">Order #{p.sortOrder}</span>
+                <span className="ad-pkg-mgr-order">Created {new Date(p.createdAt).toLocaleDateString()}</span>
                 <div className="ad-table-actions">
                   <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
                   <button onClick={() => void handleDelete(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
