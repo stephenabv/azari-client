@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { subscribeRateLimit, type RateLimitInfo } from "../services/ASContent";
 
-export default function ASRateLimitBanner() {
+const RADIUS       = 54;
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+
+export default function ASRateLimitWall() {
   const [info, setInfo]           = useState<RateLimitInfo | null>(null);
   const [remaining, setRemaining] = useState(0);
   const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Subscribe to rate-limit events from any API call
   useEffect(() => {
     return subscribeRateLimit((incoming) => {
       setInfo(incoming);
@@ -14,7 +16,6 @@ export default function ASRateLimitBanner() {
     });
   }, []);
 
-  // Countdown tick
   useEffect(() => {
     if (!info) return;
     if (timerRef.current) clearInterval(timerRef.current);
@@ -35,31 +36,48 @@ export default function ASRateLimitBanner() {
 
   if (!info) return null;
 
-  const pct = Math.min(100, Math.round((remaining / info.retryAfterSec) * 100));
+  const pct    = Math.min(100, (remaining / info.retryAfterSec) * 100);
+  const offset = CIRCUMFERENCE * (1 - pct / 100);
 
   return (
-    <div className="as-rl-banner" role="alert" aria-live="polite">
-      <span className="as-rl-icon" aria-hidden="true">⚠</span>
+    <div className="as-rl-wall" role="alertdialog" aria-modal="true" aria-label="Rate limit exceeded">
+      <div className="as-rl-card">
 
-      <div className="as-rl-body">
-        <p className="as-rl-title">Too many requests</p>
-        <p className="as-rl-sub">
-          You've sent too many requests. Please wait{" "}
-          <strong className="as-rl-countdown">{remaining}s</strong> before
-          trying again.
-        </p>
-        <div className="as-rl-track" aria-hidden="true">
-          <div className="as-rl-bar" style={{ width: `${pct}%` }} />
+        <p className="as-rl-logo">azari<span>.solar</span></p>
+
+        {/* Circular countdown ring */}
+        <div className="as-rl-ring-wrap">
+          <svg
+            className="as-rl-ring-svg"
+            viewBox="0 0 120 120"
+            aria-hidden="true"
+          >
+            <circle className="as-rl-ring-track" cx="60" cy="60" r={RADIUS} />
+            <circle
+              className="as-rl-ring-fill"
+              cx="60" cy="60" r={RADIUS}
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={offset}
+            />
+          </svg>
+          <div className="as-rl-ring-center" aria-live="polite">
+            <span className="as-rl-ring-count">{remaining}</span>
+            <span className="as-rl-ring-unit">seconds</span>
+          </div>
         </div>
-      </div>
 
-      <button
-        className="as-rl-close"
-        onClick={() => { setInfo(null); setRemaining(0); }}
-        aria-label="Dismiss rate limit notice"
-      >
-        ×
-      </button>
+        <h2 className="as-rl-heading">Too Many Requests</h2>
+        <p className="as-rl-desc">
+          You've been temporarily throttled due to too many requests.
+          Access will automatically resume in{" "}
+          <strong>{remaining} second{remaining !== 1 ? "s" : ""}</strong>.
+        </p>
+
+        <div className="as-rl-bar-track" aria-hidden="true">
+          <div className="as-rl-bar-fill" style={{ width: `${pct}%` }} />
+        </div>
+
+      </div>
     </div>
   );
 }
