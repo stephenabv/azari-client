@@ -1,15 +1,46 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchPublicPackages, type ApiSolarPackage } from "../services/ASContent";
-import { SOLAR_PACKAGES } from "../models/packages";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
 import ceoPerson from "../assets/images/ceo.svg";
 import ceoPersonLight from "../assets/images/ceo-light.svg";
 
-const PANEL_KWP = 0.5;
-const BATTERY_KWH = 5.12;
+// Mobile responsive styles for CEO image
+const ctaMobileStyles = `
+  @media (max-width: 767px) {
+    .as-packages-cta {
+      position: relative !important;
+      overflow: hidden !important;
+    }
+    .as-packages-cta-visual {
+      position: absolute !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      left: 0 !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      justify-content: flex-end !important;
+      z-index: 0 !important;
+      pointer-events: none !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .as-packages-cta-visual img {
+      width: 380px !important;
+      height: auto !important;
+      opacity: 0.2 !important;
+      max-height: 100% !important;
+    }
+    .as-packages-cta-content {
+      position: relative !important;
+      z-index: 1 !important;
+    }
+  }
+`;
+
 const INITIAL_VISIBLE = 6;
 
 type Phase = "single" | "three";
@@ -32,35 +63,17 @@ function getFeatures(pkg: ApiSolarPackage): string[] {
 }
 
 function defaultQty(pkg: ApiSolarPackage): QtyState {
-  return {
-    inverter: 1,
-    batteries: pkg.storageKwh > 0 ? Math.max(1, Math.round(pkg.storageKwh / BATTERY_KWH)) : 0,
-    panels: Math.max(1, Math.round(pkg.solarKwp / PANEL_KWP)),
-  };
+  const qty = { inverter: 0, batteries: 0, panels: 0 };
+  pkg.components?.forEach((pc) => {
+    if (pc.component.category === "Inverter") qty.inverter += pc.quantity;
+    else if (pc.component.category === "Battery") qty.batteries += pc.quantity;
+    else if (pc.component.category === "Solar Panel") qty.panels += pc.quantity;
+  });
+  return qty;
 }
 
 function pesoFmt(v: number): string {
   return `₱${v.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function toApiPackages(pkgs: typeof SOLAR_PACKAGES): ApiSolarPackage[] {
-  return pkgs.map((p, i) => ({
-    id: p.id,
-    name: p.name,
-    solarKwp: p.solarKwp,
-    inverterKw: p.inverterKw,
-    storageKwh: p.storageKwh,
-    phase: p.phase,
-    totalPrice: p.totalPrice ?? null,
-    billRangeMin: p.monthlyBillRange[0],
-    billRangeMax: p.monthlyBillRange[1],
-    isActive: true,
-    isRecommended: p.isRecommended ?? false,
-    sortOrder: i,
-    components: [],
-    createdAt: "",
-    updatedAt: "",
-  }));
 }
 
 function QuantityStepper({
@@ -105,11 +118,91 @@ function PackageCard({
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
   const [showDetails, setShowDetails] = useState(false);
+  const [displayPrice, setDisplayPrice] = useState<number | null>(null);
   const features = getFeatures(pkg);
 
   const bump = (key: keyof QtyState, delta: number) => {
     setQty((prev) => ({ ...prev, [key]: Math.max(defaults[key], prev[key] + delta) }));
   };
+
+  // Calculate dynamic pricing based on actual component quantities
+  const calculateDynamicPrice = (): { price: number | null; breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> } => {
+    if (!pkg.components || pkg.components.length === 0) {
+      return { price: pkg.totalPrice, breakdown: [] };
+    }
+
+    const breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> = [];
+    let totalPrice = 0;
+    let allPriced = true;
+    const defaults = defaultQty(pkg);
+
+    // Calculate price based on actual component quantities adjusted by user
+    pkg.components.forEach((pc) => {
+      const comp = pc.component;
+      if (!comp.pricingEnabled || comp.unitPrice === null) {
+        allPriced = false;
+        return;
+      }
+
+      // Calculate multiplier: (current qty / default qty per category)
+      let multiplier = 1;
+      if (comp.category === "Solar Panel" && defaults.panels > 0) {
+        multiplier = qty.panels / defaults.panels;
+      } else if (comp.category === "Inverter" && defaults.inverter > 0) {
+        multiplier = qty.inverter / defaults.inverter;
+      } else if (comp.category === "Battery" && defaults.batteries > 0) {
+        multiplier = qty.batteries / defaults.batteries;
+      }
+
+      // Total quantity = base quantity in package * multiplier
+      const componentQty = pc.quantity * multiplier;
+      const componentTotal = componentQty * comp.unitPrice;
+      totalPrice += componentTotal;
+      breakdown.push({
+        name: `${comp.name} (${comp.brand})`,
+        qty: componentQty,
+        unitPrice: comp.unitPrice,
+        total: componentTotal,
+      });
+    });
+
+    return { price: allPriced ? totalPrice : null, breakdown };
+  };
+
+  const { price: dynamicPrice, breakdown } = calculateDynamicPrice();
+
+  // Animate price changes
+  useEffect(() => {
+    if (dynamicPrice === null) {
+      setDisplayPrice(null);
+      return;
+    }
+
+    const startPrice = displayPrice ?? (pkg.totalPrice ?? dynamicPrice);
+    const targetPrice = dynamicPrice;
+    const difference = targetPrice - startPrice;
+    const duration = 500; // ms
+    const startTime = Date.now();
+
+    const animatePrice = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Easing function: ease-out
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const currentPrice = startPrice + difference * easeProgress;
+      setDisplayPrice(Math.round(currentPrice));
+
+      if (progress < 1) {
+        requestAnimationFrame(animatePrice);
+      } else {
+        setDisplayPrice(targetPrice);
+      }
+    };
+
+    requestAnimationFrame(animatePrice);
+  }, [dynamicPrice, displayPrice, pkg.totalPrice]);
+
+  const priceToDisplay = displayPrice ?? dynamicPrice ?? pkg.totalPrice;
 
   return (
     <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`}>
@@ -119,8 +212,10 @@ function PackageCard({
 
       <div className="as-pkg-top">
         <div className="as-pkg-name">{pkg.name}</div>
-        {pkg.totalPrice != null && (
-          <div className="as-pkg-price">{pesoFmt(pkg.totalPrice)}</div>
+        {(priceToDisplay != null) && (
+          <div className="as-pkg-price">
+            {pesoFmt(priceToDisplay)}
+          </div>
         )}
         <div className="as-pkg-size-label">{pkg.solarKwp} kWp System</div>
         <div className="as-pkg-savings">
@@ -169,10 +264,10 @@ function PackageCard({
         <div className="as-pkg-detail-panel">
           {[
             ["Phase", pkg.phase === "single" ? "Single Phase" : "Three Phase"],
-            ["Solar Array", `${pkg.solarKwp} kWp`],
-            ["Inverter", `${pkg.inverterKw} kW`],
-            ...(pkg.storageKwh > 0 ? [["Battery Storage", `${pkg.storageKwh} kWh`]] : []),
-            ...(pkg.totalPrice != null ? [["Total Price", pesoFmt(pkg.totalPrice)]] : []),
+            ["Production Capacity", `${pkg.solarKwp} kWp`],
+            ["Load Capacity", `${pkg.inverterKw} kW`],
+            ...(pkg.storageKwh > 0 ? [["Storage Capacity", `${pkg.storageKwh} kWh`]] : []),
+            ...(priceToDisplay != null ? [["Total Price", pesoFmt(priceToDisplay)]] : []),
             ["Suitable for Bills", `${pesoFmt(pkg.billRangeMin)} – ${pesoFmt(pkg.billRangeMax)}/mo`],
           ].map(([label, val]) => (
             <div key={label} className="as-pkg-detail-row">
@@ -180,6 +275,28 @@ function PackageCard({
               <strong>{val}</strong>
             </div>
           ))}
+
+          {breakdown.length > 0 && (
+            <>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 12, paddingTop: 12 }}>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Component Breakdown
+                </div>
+                {breakdown.map((item) => (
+                  <div key={item.name} style={{ fontSize: "12px", marginBottom: 6, color: "rgba(255,255,255,0.8)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>{item.name}</span>
+                      <span style={{ opacity: 0.7 }}>×{item.qty}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: 0.6, marginTop: 2 }}>
+                      <span>{pesoFmt(item.unitPrice)} each</span>
+                      <span>{pesoFmt(item.total)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -191,7 +308,7 @@ type PackageGroup = { label: string; packages: ApiSolarPackage[] };
 function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] {
   const active = packages
     .filter((p) => p.phase === phase && p.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const hybrid = active.filter((p) => p.storageKwh > 0);
   const gridTied = active.filter((p) => p.storageKwh === 0);
@@ -210,6 +327,14 @@ export default function ASPackages() {
     if (pageVis.packages === false) navigate("/", { replace: true });
   }, [pageVis.packages, navigate]);
 
+  // Inject mobile styles for CEO image background
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = ctaMobileStyles;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   const [phase, setPhase] = useState<Phase>("single");
   const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +345,7 @@ export default function ASPackages() {
 
   useEffect(() => {
     fetchPublicPackages()
-      .then((data) => setPackages(data.length ? data : toApiPackages(SOLAR_PACKAGES)))
+      .then((data) => setPackages(data))
       .finally(() => setLoading(false));
   }, []);
 

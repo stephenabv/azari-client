@@ -113,3 +113,14 @@ input[type="number"]::-moz-number-spin-down:hover {
   scrollbar-color: var(--ad-border, #333) var(--ad-bg, #0a0a0a);
   scrollbar-width: thin;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}

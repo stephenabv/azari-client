@@ -270,7 +270,6 @@ export interface ProjectInput {
   system: string;
   savings: string;
   isRecent: boolean;
-  sortOrder: number;
   imageFile?: File;
 }
 
@@ -301,7 +300,6 @@ function buildProjectFormData(data: ProjectInput): FormData {
   fd.append('system', data.system);
   fd.append('savings', data.savings);
   fd.append('isRecent', String(data.isRecent));
-  fd.append('sortOrder', String(data.sortOrder));
   if (data.imageFile) fd.append('image', data.imageFile);
   return fd;
 }
@@ -358,7 +356,7 @@ export interface ApiSolarComponent {
   unitPrice: number | null;
   pricingEnabled: boolean;
   isActive: boolean;
-  sortOrder: number;
+  sortOrder: number; // DEPRECATED: Sorting now uses createdAt
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
@@ -371,14 +369,13 @@ export interface ComponentInput {
   brand: string;
   model: string;
   category: string;
-  unit: string;
   unitPrice?: number;
   pricingEnabled: boolean;
   isActive: boolean;
-  sortOrder: number;
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
+  // Note: 'unit' and 'sortOrder' are deprecated - units are now determined by category
 }
 
 export interface ApiPackageComponent {
@@ -403,7 +400,7 @@ export interface ApiSolarPackage {
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
-  sortOrder: number;
+  sortOrder: number; // DEPRECATED: Sorting now uses createdAt
   components: ApiPackageComponent[];
   createdAt: string;
   updatedAt: string;

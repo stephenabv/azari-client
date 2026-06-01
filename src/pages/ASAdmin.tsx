@@ -40,7 +40,7 @@ import {
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
-  | "overview" | "inquiries" | "quotations" | "projects" | "components" | "packages" | "sections"
+  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "sections"
   | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
@@ -80,7 +80,37 @@ function statusClass(s: string) {
 
 function Toast({ msg }: { msg: string }) {
   if (!msg) return null;
-  return <div className={`ad-toast ${msg.startsWith("Error") ? "is-error" : "is-success"}`}>{msg}</div>;
+  const isSuccess = msg.startsWith("✓");
+  const bgColor = isSuccess ? "rgba(34, 197, 94, 0.15)" : "rgba(252, 97, 90, 0.15)";
+  const borderColor = isSuccess ? "rgba(34, 197, 94, 0.4)" : "rgba(252, 97, 90, 0.4)";
+  const textColor = isSuccess ? "#22c55e" : "#fc615a";
+  return (
+    <div style={{
+      position: "fixed",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 10000,
+      background: bgColor,
+      border: `1px solid ${borderColor}`,
+      color: textColor,
+      padding: "14px 20px",
+      borderRadius: 8,
+      fontSize: 14,
+      fontWeight: 500,
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      animation: "fadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+      maxWidth: "90vw",
+      minWidth: "250px",
+      textAlign: "center",
+      justifyContent: "center",
+      backdropFilter: "none"
+    }}>
+      {msg}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -459,8 +489,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   );
 }
 
-type ProjectForm = { title: string; category: ApiProjectCategory; system: string; savings: string; isRecent: boolean; sortOrder: number };
-const EMPTY_PROJECT_FORM: ProjectForm = { title: "", category: "Residential", system: "", savings: "", isRecent: false, sortOrder: 0 };
+type ProjectForm = { title: string; category: ApiProjectCategory; system: string; savings: string; isRecent: boolean };
+const EMPTY_PROJECT_FORM: ProjectForm = { title: "", category: "Residential", system: "", savings: "", isRecent: false };
 
 function categoryClass(c: string) {
   if (c === "Commercial") return "is-commercial";
@@ -491,7 +521,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const openAdd = () => { setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null); setImagePreview(""); setMsg(""); setShowForm(true); };
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
-    setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent, sortOrder: p.sortOrder });
+    setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent });
     setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); };
@@ -511,7 +541,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     if (!editingId && !imageFile) { setMsg("Error: Please upload a project image."); return; }
     setSaving(true); setMsg("");
     try {
-      const payload: ProjectInput = { ...form, sortOrder: Number(form.sortOrder), imageFile: imageFile ?? undefined };
+      const payload: ProjectInput = { ...form, imageFile: imageFile ?? undefined };
       if (editingId) { await adminUpdateProject(apiKey, editingId, payload); setMsg("✓ Project updated"); }
       else { await adminCreateProject(apiKey, payload); setMsg("✓ Project created"); }
       await load(); closeForm();
@@ -562,7 +592,6 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                 {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
               </div>
             </div>
-            <div><label className="ad-label">Sort Order</label><input type="number" className="ad-input" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} /></div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
               <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
               <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
@@ -583,9 +612,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       ) : (
         <div className="ad-table-wrap">
           <table className="ad-table">
-            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Order</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
-              {projects.map((p) => (
+              {projects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((p) => (
                 <tr key={p.id}>
                   <td>
                     <div className="ad-proj-title-cell">
@@ -596,7 +625,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   <td><span className={`ad-badge ${categoryClass(p.category)}`}>{p.category}</span></td>
                   <td>{p.system}</td><td>{p.savings}</td>
                   <td>{p.isRecent ? <span className="ad-badge is-recent">Recent</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
-                  <td style={{ textAlign: "center" }}>{p.sortOrder}</td>
+                  <td style={{ fontSize: 12 }}>{new Date(p.createdAt).toLocaleDateString()}</td>
                   <td>
                     <div className="ad-table-actions">
                       <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
@@ -721,7 +750,7 @@ const COMPONENT_CATEGORIES = [
 
 const EMPTY_COMP: ComponentInput = {
   name: "", brand: "", model: "", category: "Solar Panel",
-  unit: "pc", pricingEnabled: false, isActive: true, sortOrder: 0,
+  pricingEnabled: false, isActive: true,
   productionCapacityKwp: 0, loadCapacityKw: 0, storageCapacityKwh: 0,
 };
 
@@ -744,6 +773,14 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   };
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-clear messages after a timeout
+  useEffect(() => {
+    if (!msg) return;
+    const isSuccess = msg.startsWith("✓");
+    const timeout = setTimeout(() => setMsg(""), isSuccess ? 1500 : 3000);
+    return () => clearTimeout(timeout);
+  }, [msg]);
+
   const setF = <K extends keyof ComponentInput>(k: K, v: ComponentInput[K]) =>
     setForm(f => ({ ...f, [k]: v }));
 
@@ -751,8 +788,8 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   const openEdit = (c: ApiSolarComponent) => {
     setEditingId(c.id);
     setForm({ name: c.name, brand: c.brand, model: c.model, category: c.category,
-      unit: c.unit, unitPrice: c.unitPrice ?? undefined,
-      pricingEnabled: c.pricingEnabled, isActive: c.isActive, sortOrder: c.sortOrder,
+      unitPrice: c.unitPrice ?? undefined,
+      pricingEnabled: c.pricingEnabled, isActive: c.isActive,
       productionCapacityKwp: c.productionCapacityKwp,
       loadCapacityKw: c.loadCapacityKw,
       storageCapacityKwh: c.storageCapacityKwh });
@@ -762,36 +799,53 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
 
   const handleSave = async () => {
     if (!form.name.trim() || !form.brand.trim() || !form.model.trim()) {
-      setMsg("Error: Name, brand and model are required."); return;
+      setMsg("Please enter component name, brand, and model"); return;
     }
     // Validate required specs based on category
-    if (form.category === 'Solar Panel' && form.productionCapacityKwp === 0) {
-      setMsg("Error: Production capacity (kWp) is required for Solar Panels."); return;
+    if (form.category === 'Solar Panel' && (!form.productionCapacityKwp || form.productionCapacityKwp <= 0)) {
+      setMsg("Please enter Production Capacity (must be greater than 0 kWp)"); return;
     }
-    if (form.category === 'Inverter' && form.loadCapacityKw === 0) {
-      setMsg("Error: Load capacity (kW) is required for Inverters."); return;
+    if (form.category === 'Inverter' && (!form.loadCapacityKw || form.loadCapacityKw <= 0)) {
+      setMsg("Please enter Load Capacity (must be greater than 0 kW)"); return;
     }
-    if (form.category === 'Battery' && form.storageCapacityKwh === 0) {
-      setMsg("Error: Storage capacity (kWh) is required for Batteries."); return;
+    if (form.category === 'Battery' && (!form.storageCapacityKwh || form.storageCapacityKwh <= 0)) {
+      setMsg("Please enter Storage Capacity (must be greater than 0 kWh)"); return;
     }
     if (form.pricingEnabled && !form.unitPrice) {
-      setMsg("Error: Unit price is required when pricing is enabled."); return;
+      setMsg("Please enter a unit price when pricing is enabled"); return;
     }
     setSaving(true); setMsg("");
     try {
       const payload = { ...form, unitPrice: form.pricingEnabled ? form.unitPrice : undefined };
-      if (editingId) await adminUpdateComponent(apiKey, editingId, payload);
-      else           await adminCreateComponent(apiKey, payload);
-      await load(); closeForm();
-    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+      if (editingId) {
+        await adminUpdateComponent(apiKey, editingId, payload);
+        setMsg("✓ Component updated successfully");
+      } else {
+        await adminCreateComponent(apiKey, payload);
+        setMsg("✓ Component added to inventory");
+      }
+      await load();
+      setTimeout(closeForm, 1500);
+    } catch (e) {
+      const errorMsg = (e as Error).message;
+      if (errorMsg.includes("409") || errorMsg.includes("conflict")) {
+        setMsg("This component already exists in your inventory");
+      } else {
+        setMsg("Failed to save component. Please try again");
+      }
+    }
     finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? Packages using it may be affected.`)) return;
     setDeleting(id);
-    try { await adminDeleteComponent(apiKey, id); await load(); }
-    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    try {
+      await adminDeleteComponent(apiKey, id);
+      setMsg("✓ Component deleted");
+      await load();
+    }
+    catch (e) { setMsg("Failed to delete component. Please try again"); }
     finally { setDeleting(null); }
   };
 
@@ -805,12 +859,16 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   return (
     <div>
       <div className="ad-section-header">
-        <div className="ad-section-title">Component Inventory</div>
+        <div>
+          <div className="ad-section-title">Solar Component Inventory</div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${components.length} total — manage your solar panels, inverters, batteries, and accessories here. These components are used to build packages.`}</div>
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Component</button>}
         </div>
       </div>
-      <Toast msg={msg} />
+
+      {msg && <Toast msg={msg} />}
 
       {showForm && (
         <>
@@ -872,32 +930,41 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                     <select className="ad-select" value={form.category} onChange={e => setF("category", e.target.value)}>
                       {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select></div>
-                  <div><label className="ad-label">Unit</label>
-                    <input className="ad-input" value={form.unit} onChange={e => setF("unit", e.target.value)} placeholder="pc / set / m / kWp" /></div>
-                  <div><label className="ad-label">Sort Order</label>
-                    <input type="number" className="ad-input" value={form.sortOrder} onChange={e => setF("sortOrder", Number(e.target.value))} /></div>
-                  {(form.category === 'Solar Panel' || form.category === 'Inverter' || form.category === 'Battery') && (
+                  {(form.category === 'Solar Panel' || form.category === 'Inverter' || form.category === 'Battery') ? (
                     <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
-                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Component Specs <span style={{ color: "#fc615a" }}>*</span></div>
+                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Component Specifications <span style={{ color: "#fc615a" }}>*</span></div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "clamp(8px, 2vw, 12px)" }}>
                         {form.category === 'Solar Panel' && (
                           <div><label className="ad-label">Production Capacity (kWp) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.productionCapacityKwp || ""} step="0.01" min={0}
+                            <input type="number" className="ad-input" value={form.productionCapacityKwp || ""} step="0.01" min="0.01"
                               onChange={e => setF("productionCapacityKwp", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="0.41" required /></div>
+                              placeholder="0.41" required />
+                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Total power output (kWp)</small>
+                          </div>
                         )}
                         {form.category === 'Inverter' && (
                           <div><label className="ad-label">Load Capacity (kW) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.loadCapacityKw || ""} step="0.1" min={0}
+                            <input type="number" className="ad-input" value={form.loadCapacityKw || ""} step="0.1" min="0.01"
                               onChange={e => setF("loadCapacityKw", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="3" required /></div>
+                              placeholder="3" required />
+                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Maximum power conversion (kW)</small>
+                          </div>
                         )}
                         {form.category === 'Battery' && (
                           <div><label className="ad-label">Storage Capacity (kWh) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.storageCapacityKwh || ""} step="0.1" min={0}
+                            <input type="number" className="ad-input" value={form.storageCapacityKwh || ""} step="0.1" min="0.01"
                               onChange={e => setF("storageCapacityKwh", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="5.12" required /></div>
+                              placeholder="5.12" required />
+                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Total energy storage (kWh)</small>
+                          </div>
                         )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
+                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Component Type</div>
+                      <div style={{ fontSize: 12, color: "var(--ad-text2)", padding: "10px 12px", background: "rgba(34, 197, 94, 0.1)", borderRadius: 6, border: "1px solid rgba(34, 197, 94, 0.2)" }}>
+                        ✓ No specifications required for {form.category}
                       </div>
                     </div>
                   )}
@@ -941,8 +1008,15 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>
       ) : components.length === 0 ? (
         <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
-          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No components yet</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Click "Load Defaults" to populate the inventory with common solar components.</div>
+          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No components in inventory yet</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", marginBottom: 16 }}>Click "+ Add Component" to start building your inventory. You'll use these to create solar packages.</div>
+          <div style={{ fontSize: 12, color: "var(--ad-text3)", background: "var(--ad-surface)", padding: "12px 16px", borderRadius: 6, textAlign: "left", display: "inline-block" }}>
+            <div style={{ fontWeight: 600, marginBottom: 8, color: "var(--ad-text)" }}>Component Types:</div>
+            <div style={{ fontSize: 11, lineHeight: 1.6 }}>
+              <div>☀ <strong>Solar Panel, ⚡ Inverter, 🔋 Battery</strong> — require specifications</div>
+              <div style={{ marginTop: 4 }}>📦 <strong>Other categories</strong> — no specs needed (brackets, wiring, monitoring, etc.)</div>
+            </div>
+          </div>
         </div>
       ) : (
         grouped.map(({ cat, items }) => {
@@ -951,7 +1025,7 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
             c.name.toLowerCase().includes(search.toLowerCase()) ||
             c.brand.toLowerCase().includes(search.toLowerCase()) ||
             c.model.toLowerCase().includes(search.toLowerCase())
-          );
+          ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           if (filtered.length === 0 && !search) return null;
 
           const itemsPerPage = 20;
@@ -1000,7 +1074,7 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                           <th style={{ width: "8%" }}>Unit</th>
                           <th style={{ width: "10%" }}>Unit Price</th>
                           <th style={{ width: "8%" }}>Pricing</th>
-                          <th style={{ width: "6%" }}>Active</th>
+                          <th style={{ width: "10%" }}>Active</th>
                           <th style={{ width: "12%" }}>Actions</th>
                         </tr>
                       </thead>
@@ -1009,9 +1083,9 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                           <tr key={c.id}>
                             <td>
                               <div style={{ fontWeight: 500 }}>{c.name}</div>
-                              {c.productionCapacityKwp && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>☀ {c.productionCapacityKwp} kWp</div>}
-                              {c.loadCapacityKw && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>⚙️ {c.loadCapacityKw} kW</div>}
-                              {c.storageCapacityKwh && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>🔋 {c.storageCapacityKwh} kWh</div>}
+                              {c.productionCapacityKwp && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>☀ {c.productionCapacityKwp.toFixed(2)} kWp</div>}
+                              {c.loadCapacityKw && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>⚙️ {c.loadCapacityKw.toFixed(1)} kW</div>}
+                              {c.storageCapacityKwh && <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>🔋 {c.storageCapacityKwh.toFixed(2)} kWh</div>}
                             </td>
                             <td style={{ fontSize: 12 }}>{c.brand}<br /><span style={{ opacity: 0.6, fontSize: 10 }}>{c.model}</span></td>
                             <td style={{ fontSize: 12 }}>{c.unit}</td>
@@ -1097,6 +1171,22 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-sync package specs when components change
+  useEffect(() => {
+    if ((form.components ?? []).length > 0) {
+      const specs = computePackageSpecs(form.components ?? [], allComponents);
+      setForm(f => ({ ...f, solarKwp: specs.solarKwp, inverterKw: specs.inverterKw, storageKwh: specs.storageKwh }));
+    }
+  }, [form.components, allComponents]);
+
+  // Auto-clear messages after a timeout
+  useEffect(() => {
+    if (!msg) return;
+    const isSuccess = msg.startsWith("✓");
+    const timeout = setTimeout(() => setMsg(""), isSuccess ? 1500 : 3000);
+    return () => clearTimeout(timeout);
+  }, [msg]);
+
   const openAdd = () => {
     setEditingId(null); setForm(EMPTY_PKG_FORM);
     setNameEdited(false); setCatSearches({}); setMsg(""); setShowForm(true);
@@ -1124,38 +1214,77 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const validateForm = (): string => {
-    if (!form.name.trim()) return "Package name is required.";
-    if (form.solarKwp <= 0) return "Solar panel capacity must be greater than 0.";
-    if (form.inverterKw <= 0) return "Inverter size must be greater than 0.";
-    if (form.storageKwh < 0) return "Battery storage cannot be negative.";
-    if (form.billRangeMax < form.billRangeMin) return "Maximum bill must be ≥ minimum bill.";
+    if (!form.name.trim()) return "Please enter a package name";
+    if ((form.components ?? []).length === 0) return "Please select at least one component from your inventory";
+
+    // Check for required component types and compute specs
+    const components = form.components ?? [];
+    const componentDetails = components.map(c => allComponents.find(ac => ac.id === c.componentId)).filter(Boolean) as ApiSolarComponent[];
+    const hasSolarPanel = componentDetails.some(c => c.category === 'Solar Panel');
+    const hasInverter = componentDetails.some(c => c.category === 'Inverter');
+    const hasBattery = componentDetails.some(c => c.category === 'Battery');
+
+    if (!hasSolarPanel) return "Package must include at least one Solar Panel";
+    if (!hasInverter) return "Package must include at least one Inverter";
+    if (!hasBattery) return "Package must include at least one Battery";
+
+    // Compute actual specs from selected components
+    const specs = computePackageSpecs(components, allComponents);
+    if (specs.solarKwp <= 0) return "Total Production Capacity must be greater than 0 kWp (add Solar Panels)";
+    if (specs.inverterKw <= 0) return "Total Load Capacity must be greater than 0 kW (add Inverters)";
+    if (specs.storageKwh < 0) return "Total Storage Capacity cannot be negative";
+
+    if (form.billRangeMax < form.billRangeMin) return "Maximum monthly bill must be greater than or equal to minimum";
     return "";
   };
 
   const handleSave = async () => {
     const err = validateForm();
-    if (err) { setMsg(`Error: ${err}`); return; }
+    if (err) { setMsg(err); return; }
     setSaving(true); setMsg("");
     try {
-      if (editingId) await adminUpdatePackage(apiKey, editingId, form);
-      else await adminCreatePackage(apiKey, form);
-      await load(); closeForm();
-    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+      if (editingId) {
+        await adminUpdatePackage(apiKey, editingId, form);
+        setMsg("✓ Package updated successfully");
+      } else {
+        await adminCreatePackage(apiKey, form);
+        setMsg("✓ Package created successfully");
+      }
+      await load();
+      setTimeout(closeForm, 1500);
+    } catch (e) {
+      const errorMsg = (e as Error).message;
+      if (errorMsg.includes("409") || errorMsg.includes("conflict")) {
+        setMsg("A package with this name already exists");
+      } else if (errorMsg.includes("401") || errorMsg.includes("unauthorized")) {
+        setMsg("Your session has expired. Please refresh and try again");
+      } else {
+        setMsg(`Failed to save package: ${errorMsg}`);
+      }
+    }
     finally { setSaving(false); }
   };
 
   const handleToggleActive = async (p: ApiSolarPackage) => {
     setToggling(p.id);
-    try { await adminUpdatePackage(apiKey, p.id, { isActive: !p.isActive }); await load(); }
-    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    try {
+      await adminUpdatePackage(apiKey, p.id, { isActive: !p.isActive });
+      setMsg(p.isActive ? "✓ Package hidden" : "✓ Package visible");
+      await load();
+    }
+    catch (e) { setMsg("Failed to update package visibility"); }
     finally { setToggling(null); }
   };
 
   const handleDelete = async (p: ApiSolarPackage) => {
     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
     setDeleting(p.id);
-    try { await adminDeletePackage(apiKey, p.id); setMsg("✓ Package deleted"); await load(); }
-    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    try {
+      await adminDeletePackage(apiKey, p.id);
+      setMsg("✓ Package deleted");
+      await load();
+    }
+    catch (e) { setMsg("Failed to delete package. Please try again"); }
     finally { setDeleting(null); }
   };
 
@@ -1167,14 +1296,14 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     <div>
       <div className="ad-section-header">
         <div>
-          <div className="ad-section-title">Solar Packages</div>
-          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — these packages reference components from your inventory and auto-calculate pricing.`}</div>
+          <div className="ad-section-title">Solar Packages Builder</div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — create packages by selecting components from your inventory. Specs and pricing auto-calculate.`}</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>}
         </div>
       </div>
-      <Toast msg={msg} />
+      {msg && <Toast msg={msg} />}
       {showForm && (
         <>
           {/* Modal Overlay */}
@@ -1187,12 +1316,14 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             {/* Modal Container */}
             <div style={{
               background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-              maxWidth: 800, width: "100%", maxHeight: "90vh", overflow: "auto", zIndex: 1000
+              maxWidth: 800, width: "100%", maxHeight: "90vh", overflow: "auto", zIndex: 1000,
+              display: "flex", flexDirection: "column"
             }} onClick={(e) => e.stopPropagation()}>
               {/* Modal Header */}
               <div style={{
                 padding: 20, borderBottom: "1px solid var(--ad-border)",
-                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+                flexShrink: 0, position: "sticky", top: 0, zIndex: 50, background: "var(--ad-bg)"
               }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ad-text)" }}>
                   {editingId ? "Edit Package" : "Create New Package"}
@@ -1210,7 +1341,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               </div>
 
               {/* Modal Body */}
-              <div style={{ padding: 20 }}>
+              <div style={{ padding: 20, overflow: "auto", flex: 1 }}>
                 <div className="ad-pkg-form-phase">
             <div className="ad-label">System Phase</div>
             <div className="ad-pkg-phase-toggle">
@@ -1219,15 +1350,16 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             </div>
           </div>
 
-          {/* Component Selection with Per-Category Dropdowns */}
+          {/* Component Selection by Category */}
           <div style={{ marginTop: 16 }}>
-            {/* Per-Category Component Selection */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Build Your System</div>
-              <div style={{ fontSize: 11, color: "var(--ad-text2)", marginBottom: 12 }}>Select components from multiple categories below. You can add solar panels, inverters, batteries, and accessories — they'll auto-calculate your system specs and price.</div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>Build from Inventory</div>
+              <div style={{ fontSize: 11, color: "var(--ad-text2)", marginBottom: 12 }}>Search and select components to add to your package. System specs and total price will auto-calculate.</div>
             </div>
+
             {['Solar Panel', 'Inverter', 'Battery', 'Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'].map((category) => {
-              const catComps = allComponents.filter(c => c.isActive && c.category === category).sort((a, b) => a.sortOrder - b.sortOrder);
+              const addedComponentIds = new Set((form.components ?? []).map(c => c.componentId));
+              const catComps = allComponents.filter(c => c.isActive && c.category === category && !addedComponentIds.has(c.id)).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
               const search = catSearches[category] ?? '';
               const filtered = catComps.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.brand.toLowerCase().includes(search.toLowerCase()) || c.model.toLowerCase().includes(search.toLowerCase()));
 
@@ -1243,57 +1375,84 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               const emoji = categoryEmojis[category] ?? '📦';
 
               return (
-                <div key={category} style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, marginBottom: 12 }}>
+                <div key={category} style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text3)", marginBottom: 8 }}>{emoji} {category}</div>
 
-                  {/* Per-category search */}
-                  <input
-                    type="search"
-                    className="ad-input"
-                    placeholder={`Search ${category}...`}
-                    value={search}
-                    onChange={(e) => setCatSearches(s => ({ ...s, [category]: e.target.value }))}
-                    style={{ marginBottom: 8, width: "100%" }}
-                  />
-
-                  {/* Filtered results */}
-                  {filtered.length === 0 ? (
-                    <div style={{ fontSize: 11, color: "var(--ad-text3)", textAlign: "center", padding: "8px 0" }}>
-                      {search ? "No matches" : "None available"}
-                    </div>
-                  ) : (
-                    <select
+                  {/* Unified Search + Dropdown Input */}
+                  <div style={{ position: "relative" }}>
+                    <input
+                      type="search"
                       className="ad-input"
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          const comp = allComponents.find(c => c.id === e.target.value);
-                          if (comp) {
-                            const existing = (form.components ?? []).find(l => l.componentId === comp.id);
-                            if (existing) {
-                              setField("components", (form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
-                            } else {
-                              setField("components", [...(form.components ?? []), { componentId: comp.id, quantity: 1 }]);
-                            }
-                            setCatSearches(s => ({ ...s, [category]: '' }));
-                            e.target.value = '';
-                          }
-                        }
-                      }}
-                      style={{ fontSize: 11, padding: "6px 8px", width: "100%" }}
-                    >
-                      <option value="">Select component</option>
-                      {filtered.map(comp => {
-                        const spec = comp.productionCapacityKwp ? ` (${comp.productionCapacityKwp} kWp)` :
-                                     comp.loadCapacityKw ? ` (${comp.loadCapacityKw} kW)` :
-                                     comp.storageCapacityKwh ? ` (${comp.storageCapacityKwh} kWh)` : '';
-                        return (
-                          <option key={comp.id} value={comp.id}>
-                            {comp.name} {spec}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
+                      placeholder={`Search ${category}...`}
+                      value={search}
+                      onChange={(e) => setCatSearches(s => ({ ...s, [category]: e.target.value }))}
+                      onFocus={() => setCatSearches(s => ({ ...s, [category]: s[category] ?? '' }))}
+                      style={{ width: "100%", fontSize: 11 }}
+                    />
+
+                    {/* Dropdown Results */}
+                    {search !== '' && (
+                      <div style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        background: "var(--ad-input-bg)",
+                        border: "1px solid var(--ad-border)",
+                        borderTop: "none",
+                        borderRadius: "0 0 6px 6px",
+                        maxHeight: "250px",
+                        overflowY: "auto",
+                        zIndex: 10
+                      }}>
+                        {filtered.length === 0 ? (
+                          <div style={{ padding: "10px", textAlign: "center", color: "var(--ad-text3)", fontSize: 10 }}>
+                            No matches
+                          </div>
+                        ) : (
+                          filtered.map(comp => {
+                            const spec = comp.productionCapacityKwp ? ` (${comp.productionCapacityKwp.toFixed(2)} kWp)` :
+                                         comp.loadCapacityKw ? ` (${comp.loadCapacityKw.toFixed(1)} kW)` :
+                                         comp.storageCapacityKwh ? ` (${comp.storageCapacityKwh.toFixed(2)} kWh)` : '';
+                            return (
+                              <button
+                                key={comp.id}
+                                type="button"
+                                onClick={() => {
+                                  const existing = (form.components ?? []).find(l => l.componentId === comp.id);
+                                  if (existing) {
+                                    setField("components", (form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
+                                  } else {
+                                    setField("components", [...(form.components ?? []), { componentId: comp.id, quantity: 1 }]);
+                                  }
+                                  setCatSearches(s => ({ ...s, [category]: '' }));
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "8px 10px",
+                                  textAlign: "left",
+                                  background: "transparent",
+                                  border: "none",
+                                  borderBottom: "1px solid var(--ad-border)",
+                                  color: "var(--ad-text)",
+                                  cursor: "pointer",
+                                  fontSize: 10,
+                                  transition: "background 0.15s",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis"
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--ad-surface)"}
+                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                              >
+                                <div style={{ fontWeight: 500 }}>{comp.name}</div>
+                                <div style={{ fontSize: 9, color: "var(--ad-text3)", marginTop: 1 }}>{comp.brand} {comp.model}{spec}</div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1306,9 +1465,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   {(form.components ?? []).map((line, idx) => {
                     const comp = allComponents.find(c => c.id === line.componentId);
                     if (!comp) return null;
-                    const spec = comp.productionCapacityKwp ? `${(comp.productionCapacityKwp * line.quantity).toFixed(2)} kWp` :
-                                 comp.loadCapacityKw ? `${(comp.loadCapacityKw * line.quantity).toFixed(1)} kW` :
-                                 comp.storageCapacityKwh ? `${(comp.storageCapacityKwh * line.quantity).toFixed(2)} kWh` : '';
+                    const specValue = comp.productionCapacityKwp ? `${(comp.productionCapacityKwp * line.quantity).toFixed(2)} kWp` :
+                                      comp.loadCapacityKw ? `${(comp.loadCapacityKw * line.quantity).toFixed(1)} kW` :
+                                      comp.storageCapacityKwh ? `${(comp.storageCapacityKwh * line.quantity).toFixed(2)} kWh` : '';
+                    const spec = specValue;
                     return (
                       <div key={idx} style={{ background: "var(--ad-input-bg)", padding: 10, borderRadius: 4, display: "flex", flexDirection: "column", gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1368,16 +1528,19 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-accent)", marginBottom: 12 }}>📊 Computed System Specs</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
                     <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Solar Array</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.solarKwp.toFixed(2)} kWp</div>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Production<br />Capacity</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.solarKwp.toFixed(2)}</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>kWp</div>
                     </div>
                     <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Inverter</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.inverterKw.toFixed(1)} kW</div>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Load<br />Capacity</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--ad-accent)" }}>{specs.inverterKw.toFixed(1)}</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>kW</div>
                     </div>
                     <div style={{ background: "var(--ad-surface)", padding: 12, borderRadius: 6, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Battery</div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: specs.storageKwh > 0 ? "var(--ad-accent)" : "var(--ad-text3)" }}>{specs.storageKwh > 0 ? `${specs.storageKwh.toFixed(2)} kWh` : "—"}</div>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Storage<br />Capacity</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: specs.storageKwh > 0 ? "var(--ad-accent)" : "var(--ad-text3)" }}>{specs.storageKwh > 0 ? specs.storageKwh.toFixed(2) : "—"}</div>
+                      <div style={{ fontSize: 10, color: specs.storageKwh > 0 ? "var(--ad-text3)" : "var(--ad-text3)", marginTop: 2 }}>{specs.storageKwh > 0 ? "kWh" : ""}</div>
                     </div>
                   </div>
                 </div>
@@ -1457,7 +1620,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       ) : packages.length === 0 ? (
         <div className="ad-card" style={{ textAlign: "center", padding: "48px 24px" }}>
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 400, margin: "0 auto" }}>Click <strong>+ Add Package</strong> to create a new package. Select components from your inventory to auto-calculate the total price. Active packages appear on the public <strong>/packages</strong> page.</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 450, margin: "0 auto" }}>Click <strong>+ Add Package</strong> to build a new solar package. Choose components from your <strong>Inventory</strong> tab, and the system will auto-calculate your system specs and total price. Active packages appear on the public <strong>/packages</strong> page.</div>
         </div>
       ) : (
         <div className="ad-pkg-mgr-grid">
@@ -2131,7 +2294,7 @@ export default function ASAdmin() {
     { id: "inquiries",  label: "Talk Inquiries" },
     { id: "quotations", label: "Quotations" },
     { id: "projects",    label: "Projects" },
-    { id: "components",  label: "Components" },
+    { id: "inventory",  label: "Inventory" },
     { id: "packages",    label: "Packages" },
     { id: "sections",   label: "Visibility" },
     { id: "hero",       label: "Hero" },
@@ -2179,7 +2342,7 @@ export default function ASAdmin() {
         {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
         {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
         {tab === "projects"    && <ProjectsManager   apiKey={apiKey} />}
-        {tab === "components"  && <ComponentsManager apiKey={apiKey} />}
+        {tab === "inventory"  && <ComponentsManager apiKey={apiKey} />}
         {tab === "packages"    && <PackagesManager   apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
         {tab === "hero"       && <HeroEditor apiKey={apiKey} />}
