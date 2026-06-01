@@ -31,6 +31,7 @@ import {
   adminUpdateQuotationProjectStatus,
   adminGetPackageInquiries,
   adminUpdatePackageInquiry,
+  adminDeletePackageInquiry,
   type ApiProject,
   type PackageInquiry,
   type ProjectInput,
@@ -1152,6 +1153,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [inquiries, setInquiries] = useState<PackageInquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [selectedInquiry, setSelectedInquiry] = useState<PackageInquiry | null>(null);
 
@@ -1187,6 +1189,21 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
       setMsg(`Failed to update: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
       setUpdating(null);
+    }
+  };
+
+  const deleteInquiry = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this inquiry? This action cannot be undone.")) return;
+    setDeleting(id);
+    try {
+      await adminDeletePackageInquiry(apiKey, id);
+      setMsg("✓ Inquiry deleted");
+      setSelectedInquiry(null);
+      await load();
+    } catch (e) {
+      setMsg(`Failed to delete: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -1466,7 +1483,34 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             </div>
 
             {/* Actions */}
-            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "20px", display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "20px", display: "flex", gap: "12px", justifyContent: "space-between" }}>
+              <button
+                onClick={() => void deleteInquiry(selectedInquiry.id)}
+                disabled={deleting === selectedInquiry.id}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "6px",
+                  border: "1px solid #ef4444",
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "#ef4444",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: deleting === selectedInquiry.id ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  opacity: deleting === selectedInquiry.id ? 0.6 : 1,
+                }}
+                onMouseEnter={(e) => {
+                  if (deleting !== selectedInquiry.id) {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                }}
+                title="Delete this inquiry permanently"
+              >
+                {deleting === selectedInquiry.id ? "Deleting..." : "Delete"}
+              </button>
               <button
                 onClick={() => setSelectedInquiry(null)}
                 style={{

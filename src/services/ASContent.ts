@@ -609,3 +609,13 @@ export async function adminUpdatePackageInquiry(apiKey: string, id: string, data
   if (!res.ok) throw new Error(`Update failed: ${res.status}`);
   return res.json();
 }
+
+export async function adminDeletePackageInquiry(apiKey: string, id: string) {
+  const res = await apiFetch(`${API_BASE}/admin/packages/inquiries/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
