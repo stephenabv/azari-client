@@ -10,26 +10,11 @@ type Props = {
   onClose: () => void;
 };
 
-const PANEL_KWP = 0.5;
-const BATTERY_KWH = 5.12;
-
 type FormState = { name: string; location: string; email: string; phone: string };
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-function pesoFmt(v: number) {
-  return `₱${v.toLocaleString("en-PH")}`;
-}
-
-function getComponents(pkg: ApiSolarPackage): string[] {
-  const panels = Math.max(1, Math.round(pkg.solarKwp / PANEL_KWP));
-  const batteries = pkg.storageKwh > 0 ? Math.max(1, Math.round(pkg.storageKwh / BATTERY_KWH)) : 0;
-  const sysType = pkg.storageKwh > 0 ? "Hybrid" : "Grid-Tied";
-  const list = [
-    `${panels}pcs ${(PANEL_KWP * 1000).toFixed(0)}W Solar Panel`,
-    `1pc ${pkg.inverterKw}kW ${sysType} Inverter`,
-  ];
-  if (batteries > 0) list.push(`${batteries}pc ${pkg.storageKwh}kWh Battery Pack`);
-  return list;
+function getSystemType(storageKwh: number): string {
+  return storageKwh > 0 ? "Hybrid" : "Grid-Tied";
 }
 
 function validate(f: FormState): FormErrors {
@@ -153,13 +138,26 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
 
             <div className="as-inq-success-pkg">
               <div className="as-inq-success-pkg-name">{pkg.name}</div>
-              <div className="as-inq-success-pkg-cap">{pkg.inverterKw} kW Load Capacity</div>
-              <div className="as-inq-success-pkg-savings">
-                Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
+              <div className="as-inq-success-pkg-specs">
+                <div className="as-inq-spec-item">
+                  <span className="as-inq-spec-label">Production:</span>
+                  <span className="as-inq-spec-value">{pkg.solarKwp} kWp</span>
+                </div>
+                <div className="as-inq-spec-item">
+                  <span className="as-inq-spec-label">Load Capacity:</span>
+                  <span className="as-inq-spec-value">{pkg.inverterKw} kW</span>
+                </div>
+                {pkg.storageKwh > 0 && (
+                  <div className="as-inq-spec-item">
+                    <span className="as-inq-spec-label">Storage:</span>
+                    <span className="as-inq-spec-value">{pkg.storageKwh} kWh</span>
+                  </div>
+                )}
+                <div className="as-inq-spec-item">
+                  <span className="as-inq-spec-label">System:</span>
+                  <span className="as-inq-spec-value">{getSystemType(pkg.storageKwh)}</span>
+                </div>
               </div>
-              <ul className="as-inq-success-components">
-                {getComponents(pkg).map(c => <li key={c}>{c}</li>)}
-              </ul>
             </div>
 
             <button type="button" className="as-inq-success-close-btn" onClick={handleClose}>
@@ -176,9 +174,10 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
               <div className="as-inq-pkg-summary">
                 <div className="as-inq-pkg-summary-label">System</div>
                 <div className="as-inq-pkg-summary-name">{pkg.name}</div>
-                <div className="as-inq-pkg-summary-cap">{pkg.inverterKw} kW Load Capacity</div>
-                <div className="as-inq-pkg-summary-savings">
-                  Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
+                <div className="as-inq-pkg-summary-specs">
+                  <div className="as-inq-summary-spec">☀️ {pkg.solarKwp} kWp</div>
+                  <div className="as-inq-summary-spec">⚡ {pkg.inverterKw} kW</div>
+                  {pkg.storageKwh > 0 && <div className="as-inq-summary-spec">🔋 {pkg.storageKwh} kWh</div>}
                 </div>
               </div>
             )}

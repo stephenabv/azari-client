@@ -218,9 +218,6 @@ function PackageCard({
           </div>
         )}
         <div className="as-pkg-size-label">{pkg.solarKwp} kWp System</div>
-        <div className="as-pkg-savings">
-          Approx. Monthly Saving: {pesoFmt(pkg.billRangeMin)} – {pesoFmt(pkg.billRangeMax)}
-        </div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
           onClick={onInquire}
@@ -268,7 +265,6 @@ function PackageCard({
             ["Load Capacity", `${pkg.inverterKw} kW`],
             ...(pkg.storageKwh > 0 ? [["Storage Capacity", `${pkg.storageKwh} kWh`]] : []),
             ...(priceToDisplay != null ? [["Total Price", pesoFmt(priceToDisplay)]] : []),
-            ["Suitable for Bills", `${pesoFmt(pkg.billRangeMin)} – ${pesoFmt(pkg.billRangeMax)}/mo`],
           ].map(([label, val]) => (
             <div key={label} className="as-pkg-detail-row">
               <span>{label}</span>

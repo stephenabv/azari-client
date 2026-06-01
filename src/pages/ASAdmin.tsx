@@ -1153,6 +1153,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [selectedInquiry, setSelectedInquiry] = useState<PackageInquiry | null>(null);
 
   useEffect(() => {
     void load();
@@ -1219,7 +1220,21 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
           <tbody>
             {inquiries.map((inq) => (
               <tr key={inq.id} style={{ borderBottom: "1px solid var(--ad-border)" }}>
-                <td style={{ padding: 12, fontSize: 13 }}>{inq.name}</td>
+                <td style={{ padding: 12, fontSize: 13 }}>
+                  <button
+                    onClick={() => setSelectedInquiry(inq)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--ad-primary, #fc615a)",
+                      cursor: "pointer",
+                      fontWeight: 500,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {inq.name}
+                  </button>
+                </td>
                 <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
                 <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
                 <td style={{ padding: 12, fontSize: 13 }}>{inq.packageDetails.inverterKw} kW</td>
@@ -1250,6 +1265,158 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {selectedInquiry && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={() => setSelectedInquiry(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--ad-bg)",
+              borderRadius: 12,
+              padding: 32,
+              maxWidth: 600,
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
+              border: "1px solid var(--ad-border)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Inquiry Details</h3>
+              <button
+                onClick={() => setSelectedInquiry(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 24,
+                  color: "var(--ad-text3)",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Name</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Email</div>
+                <div style={{ fontSize: 14, fontWeight: 500, wordBreak: "break-all" }}>{selectedInquiry.email}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Phone</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.phone}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Location</div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.location}</div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 20, marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Package Details</div>
+              <div style={{ background: "var(--ad-input-bg)", borderRadius: 8, padding: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "12px 16px", fontSize: 13 }}>
+                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Package Name:</div>
+                  <div>{selectedInquiry.packageName}</div>
+
+                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Production Capacity:</div>
+                  <div>{selectedInquiry.packageDetails.solarKwp} kWp</div>
+
+                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Load Capacity:</div>
+                  <div>{selectedInquiry.packageDetails.inverterKw} kW</div>
+
+                  {selectedInquiry.packageDetails.storageKwh > 0 && (
+                    <>
+                      <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Storage Capacity:</div>
+                      <div>{selectedInquiry.packageDetails.storageKwh} kWh</div>
+                    </>
+                  )}
+
+                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Phase:</div>
+                  <div>{selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+
+                  {selectedInquiry.packageDetails.totalPrice != null && (
+                    <>
+                      <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Total Price:</div>
+                      <div>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 20, marginBottom: 24 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Status & Timeline</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Current Status</div>
+                  <div style={{
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: selectedInquiry.status === "new" ? "rgba(59, 130, 246, 0.15)" : selectedInquiry.status === "contacted" ? "rgba(59, 130, 246, 0.15)" : "rgba(34, 197, 94, 0.15)",
+                    color: selectedInquiry.status === "new" ? "#3b82f6" : selectedInquiry.status === "contacted" ? "#3b82f6" : "#22c55e",
+                  }}>
+                    {selectedInquiry.status.charAt(0).toUpperCase() + selectedInquiry.status.slice(1)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Submitted</div>
+                  <div style={{ fontSize: 13 }}>{new Date(selectedInquiry.createdAt).toLocaleDateString()} {new Date(selectedInquiry.createdAt).toLocaleTimeString()}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setSelectedInquiry(null)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "1px solid var(--ad-border)",
+                  background: "var(--ad-input-bg)",
+                  color: "var(--ad-text)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
