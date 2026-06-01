@@ -544,3 +544,68 @@ export async function adminLoadDefaultComponents(apiKey: string, force = false) 
   }
   return res.json();
 }
+
+// ─── Package Inquiries API ────────────────────────────────────────────────────
+
+export interface PackageInquiry {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  packageId: string;
+  packageName: string;
+  packageDetails: {
+    solarKwp: number;
+    inverterKw: number;
+    storageKwh: number;
+    phase: string;
+    billRangeMin: number;
+    billRangeMax: number;
+    totalPrice: number | null;
+  };
+  status: 'new' | 'contacted' | 'converted';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function submitPackageInquiry(data: {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  packageId: string;
+  packageName: string;
+  packageDetails: PackageInquiry['packageDetails'];
+}) {
+  const res = await apiFetch(`${API_BASE}/packages/inquiries`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Submit failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminGetPackageInquiries(apiKey: string) {
+  const res = await apiFetch(`${API_BASE}/admin/packages/inquiries`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load inquiries: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: PackageInquiry[] };
+}
+
+export async function adminUpdatePackageInquiry(apiKey: string, id: string, data: Partial<Pick<PackageInquiry, 'status'>>) {
+  const res = await apiFetch(`${API_BASE}/admin/packages/inquiries/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  return res.json();
+}

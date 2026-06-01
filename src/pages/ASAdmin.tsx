@@ -29,7 +29,10 @@ import {
   adminDeleteComponent,
   adminUpdateTalkProjectStatus,
   adminUpdateQuotationProjectStatus,
+  adminGetPackageInquiries,
+  adminUpdatePackageInquiry,
   type ApiProject,
+  type PackageInquiry,
   type ProjectInput,
   type ProjectCategory as ApiProjectCategory,
   type ApiSolarPackage,
@@ -40,7 +43,7 @@ import {
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
-  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "sections"
+  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "sections"
   | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
@@ -1142,6 +1145,115 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
 }
 
 // ─── PackagesManager ──────────────────────────────────────────────────────────
+
+// ─── PackageInquiriesManager ──────────────────────────────────────────────────
+
+function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
+  const [inquiries, setInquiries] = useState<PackageInquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    if (!msg) return;
+    const timeout = setTimeout(() => setMsg(""), msg.startsWith("✓") ? 1500 : 3000);
+    return () => clearTimeout(timeout);
+  }, [msg]);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await adminGetPackageInquiries(apiKey);
+      setInquiries(res.data);
+    } catch (e) {
+      setMsg(`Failed to load inquiries: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateStatus = async (id: string, status: PackageInquiry['status']) => {
+    setUpdating(id);
+    try {
+      await adminUpdatePackageInquiry(apiKey, id, { status });
+      setMsg("✓ Status updated");
+      await load();
+    } catch (e) {
+      setMsg(`Failed to update: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="ad-section-header">
+        <div>
+          <div className="ad-section-title">Package Inquiries</div>
+          <div className="ad-section-sub">{loading ? "Loading…" : `${inquiries.length} total inquiries from package page`}</div>
+        </div>
+      </div>
+
+      {msg && <Toast msg={msg} />}
+
+      {loading ? (
+        <div style={{ padding: 20, color: "var(--ad-text3)" }}>Loading inquiries...</div>
+      ) : inquiries.length === 0 ? (
+        <div style={{ padding: 20, color: "var(--ad-text3)" }}>No inquiries yet</div>
+      ) : (
+        <table className="ad-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid var(--ad-border)" }}>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Name</th>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Email</th>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Package</th>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Capacity</th>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Status</th>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inquiries.map((inq) => (
+              <tr key={inq.id} style={{ borderBottom: "1px solid var(--ad-border)" }}>
+                <td style={{ padding: 12, fontSize: 13 }}>{inq.name}</td>
+                <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
+                <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
+                <td style={{ padding: 12, fontSize: 13 }}>{inq.packageDetails.inverterKw} kW</td>
+                <td style={{ padding: 12 }}>
+                  <select
+                    value={inq.status}
+                    onChange={(e) => void updateStatus(inq.id, e.target.value as PackageInquiry['status'])}
+                    disabled={updating === inq.id}
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: 4,
+                      border: "1px solid var(--ad-border)",
+                      background: "var(--ad-input-bg)",
+                      color: "var(--ad-text)",
+                      fontSize: 12,
+                      cursor: updating === inq.id ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="converted">Converted</option>
+                  </select>
+                </td>
+                <td style={{ padding: 12, fontSize: 12, color: "var(--ad-text3)" }}>
+                  {new Date(inq.createdAt).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 function PackagesManager({ apiKey }: { apiKey: string }) {
   const [packages, setPackages]       = useState<ApiSolarPackage[]>([]);
@@ -2296,6 +2408,7 @@ export default function ASAdmin() {
     { id: "projects",    label: "Projects" },
     { id: "inventory",  label: "Inventory" },
     { id: "packages",    label: "Packages" },
+    { id: "package-inquiries", label: "Package Inquiries" },
     { id: "sections",   label: "Visibility" },
     { id: "hero",       label: "Hero" },
     { id: "metrics",    label: "Metrics" },
@@ -2344,6 +2457,7 @@ export default function ASAdmin() {
         {tab === "projects"    && <ProjectsManager   apiKey={apiKey} />}
         {tab === "inventory"  && <ComponentsManager apiKey={apiKey} />}
         {tab === "packages"    && <PackagesManager   apiKey={apiKey} />}
+        {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
         {tab === "hero"       && <HeroEditor apiKey={apiKey} />}
         {tab === "metrics"    && <MetricsEditor apiKey={apiKey} />}

@@ -332,7 +332,9 @@ export default function ASPackages() {
     const style = document.createElement("style");
     style.textContent = ctaMobileStyles;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
   }, []);
 
   const [phase, setPhase] = useState<Phase>("single");

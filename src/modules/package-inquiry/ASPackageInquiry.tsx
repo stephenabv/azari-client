@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ApiSolarPackage } from "../../services/ASContent";
+import { submitPackageInquiry } from "../../services/ASContent";
 import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
 
 type Props = {
@@ -97,24 +98,26 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
     setIsSubmitting(true);
     setSubmitError("");
     try {
-      const res = await fetch("/api/talk/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          phone: `+63${form.phone.trim()}`,
-          city: form.location.trim(),
-          province: "",
-          inquiryType: "quote",
-          message: `Package Inquiry — ${pkg.name}\nLoad Capacity: ${pkg.inverterKw} kW\nMonthly Savings: ${pesoFmt(pkg.billRangeMin)} – ${pesoFmt(pkg.billRangeMax)}/mo`,
-        }),
+      await submitPackageInquiry({
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        phone: `+63${form.phone.trim()}`,
+        location: form.location.trim(),
+        packageId: pkg.id,
+        packageName: pkg.name,
+        packageDetails: {
+          solarKwp: pkg.solarKwp,
+          inverterKw: pkg.inverterKw,
+          storageKwh: pkg.storageKwh,
+          phase: pkg.phase,
+          billRangeMin: pkg.billRangeMin,
+          billRangeMax: pkg.billRangeMax,
+          totalPrice: pkg.totalPrice,
+        },
       });
-      const data = await res.json().catch(() => null) as { success?: boolean; message?: string } | null;
-      if (!res.ok || data?.success === false) { setSubmitError(data?.message ?? "Something went wrong. Please try again."); return; }
       setSuccess(true);
-    } catch {
-      setSubmitError("Network error. Please try again.");
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
