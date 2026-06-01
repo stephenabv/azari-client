@@ -60,12 +60,19 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
 };
 
 interface Stats {
-  totals: { talkInquiries: number; quotations: number };
-  talkInquiries: { byStatus: Record<string, number> };
-  quotations: { byStatus: Record<string, number> };
+  totals: { talkInquiries: number; quotations: number; packageInquiries: number; activePackages: number; activeComponents: number; projects: number };
+  talkInquiries: { byStatus: Record<string, number>; byType: Record<string, number> };
+  quotations: { byStatus: Record<string, number>; byMode: Record<string, number> };
+  packageInquiries: { byStatus: Record<string, number> };
+  trend30d: {
+    talk: Array<{ day: string; count: number }>;
+    quotations: Array<{ day: string; count: number }>;
+    packages: Array<{ day: string; count: number }>;
+  };
   recent: {
     talkInquiries: Array<{ id: string; name: string; email: string; inquiryType: string; status: string; createdAt: string }>;
     quotations: Array<{ id: string; fullName: string; email: string; estimatedSystemSizeDisplayText: string; status: string; createdAt: string }>;
+    packageInquiries: Array<{ id: string; name: string; email: string; packageName: string; status: string; createdAt: string }>;
   };
 }
 
@@ -155,18 +162,58 @@ function LoginScreen({ onLogin, error }: { onLogin: (key: string) => void; error
   );
 }
 
+function MiniBarChart({ data, color, label }: { data: Array<{ day: string; count: number }>; color: string; label: string }) {
+  const maxCount = Math.max(1, ...data.map(d => d.count));
+  const barHeight = 40;
+  const barWidth = Math.max(2, 360 / Math.max(1, data.length));
+  const today = new Date().toISOString().split('T')[0];
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text)", marginBottom: 8 }}>{label}</div>
+      <svg width="100%" height="80" viewBox="0 0 380 80" style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: 8, background: "var(--ad-input-bg)" }}>
+        {data.map((d, i) => {
+          const normalizedHeight = (d.count / maxCount) * barHeight;
+          const x = i * barWidth + 2;
+          const y = 60 - normalizedHeight;
+          const isToday = d.day === today;
+          return (
+            <g key={d.day}>
+              <rect x={x} y={y} width={Math.max(1, barWidth - 1)} height={normalizedHeight} fill={isToday ? color : `${color}80`} rx="2" />
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function OverviewTab({ stats }: { stats: Stats | null }) {
   if (!stats) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading stats…</div>;
-  const talkCounts = stats.talkInquiries.byStatus;
-  const quotCounts = stats.quotations.byStatus;
+
+  const emailFailures = (stats.talkInquiries.byStatus.email_failed ?? 0) + (stats.quotations.byStatus.email_failed ?? 0);
+  const contacted = stats.packageInquiries.byStatus.contacted ?? 0;
+  const converted = stats.packageInquiries.byStatus.converted ?? 0;
+  const newPkgs = stats.packageInquiries.byStatus.new ?? 0;
+  const pkgConversionRate = (contacted + converted) > 0 ? Math.round((converted / (newPkgs + contacted + converted)) * 100) : 0;
+
+  const recentAll = [
+    ...stats.recent.talkInquiries.map(r => ({ type: "TALK", name: r.name, email: r.email, meta: r.inquiryType, status: r.status, date: r.createdAt })),
+    ...stats.recent.quotations.map(r => ({ type: "QUOTE", name: r.fullName, email: r.email, meta: r.estimatedSystemSizeDisplayText, status: r.status, date: r.createdAt })),
+    ...stats.recent.packageInquiries.map(r => ({ type: "PKG", name: r.name, email: r.email, meta: r.packageName, status: r.status, date: r.createdAt }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   return (
     <div>
+      {/* Stat Cards */}
       <div className="ad-stats-grid">
         {[
-          { label: "Total Inquiries", value: stats.totals.talkInquiries, cls: "is-accent" },
-          { label: "Total Quotations", value: stats.totals.quotations, cls: "" },
-          { label: "Email Failures (Talk)", value: talkCounts.email_failed ?? 0, cls: "is-danger" },
-          { label: "Email Failures (Quot.)", value: quotCounts.email_failed ?? 0, cls: "is-danger" },
+          { label: "Talk Inquiries", value: stats.totals.talkInquiries, cls: "is-accent" },
+          { label: "Quotations", value: stats.totals.quotations, cls: "" },
+          { label: "Package Inquiries", value: stats.totals.packageInquiries, cls: "is-accent" },
+          { label: "Active Packages", value: stats.totals.activePackages, cls: "" },
+          { label: "Projects", value: stats.totals.projects, cls: "" },
+          { label: "Email Failures", value: emailFailures, cls: emailFailures > 0 ? "is-danger" : "" },
         ].map((card) => (
           <div key={card.label} className="ad-stat-card">
             <div className="ad-stat-label">{card.label}</div>
@@ -174,28 +221,95 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
           </div>
         ))}
       </div>
-      <div className="ad-recent-grid">
-        <div className="ad-card">
-          <div className="ad-card-title">Recent Inquiries</div>
-          {stats.recent.talkInquiries.map((r) => (
-            <div key={r.id} className="ad-recent-row">
-              <div className="ad-recent-name">{r.name}</div>
-              <div className="ad-recent-meta">{r.email} · {r.inquiryType}</div>
-              <div className="ad-recent-footer">
-                <span className="ad-recent-date">{fmt(r.createdAt)}</span>
-                <StatusBadge status={r.status} />
-              </div>
-            </div>
-          ))}
+
+      {/* 30-Day Activity Chart */}
+      <div className="ad-card" style={{ marginTop: 24, padding: "20px" }}>
+        <div className="ad-card-title">30-Day Activity</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginTop: 20 }}>
+          <MiniBarChart data={stats.trend30d.talk} color="#3b82f6" label="Talk Inquiries" />
+          <MiniBarChart data={stats.trend30d.quotations} color="#f59e0b" label="Quotations" />
+          <MiniBarChart data={stats.trend30d.packages} color="#22c55e" label="Package Inquiries" />
         </div>
+      </div>
+
+      {/* Breakdowns */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginTop: 24 }}>
+        {/* Talk by Type */}
         <div className="ad-card">
-          <div className="ad-card-title">Recent Quotations</div>
-          {stats.recent.quotations.map((r) => (
-            <div key={r.id} className="ad-recent-row">
-              <div className="ad-recent-name">{r.fullName}</div>
-              <div className="ad-recent-meta">{r.email} · {r.estimatedSystemSizeDisplayText}</div>
+          <div className="ad-card-title">Talk Inquiries by Type</div>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            {Object.entries(stats.talkInquiries.byType).map(([type, count]) => {
+              const total = stats.totals.talkInquiries || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={type}>
+                  <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 4 }}>{type} ({count})</div>
+                  <div style={{ height: 6, background: "var(--ad-border)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: "#3b82f6" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Quotations by Mode */}
+        <div className="ad-card">
+          <div className="ad-card-title">Quotations by Mode</div>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            {Object.entries(stats.quotations.byMode).map(([mode, count]) => {
+              const total = stats.totals.quotations || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={mode}>
+                  <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 4 }}>{mode === "with_bill" ? "With Bill" : "No Bill"} ({count})</div>
+                  <div style={{ height: 6, background: "var(--ad-border)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: "#f59e0b" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Package Inquiry Funnel */}
+        <div className="ad-card">
+          <div className="ad-card-title">Package Inquiry Funnel</div>
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            {["new", "contacted", "converted"].map((stage) => {
+              const count = stats.packageInquiries.byStatus[stage] ?? 0;
+              const total = stats.totals.packageInquiries || 1;
+              const pct = Math.round((count / total) * 100);
+              return (
+                <div key={stage}>
+                  <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 4 }}>
+                    {stage.charAt(0).toUpperCase() + stage.slice(1)} ({count}) {stage === "converted" && `${pkgConversionRate}%`}
+                  </div>
+                  <div style={{ height: 6, background: "var(--ad-border)", borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: "#22c55e" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="ad-card" style={{ marginTop: 24 }}>
+        <div className="ad-card-title">Recent Activity (All Sources)</div>
+        <div style={{ marginTop: 16 }}>
+          {recentAll.slice(0, 10).map((r, i) => (
+            <div key={i} className="ad-recent-row">
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flex: 1 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: r.type === "TALK" ? "#3b82f6" : r.type === "QUOTE" ? "#f59e0b" : "#22c55e", color: "white", minWidth: 40 }}>{r.type}</span>
+                <div style={{ flex: 1 }}>
+                  <div className="ad-recent-name">{r.name}</div>
+                  <div className="ad-recent-meta">{r.email} · {r.meta}</div>
+                </div>
+              </div>
               <div className="ad-recent-footer">
-                <span className="ad-recent-date">{fmt(r.createdAt)}</span>
+                <span className="ad-recent-date">{fmt(r.date)}</span>
                 <StatusBadge status={r.status} />
               </div>
             </div>

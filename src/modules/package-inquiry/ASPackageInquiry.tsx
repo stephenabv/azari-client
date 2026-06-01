@@ -13,10 +13,6 @@ type Props = {
 type FormState = { name: string; location: string; email: string; phone: string };
 type FormErrors = Partial<Record<keyof FormState, string>>;
 
-function getSystemType(storageKwh: number): string {
-  return storageKwh > 0 ? "Hybrid" : "Grid-Tied";
-}
-
 function validate(f: FormState): FormErrors {
   const e: FormErrors = {};
   if (!f.name.trim()) e.name = "Name is required.";
@@ -138,26 +134,15 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
 
             <div className="as-inq-success-pkg">
               <div className="as-inq-success-pkg-name">{pkg.name}</div>
-              <div className="as-inq-success-pkg-specs">
-                <div className="as-inq-spec-item">
-                  <span className="as-inq-spec-label">Production:</span>
-                  <span className="as-inq-spec-value">{pkg.solarKwp} kWp</span>
-                </div>
-                <div className="as-inq-spec-item">
-                  <span className="as-inq-spec-label">Load Capacity:</span>
-                  <span className="as-inq-spec-value">{pkg.inverterKw} kW</span>
-                </div>
-                {pkg.storageKwh > 0 && (
-                  <div className="as-inq-spec-item">
-                    <span className="as-inq-spec-label">Storage:</span>
-                    <span className="as-inq-spec-value">{pkg.storageKwh} kWh</span>
-                  </div>
-                )}
-                <div className="as-inq-spec-item">
-                  <span className="as-inq-spec-label">System:</span>
-                  <span className="as-inq-spec-value">{getSystemType(pkg.storageKwh)}</span>
-                </div>
-              </div>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>Load Capacity: {pkg.inverterKw} kW</div>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>Approx. Monthly Saving: ₱{pkg.billRangeMin.toLocaleString()} – ₱{pkg.billRangeMax.toLocaleString()}</div>
+              {pkg.components && pkg.components.length > 0 && (
+                <ul style={{ marginLeft: 20, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  {pkg.components.map((pc) => (
+                    <li key={pc.id}>{pc.quantity}pc{pc.quantity > 1 ? 's' : ''} {pc.component.brand} {pc.component.name}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <button type="button" className="as-inq-success-close-btn" onClick={handleClose}>
@@ -166,6 +151,7 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
           </div>
         ) : (
           <div className="as-inq-form-panel">
+            <h2 style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Inquire this System</h2>
             <p className="as-inq-intro">
               You're almost there! Provide your details below. Our team will reach out to schedule your free site assessment.
             </p>
@@ -174,11 +160,8 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
               <div className="as-inq-pkg-summary">
                 <div className="as-inq-pkg-summary-label">System</div>
                 <div className="as-inq-pkg-summary-name">{pkg.name}</div>
-                <div className="as-inq-pkg-summary-specs">
-                  <div className="as-inq-summary-spec">☀️ {pkg.solarKwp} kWp</div>
-                  <div className="as-inq-summary-spec">⚡ {pkg.inverterKw} kW</div>
-                  {pkg.storageKwh > 0 && <div className="as-inq-summary-spec">🔋 {pkg.storageKwh} kWh</div>}
-                </div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Load Capacity: {pkg.inverterKw} kW</div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Approx. Monthly Saving: ₱{pkg.billRangeMin.toLocaleString()} – ₱{pkg.billRangeMax.toLocaleString()}</div>
               </div>
             )}
 
@@ -242,12 +225,43 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
               We value your privacy. Your information is only used for your solar assessment &amp; inquiries.
             </p>
 
-            <div className="as-inq-actions">
+            <div className="as-inq-actions" style={{ display: "flex", gap: 12, marginTop: 24 }}>
+              <button
+                type="button"
+                onClick={handleClose}
+                style={{
+                  flex: 1,
+                  padding: "14px 24px",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 8,
+                  background: "transparent",
+                  color: "var(--text-primary)",
+                  fontSize: 16,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.2s"
+                }}
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 className="as-inq-submit-btn"
                 onClick={() => void handleSubmit()}
                 disabled={isSubmitting}
+                style={{
+                  flex: 1,
+                  padding: "14px 24px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: "#ff6b5b",
+                  color: "white",
+                  fontSize: 16,
+                  fontWeight: 500,
+                  cursor: isSubmitting ? "not-allowed" : "pointer",
+                  opacity: isSubmitting ? 0.7 : 1,
+                  transition: "all 0.2s"
+                }}
               >
                 {isSubmitting ? "Submitting…" : "Submit Inquiry"}
               </button>
