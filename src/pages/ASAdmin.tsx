@@ -1195,7 +1195,29 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Package Inquiries</div>
-          <div className="ad-section-sub">{loading ? "Loading…" : `${inquiries.length} total inquiries from package page`}</div>
+          <div className="ad-section-sub">
+            {loading ? "Loading…" : (
+              <>
+                <span>{inquiries.length} total inquiries</span>
+                {inquiries.length > 0 && (
+                  <>
+                    <span style={{ margin: "0 12px", color: "var(--ad-border)" }}>•</span>
+                    <span>
+                      {inquiries.filter(i => i.status === 'new').length} New
+                    </span>
+                    <span style={{ margin: "0 8px", color: "var(--ad-border)" }}>•</span>
+                    <span>
+                      {inquiries.filter(i => i.status === 'contacted').length} Contacted
+                    </span>
+                    <span style={{ margin: "0 8px", color: "var(--ad-border)" }}>•</span>
+                    <span>
+                      {inquiries.filter(i => i.status === 'converted').length} Converted
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1209,6 +1231,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
         <table className="ad-table" style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--ad-border)" }}>
+              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Reference</th>
               <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Name</th>
               <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Email</th>
               <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Package</th>
@@ -1218,51 +1241,57 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             </tr>
           </thead>
           <tbody>
-            {inquiries.map((inq) => (
-              <tr key={inq.id} style={{ borderBottom: "1px solid var(--ad-border)" }}>
-                <td style={{ padding: 12, fontSize: 13 }}>
-                  <button
-                    onClick={() => setSelectedInquiry(inq)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--ad-primary, #fc615a)",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                      textDecoration: "underline",
-                    }}
-                  >
-                    {inq.name}
-                  </button>
-                </td>
-                <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
-                <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
-                <td style={{ padding: 12, fontSize: 13 }}>{inq.packageDetails.inverterKw} kW</td>
-                <td style={{ padding: 12 }}>
-                  <select
-                    value={inq.status}
-                    onChange={(e) => void updateStatus(inq.id, e.target.value as PackageInquiry['status'])}
-                    disabled={updating === inq.id}
-                    style={{
-                      padding: "6px 8px",
-                      borderRadius: 4,
-                      border: "1px solid var(--ad-border)",
-                      background: "var(--ad-input-bg)",
-                      color: "var(--ad-text)",
-                      fontSize: 12,
-                      cursor: updating === inq.id ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="converted">Converted</option>
-                  </select>
-                </td>
-                <td style={{ padding: 12, fontSize: 12, color: "var(--ad-text3)" }}>
-                  {new Date(inq.createdAt).toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
+            {inquiries.map((inq) => {
+              const ref = `PKG-INQ-${inq.id.slice(0, 8).toUpperCase()}`;
+              return (
+                <tr key={inq.id} style={{ borderBottom: "1px solid var(--ad-border)" }}>
+                  <td style={{ padding: 12, fontSize: 13, fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>
+                    {ref}
+                  </td>
+                  <td style={{ padding: 12, fontSize: 13 }}>
+                    <button
+                      onClick={() => setSelectedInquiry(inq)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--ad-primary, #fc615a)",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {inq.name}
+                    </button>
+                  </td>
+                  <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
+                  <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
+                  <td style={{ padding: 12, fontSize: 13 }}>{inq.packageDetails.inverterKw} kW</td>
+                  <td style={{ padding: 12 }}>
+                    <select
+                      value={inq.status}
+                      onChange={(e) => void updateStatus(inq.id, e.target.value as PackageInquiry['status'])}
+                      disabled={updating === inq.id}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 4,
+                        border: "1px solid var(--ad-border)",
+                        background: "var(--ad-input-bg)",
+                        color: "var(--ad-text)",
+                        fontSize: 12,
+                        cursor: updating === inq.id ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="converted">Converted</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: 12, fontSize: 12, color: "var(--ad-text3)" }}>
+                    {new Date(inq.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -1280,7 +1309,8 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
-            padding: 16,
+            padding: "16px",
+            overflowY: "auto",
           }}
           onClick={() => setSelectedInquiry(null)}
         >
@@ -1288,9 +1318,9 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "var(--ad-bg)",
-              borderRadius: 12,
-              padding: 32,
-              maxWidth: 600,
+              borderRadius: "12px",
+              padding: "32px",
+              maxWidth: "700px",
               width: "100%",
               maxHeight: "90vh",
               overflowY: "auto",
@@ -1303,113 +1333,158 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: 24,
+                marginBottom: "28px",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Inquiry Details</h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Inquiry Details</h3>
+                <div style={{ fontSize: "12px", color: "var(--ad-text3)", marginTop: "4px", fontWeight: 600 }}>
+                  PKG-INQ-{selectedInquiry.id.slice(0, 8).toUpperCase()}
+                </div>
+              </div>
               <button
                 onClick={() => setSelectedInquiry(null)}
                 style={{
                   background: "none",
                   border: "none",
-                  fontSize: 24,
+                  fontSize: "28px",
                   color: "var(--ad-text3)",
                   cursor: "pointer",
+                  padding: "0",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 ×
               </button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Name</div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.name}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Email</div>
-                <div style={{ fontSize: 14, fontWeight: 500, wordBreak: "break-all" }}>{selectedInquiry.email}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Phone</div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.phone}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Location</div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{selectedInquiry.location}</div>
+            {/* Contact Information Section */}
+            <div style={{ marginBottom: "28px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Contact Information</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
+                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Full Name</div>
+                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.name}</div>
+                </div>
+                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Email Address</div>
+                  <div style={{ fontSize: "14px", fontWeight: 500, wordBreak: "break-all" }}>{selectedInquiry.email}</div>
+                </div>
+                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Phone Number</div>
+                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.phone}</div>
+                </div>
+                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Location</div>
+                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.location}</div>
+                </div>
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 20, marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Package Details</div>
-              <div style={{ background: "var(--ad-input-bg)", borderRadius: 8, padding: 16 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "12px 16px", fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Package Name:</div>
-                  <div>{selectedInquiry.packageName}</div>
-
-                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Production Capacity:</div>
-                  <div>{selectedInquiry.packageDetails.solarKwp} kWp</div>
-
-                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Load Capacity:</div>
-                  <div>{selectedInquiry.packageDetails.inverterKw} kW</div>
-
+            {/* Package Details Section */}
+            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>System Specifications</div>
+              <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "16px" }}>
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Package Name</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageName}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Production</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.solarKwp} kWp</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Load Capacity</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.inverterKw} kW</div>
+                  </div>
                   {selectedInquiry.packageDetails.storageKwh > 0 && (
-                    <>
-                      <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Storage Capacity:</div>
-                      <div>{selectedInquiry.packageDetails.storageKwh} kWh</div>
-                    </>
+                    <div>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Storage</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.storageKwh} kWh</div>
+                    </div>
                   )}
-
-                  <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Phase:</div>
-                  <div>{selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Phase Type</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+                  </div>
                   {selectedInquiry.packageDetails.totalPrice != null && (
-                    <>
-                      <div style={{ fontWeight: 600, color: "var(--ad-text3)" }}>Total Price:</div>
-                      <div>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
-                    </>
+                    <div>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Total Price</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 20, marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Status & Timeline</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {/* Status & Timeline Section */}
+            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Status & Timeline</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Current Status</div>
-                  <div style={{
-                    display: "inline-block",
-                    padding: "4px 12px",
-                    borderRadius: 6,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: selectedInquiry.status === "new" ? "rgba(59, 130, 246, 0.15)" : selectedInquiry.status === "contacted" ? "rgba(59, 130, 246, 0.15)" : "rgba(34, 197, 94, 0.15)",
-                    color: selectedInquiry.status === "new" ? "#3b82f6" : selectedInquiry.status === "contacted" ? "#3b82f6" : "#22c55e",
-                  }}>
-                    {selectedInquiry.status.charAt(0).toUpperCase() + selectedInquiry.status.slice(1)}
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Current Status</div>
+                  <select
+                    value={selectedInquiry.status}
+                    onChange={(e) => void updateStatus(selectedInquiry.id, e.target.value as PackageInquiry['status'])}
+                    disabled={updating === selectedInquiry.id}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--ad-border)",
+                      background: "var(--ad-bg)",
+                      color: "var(--ad-text)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      cursor: updating === selectedInquiry.id ? "not-allowed" : "pointer",
+                      opacity: updating === selectedInquiry.id ? 0.6 : 1,
+                    }}
+                  >
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="converted">Converted</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Submitted On</div>
+                  <div style={{ fontSize: "13px", padding: "8px 0" }}>
+                    {new Date(selectedInquiry.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Submitted</div>
-                  <div style={{ fontSize: 13 }}>{new Date(selectedInquiry.createdAt).toLocaleDateString()} {new Date(selectedInquiry.createdAt).toLocaleTimeString()}</div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Time</div>
+                  <div style={{ fontSize: "13px", padding: "8px 0" }}>
+                    {new Date(selectedInquiry.createdAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+            {/* Actions */}
+            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "20px", display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button
                 onClick={() => setSelectedInquiry(null)}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: 6,
+                  padding: "10px 20px",
+                  borderRadius: "6px",
                   border: "1px solid var(--ad-border)",
                   background: "var(--ad-input-bg)",
                   color: "var(--ad-text)",
-                  fontSize: 13,
+                  fontSize: "13px",
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--ad-border)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--ad-input-bg)";
                 }}
               >
                 Close

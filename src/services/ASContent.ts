@@ -600,8 +600,8 @@ export async function adminGetPackageInquiries(apiKey: string) {
 }
 
 export async function adminUpdatePackageInquiry(apiKey: string, id: string, data: Partial<Pick<PackageInquiry, 'status'>>) {
-  const res = await apiFetch(`${API_BASE}/admin/packages/inquiries/${id}`, {
-    method: 'PUT',
+  const res = await apiFetch(`${API_BASE}/admin/packages/inquiries/${id}/status`, {
+    method: 'PATCH',
     headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(data)
   });
