@@ -37,7 +37,7 @@
   }
 
   &.is-success {
-    background: #181818;
+    background: #161616;
   }
 }
 
@@ -72,8 +72,17 @@
   gap: 0;
 }
 
+.as-inq-title {
+  font-family: "Outfit", sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
 .as-inq-intro {
-  font-family: "Inter", sans-serif;
+  font-family: "Outfit", sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.6);
@@ -87,28 +96,66 @@
 }
 
 .as-inq-pkg-summary-label {
-  font-family: "Inter", sans-serif;
-  font-size: 13px;
+  font-family: "Outfit", sans-serif;
+  font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 8px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 6px;
 }
 
 .as-inq-pkg-summary-name {
   font-family: "Outfit", sans-serif;
   font-size: 22px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.28);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
   letter-spacing: -0.01em;
-  margin-bottom: 4px;
+  margin-bottom: 10px;
 }
 
 .as-inq-pkg-summary-cap,
 .as-inq-pkg-summary-savings {
-  font-family: "Inter", sans-serif;
+  font-family: "Outfit", sans-serif;
   font-size: 13.5px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.6;
+}
+
+// Spec detail rows used in summary and success panels
+.as-inq-detail-phase {
+  font-family: "Outfit", sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.38);
+  margin-bottom: 8px;
+}
+
+.as-inq-detail-row {
+  font-family: "Outfit", sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  margin-bottom: 2px;
+}
+
+// Cancel button (paired with submit)
+.as-inq-cancel-btn {
+  flex: 1;
+  padding: 14px 24px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "Outfit", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
 }
 
 .as-inq-field {
@@ -217,20 +264,21 @@
 
 .as-inq-actions {
   display: flex;
-  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
 }
 
 .as-inq-submit-btn {
-  padding: 14px 32px;
+  flex: 1;
+  padding: 14px 24px;
   border-radius: 10px;
   border: none;
   background: #fc615a;
   color: #ffffff;
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
+  font-family: "Outfit", sans-serif;
+  font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  min-width: 180px;
   transition: background 0.18s ease, transform 0.18s ease;
 
   &:hover:not(:disabled) {
@@ -262,33 +310,34 @@
   align-items: center;
   justify-content: center;
   margin-bottom: 4px;
-  box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.14);
+  flex-shrink: 0;
 }
 
 .as-inq-success-title {
   font-family: "Outfit", sans-serif;
   font-size: 26px;
   font-weight: 700;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0;
   letter-spacing: -0.02em;
 }
 
 .as-inq-success-desc {
-  font-family: "Inter", sans-serif;
+  font-family: "Outfit", sans-serif;
   font-size: 14px;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.48);
   max-width: 340px;
   margin: 0;
 }
 
 .as-inq-success-pkg {
   width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
   padding: 18px 20px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   text-align: left;
   margin: 4px 0;
 }
@@ -297,32 +346,44 @@
   font-family: "Outfit", sans-serif;
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
-  margin-bottom: 4px;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 10px;
   letter-spacing: -0.01em;
 }
 
-.as-inq-success-pkg-cap,
-.as-inq-success-pkg-savings {
-  font-family: "Inter", sans-serif;
+.as-inq-success-detail-phase {
+  font-family: "Outfit", sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 10px;
+}
+
+.as-inq-success-detail-row {
+  font-family: "Outfit", sans-serif;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
-  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.52);
+  line-height: 1.65;
+  margin-bottom: 2px;
 }
 
 .as-inq-success-components {
   list-style: none;
   padding: 0;
   margin: 12px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 5px;
 
   li {
-    font-family: "Inter", sans-serif;
+    font-family: "Outfit", sans-serif;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
-    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.58);
+    line-height: 1.45;
     padding-left: 14px;
     position: relative;
 
@@ -330,7 +391,7 @@
       content: "•";
       position: absolute;
       left: 0;
-      color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.25);
     }
   }
 }
@@ -340,10 +401,10 @@
   max-width: 280px;
   padding: 13px 24px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.8);
-  font-family: "Inter", sans-serif;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: "Outfit", sans-serif;
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
@@ -351,7 +412,7 @@
 
   &:hover {
     background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.28);
+    border-color: rgba(255, 255, 255, 0.25);
   }
 }
 
@@ -410,8 +471,9 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.14);
 
     &.is-success {
-      background: #181818;
-      border-color: rgba(255, 255, 255, 0.1);
+      background: #f8faf8;
+      border-color: rgba(0, 0, 0, 0.08);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
     }
   }
 
@@ -423,8 +485,61 @@
     }
   }
 
+  // Success screen light-mode overrides
+  .as-inq-success-title {
+    color: rgba(0, 0, 0, 0.88);
+  }
+
+  .as-inq-success-desc {
+    color: rgba(0, 0, 0, 0.5);
+  }
+
+  .as-inq-success-pkg {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .as-inq-success-pkg-name {
+    color: rgba(0, 0, 0, 0.88);
+  }
+
+  .as-inq-success-detail-phase {
+    color: rgba(0, 0, 0, 0.36);
+  }
+
+  .as-inq-success-detail-row {
+    color: rgba(0, 0, 0, 0.58);
+  }
+
+  .as-inq-success-components {
+    border-top-color: rgba(0, 0, 0, 0.07);
+
+    li {
+      color: rgba(0, 0, 0, 0.62);
+
+      &::before {
+        color: rgba(0, 0, 0, 0.25);
+      }
+    }
+  }
+
+  .as-inq-success-close-btn {
+    border-color: rgba(0, 0, 0, 0.14);
+    background: rgba(0, 0, 0, 0.03);
+    color: rgba(0, 0, 0, 0.65);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.07);
+      border-color: rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  .as-inq-title {
+    color: rgba(0, 0, 0, 0.88);
+  }
+
   .as-inq-intro {
-    color: rgba(0, 0, 0, 0.6);
+    color: rgba(0, 0, 0, 0.55);
   }
 
   .as-inq-pkg-summary {
@@ -432,11 +547,11 @@
   }
 
   .as-inq-pkg-summary-label {
-    color: #111111;
+    color: rgba(0, 0, 0, 0.45);
   }
 
   .as-inq-pkg-summary-name {
-    color: rgba(0, 0, 0, 0.28);
+    color: rgba(0, 0, 0, 0.85);
   }
 
   .as-inq-pkg-summary-cap,
@@ -444,13 +559,21 @@
     color: rgba(0, 0, 0, 0.5);
   }
 
+  .as-inq-detail-phase {
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  .as-inq-detail-row {
+    color: rgba(0, 0, 0, 0.6);
+  }
+
   .as-inq-label {
-    color: #111111;
+    color: rgba(0, 0, 0, 0.85);
   }
 
   .as-inq-input {
     border-bottom-color: rgba(0, 0, 0, 0.16);
-    color: #111111;
+    color: rgba(0, 0, 0, 0.88);
 
     &::placeholder {
       color: rgba(0, 0, 0, 0.28);
@@ -482,7 +605,7 @@
   }
 
   .as-inq-phone-input {
-    color: #111111;
+    color: rgba(0, 0, 0, 0.88);
 
     &::placeholder {
       color: rgba(0, 0, 0, 0.28);
@@ -501,5 +624,15 @@
 
   .as-inq-privacy {
     color: rgba(0, 0, 0, 0.38);
+  }
+
+  .as-inq-cancel-btn {
+    border-color: rgba(0, 0, 0, 0.14);
+    color: rgba(0, 0, 0, 0.65);
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.04);
+      border-color: rgba(0, 0, 0, 0.22);
+    }
   }
 }

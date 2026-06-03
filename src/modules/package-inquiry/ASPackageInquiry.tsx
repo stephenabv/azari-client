@@ -150,14 +150,14 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
               return (
                 <div className="as-inq-success-pkg">
                   <div className="as-inq-success-pkg-name">{pkg.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  {storageKwh > 0 && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
-                  {price != null && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                  <div className="as-inq-success-detail-phase">{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+                  <div className="as-inq-success-detail-row">Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div className="as-inq-success-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
+                  {storageKwh > 0 && <div className="as-inq-success-detail-row">Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
+                  <div className="as-inq-success-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  {price != null && <div className="as-inq-success-detail-row">Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
                   {comps && comps.length > 0 && (
-                    <ul style={{ marginLeft: 20, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    <ul className="as-inq-success-components">
                       {comps.map((c, i) => (
                         <li key={i}>{c.quantity}pc{c.quantity > 1 ? "s" : ""} {c.brand} {c.name}</li>
                       ))}
@@ -173,7 +173,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
           </div>
         ) : (
           <div className="as-inq-form-panel">
-            <h2 style={{ fontSize: 24, fontWeight: 600, color: "var(--text-primary)", marginBottom: 8 }}>Inquire this System</h2>
+            <h2 className="as-inq-title">Inquire this System</h2>
             <p className="as-inq-intro">
               You're almost there! Provide your details below. Our team will reach out to schedule your free site assessment.
             </p>
@@ -188,12 +188,12 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
                 <div className="as-inq-pkg-summary">
                   <div className="as-inq-pkg-summary-label">System</div>
                   <div className="as-inq-pkg-summary-name">{pkg.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  {storageKwh > 0 && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
-                  {price != null && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                  <div className="as-inq-detail-phase">{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+                  <div className="as-inq-detail-row">Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div className="as-inq-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
+                  {storageKwh > 0 && <div className="as-inq-detail-row">Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
+                  <div className="as-inq-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  {price != null && <div className="as-inq-detail-row">Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
                 </div>
               );
             })()}
@@ -258,23 +258,8 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
               We value your privacy. Your information is only used for your solar assessment &amp; inquiries.
             </p>
 
-            <div className="as-inq-actions" style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              <button
-                type="button"
-                onClick={handleClose}
-                style={{
-                  flex: 1,
-                  padding: "14px 24px",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: 8,
-                  background: "transparent",
-                  color: "var(--text-primary)",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  transition: "all 0.2s"
-                }}
-              >
+            <div className="as-inq-actions">
+              <button type="button" className="as-inq-cancel-btn" onClick={handleClose}>
                 Cancel
               </button>
               <button
@@ -282,19 +267,6 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
                 className="as-inq-submit-btn"
                 onClick={() => void handleSubmit()}
                 disabled={isSubmitting}
-                style={{
-                  flex: 1,
-                  padding: "14px 24px",
-                  border: "none",
-                  borderRadius: 8,
-                  background: "#ff6b5b",
-                  color: "white",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  cursor: isSubmitting ? "not-allowed" : "pointer",
-                  opacity: isSubmitting ? 0.7 : 1,
-                  transition: "all 0.2s"
-                }}
               >
                 {isSubmitting ? "Submitting…" : "Submit Inquiry"}
               </button>
