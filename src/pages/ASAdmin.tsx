@@ -32,6 +32,7 @@ import {
   adminGetPackageInquiries,
   adminUpdatePackageInquiry,
   adminDeletePackageInquiry,
+  computeMonthlySavings,
   type ApiProject,
   type PackageInquiry,
   type ProjectInput,
@@ -41,6 +42,7 @@ import {
   type ApiSolarComponent,
   type ComponentInput,
 } from "../services/ASContent";
+import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 
 type Tab =
@@ -870,6 +872,7 @@ const EMPTY_COMP: ComponentInput = {
   name: "", brand: "", model: "", category: "Solar Panel",
   pricingEnabled: false, isActive: true,
   productionCapacityKwp: 0, loadCapacityKw: 0, storageCapacityKwh: 0,
+  capacityUnit: "Wp", // default for the initial "Solar Panel" category (see CATEGORY_SPEC)
 };
 
 function ComponentsManager({ apiKey }: { apiKey: string }) {
@@ -905,12 +908,17 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   const openAdd  = () => { setEditingId(null); setForm(EMPTY_COMP); setCatSearches({}); setMsg(""); setShowForm(true); };
   const openEdit = (c: ApiSolarComponent) => {
     setEditingId(c.id);
+    const spec = CATEGORY_SPEC[c.category];
+    // Reopen in the unit it was saved with; fall back to the category default for
+    // pre-existing components that have no persisted unit (constraint 4).
+    const unit = (c.capacityUnit && spec?.offer.includes(c.capacityUnit)) ? c.capacityUnit : (spec?.default ?? null);
     setForm({ name: c.name, brand: c.brand, model: c.model, category: c.category,
       unitPrice: c.unitPrice ?? undefined,
       pricingEnabled: c.pricingEnabled, isActive: c.isActive,
       productionCapacityKwp: c.productionCapacityKwp,
       loadCapacityKw: c.loadCapacityKw,
-      storageCapacityKwh: c.storageCapacityKwh });
+      storageCapacityKwh: c.storageCapacityKwh,
+      capacityUnit: unit });
     setMsg(""); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); };
@@ -934,7 +942,13 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
     }
     setSaving(true); setMsg("");
     try {
-      const payload = { ...form, unitPrice: form.pricingEnabled ? form.unitPrice : undefined };
+      const spec = CATEGORY_SPEC[form.category];
+      const payload = {
+        ...form,
+        unitPrice: form.pricingEnabled ? form.unitPrice : undefined,
+        // Persist the display unit only for spec-bearing categories; null otherwise.
+        capacityUnit: spec ? (form.capacityUnit ?? spec.default) : null,
+      };
       if (editingId) {
         await adminUpdateComponent(apiKey, editingId, payload);
         setMsg("✓ Component updated successfully");
@@ -1045,40 +1059,41 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                   <div><label className="ad-label">Model</label>
                     <input className="ad-input" value={form.model} onChange={e => setF("model", e.target.value)} placeholder="CS6R-410MS" /></div>
                   <div><label className="ad-label">Category</label>
-                    <select className="ad-select" value={form.category} onChange={e => setF("category", e.target.value)}>
+                    <select className="ad-select" value={form.category} onChange={e => {
+                      const cat = e.target.value;
+                      const spec = CATEGORY_SPEC[cat];
+                      // Keep the chosen unit only if the new category offers it; otherwise its default (or null for spec-less categories).
+                      setForm(f => ({ ...f, category: cat, capacityUnit: spec ? ((f.capacityUnit && spec.offer.includes(f.capacityUnit)) ? f.capacityUnit : spec.default) : null }));
+                    }}>
                       {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select></div>
-                  {(form.category === 'Solar Panel' || form.category === 'Inverter' || form.category === 'Battery') ? (
+                  {CATEGORY_SPEC[form.category] ? (() => {
+                    const catSpec = CATEGORY_SPEC[form.category]!;
+                    const code = form.capacityUnit ?? catSpec.default;
+                    const canonicalVal = form[catSpec.field];
+                    const factor = unitFactor(catSpec.dimension, code);
+                    const step = factor < 1 ? "1" : factor === 1 ? "0.01" : "0.001";
+                    return (
                     <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
                       <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Component Specifications <span style={{ color: "#fc615a" }}>*</span></div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "clamp(8px, 2vw, 12px)" }}>
-                        {form.category === 'Solar Panel' && (
-                          <div><label className="ad-label">Production Capacity (kWp) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.productionCapacityKwp || ""} step="0.01" min="0.01"
-                              onChange={e => setF("productionCapacityKwp", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="0.41" required />
-                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Total power output (kWp)</small>
+                        <div><label className="ad-label">{catSpec.label} <span style={{ color: "#fc615a" }}>*</span></label>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input type="number" className="ad-input" style={{ flex: 1 }}
+                              value={canonicalVal ? String(fromCanonical(canonicalVal, catSpec.dimension, code)) : ""}
+                              step={step} min="0"
+                              onChange={e => setF(catSpec.field, e.target.value === "" ? 0 : toCanonical(Number(e.target.value), catSpec.dimension, code))}
+                              placeholder={String(fromCanonical(catSpec.example, catSpec.dimension, code))} required />
+                            <select className="ad-select" style={{ width: 90, flexShrink: 0 }} value={code} onChange={e => setF("capacityUnit", e.target.value)}>
+                              {catSpec.offer.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
                           </div>
-                        )}
-                        {form.category === 'Inverter' && (
-                          <div><label className="ad-label">Load Capacity (kW) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.loadCapacityKw || ""} step="0.1" min="0.01"
-                              onChange={e => setF("loadCapacityKw", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="3" required />
-                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Maximum power conversion (kW)</small>
-                          </div>
-                        )}
-                        {form.category === 'Battery' && (
-                          <div><label className="ad-label">Storage Capacity (kWh) <span style={{ color: "#fc615a" }}>*</span></label>
-                            <input type="number" className="ad-input" value={form.storageCapacityKwh || ""} step="0.1" min="0.01"
-                              onChange={e => setF("storageCapacityKwh", e.target.value ? Number(e.target.value) : 0)}
-                              placeholder="5.12" required />
-                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>Total energy storage (kWh)</small>
-                          </div>
-                        )}
+                          <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>{catSpec.helper} · stored as {canonicalVal ? `${canonicalVal} ${catSpec.canonicalLabel}` : catSpec.canonicalLabel}</small>
+                        </div>
                       </div>
                     </div>
-                  ) : (
+                    );
+                  })() : (
                     <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
                       <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Component Type</div>
                       <div style={{ fontSize: 12, color: "var(--ad-text2)", padding: "10px 12px", background: "rgba(34, 197, 94, 0.1)", borderRadius: 6, border: "1px solid rgba(34, 197, 94, 0.2)" }}>
@@ -1396,7 +1411,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
                   </td>
                   <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
                   <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
-                  <td style={{ padding: 12, fontSize: 13 }}>{inq.packageDetails.inverterKw} kW</td>
+                  <td style={{ padding: 12, fontSize: 13 }}>{formatCapacity(inq.packageDetails.inverterKw, "power", { unit: "kW" })}</td>
                   <td style={{ padding: 12 }}>
                     <select
                       value={inq.status}
@@ -1527,30 +1542,74 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
                   </div>
                   <div>
                     <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Production</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.solarKwp} kWp</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.solarKwp, "power", { unit: "kWp" })}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Load Capacity</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.inverterKw} kW</div>
+                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.inverterKw, "power", { unit: "kW" })}</div>
                   </div>
                   {selectedInquiry.packageDetails.storageKwh > 0 && (
                     <div>
                       <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Storage</div>
-                      <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.storageKwh} kWh</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.storageKwh, "energy", { unit: "kWh" })}</div>
                     </div>
                   )}
                   <div>
                     <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Phase Type</div>
                     <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"}</div>
                   </div>
-                  {selectedInquiry.packageDetails.totalPrice != null && (
+                  {(selectedInquiry.packageDetails.billRangeMin != null && selectedInquiry.packageDetails.billRangeMax != null) && (
                     <div>
-                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Total Price</div>
-                      <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Monthly Savings</div>
+                      <div style={{ fontSize: "14px", fontWeight: 600 }}>₱{(selectedInquiry.packageDetails.billRangeMin).toLocaleString("en-PH")} – ₱{(selectedInquiry.packageDetails.billRangeMax).toLocaleString("en-PH")}</div>
                     </div>
                   )}
+                  <div>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Total Price</div>
+                    {selectedInquiry.packageDetails.totalPrice != null
+                      ? <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
+                      : <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--ad-text3)" }}>Price TBD</div>}
+                  </div>
                 </div>
               </div>
+            </div>
+
+            {/* Selected Components Section */}
+            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Selected Components</div>
+              {(() => {
+                const comps = selectedInquiry.packageDetails.components;
+                if (!comps || comps.length === 0) {
+                  return <div style={{ fontSize: "13px", color: "var(--ad-text3)", fontStyle: "italic", padding: "12px 0" }}>Component breakdown not captured for this inquiry.</div>;
+                }
+                const EMOJI: Record<string, string> = { "Solar Panel": "☀️", "Inverter": "⚡", "Battery": "🔋" };
+                const order = ["Solar Panel", "Inverter", "Battery"];
+                const byCategory = comps.reduce<Record<string, typeof comps>>((acc, c) => {
+                  (acc[c.category] ??= []).push(c);
+                  return acc;
+                }, {});
+                const categories = [
+                  ...order.filter(cat => byCategory[cat]),
+                  ...Object.keys(byCategory).filter(cat => !order.includes(cat)),
+                ];
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {categories.map(cat => (
+                      <div key={cat} style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "10px" }}>
+                          {EMOJI[cat] ?? "📦"} {cat}
+                        </div>
+                        {byCategory[cat].map((c, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px", padding: "4px 0", borderBottom: i < byCategory[cat].length - 1 ? "1px solid var(--ad-border)" : "none" }}>
+                            <span style={{ fontWeight: 500 }}><span style={{ fontWeight: 700, marginRight: 6 }}>{c.quantity}×</span>{c.brand} {c.name}</span>
+                            {c.unitPrice != null && <span style={{ color: "var(--ad-text3)", fontSize: 12 }}>₱{c.unitPrice.toLocaleString("en-PH")} ea.</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Status & Timeline Section */}
@@ -1683,11 +1742,12 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-sync package specs when components change
+  // Auto-sync package specs + monthly savings when components change
   useEffect(() => {
     if ((form.components ?? []).length > 0) {
       const specs = computePackageSpecs(form.components ?? [], allComponents);
-      setForm(f => ({ ...f, solarKwp: specs.solarKwp, inverterKw: specs.inverterKw, storageKwh: specs.storageKwh }));
+      const { min, max } = computeMonthlySavings(specs.solarKwp);
+      setForm(f => ({ ...f, solarKwp: specs.solarKwp, inverterKw: specs.inverterKw, storageKwh: specs.storageKwh, billRangeMin: min, billRangeMax: max }));
     }
   }, [form.components, allComponents]);
 
@@ -2091,23 +2151,15 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                 </div>
               );
             })()}
-            <div>
-              <label className="ad-label">Minimum Monthly Bill</label>
-              <div className="ad-pkg-num-wrap">
-                <span className="ad-pkg-num-prefix">₱</span>
-                <input type="number" className="ad-input" min={0} step={100} value={form.billRangeMin || ""} placeholder="0" onChange={(e) => setField("billRangeMin", Number(e.target.value))} />
-                <span className="ad-pkg-num-unit">/ mo</span>
+            <div className="ad-form-full">
+              <label className="ad-label">Estimated Monthly Savings <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(auto-calculated)</span></label>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, background: "var(--ad-surface)", padding: "12px 16px", borderRadius: 6 }}>
+                <span style={{ fontSize: 22, fontWeight: 700, color: "#22c55e", fontFamily: "monospace" }}>
+                  ₱{(form.billRangeMin || 0).toLocaleString()} – ₱{(form.billRangeMax || 0).toLocaleString()}
+                </span>
+                <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>/ mo</span>
               </div>
-              <p className="ad-pkg-hint">Customers with bills above this amount are a good fit.</p>
-            </div>
-            <div>
-              <label className="ad-label">Maximum Monthly Bill</label>
-              <div className="ad-pkg-num-wrap">
-                <span className="ad-pkg-num-prefix">₱</span>
-                <input type="number" className="ad-input" min={0} step={100} value={form.billRangeMax || ""} placeholder="0" onChange={(e) => setField("billRangeMax", Number(e.target.value))} />
-                <span className="ad-pkg-num-unit">/ mo</span>
-              </div>
-              <p className="ad-pkg-hint">Customers with bills below this amount are best suited.</p>
+              <p className="ad-pkg-hint">Derived from production capacity: {form.solarKwp.toFixed(2)} kWp × 4h × 30d × ₱12/kWh, floored to ₱500, ±₱1,000.</p>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
               <input type="checkbox" id="pkg-active" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />

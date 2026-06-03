@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchPublicPackages, type ApiSolarPackage } from "../services/ASContent";
+import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type PackageSelection } from "../services/ASContent";
+import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
@@ -50,15 +51,15 @@ function getSystemType(storageKwh: number): string {
   return storageKwh > 0 ? "Hybrid" : "Grid-Tied";
 }
 
-function getFeatures(pkg: ApiSolarPackage): string[] {
-  const sysType = getSystemType(pkg.storageKwh);
+function getFeatures(storageBaseKwh: number, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
+  const sysType = getSystemType(storageBaseKwh);
   const list = [
     `${sysType === "Hybrid" ? "Hybrid" : "Grid Tied"} System`,
     "Mobile Device Monitoring",
-    `${pkg.inverterKw} kW Load Capacity`,
-    `${pkg.solarKwp} kWp Production Capacity`,
+    `${formatCapacity(inverterKw, "power", { unit: "kW" })} Load Capacity`,
+    `${formatCapacity(solarKwp, "power", { unit: "kWp" })} Production Capacity`,
   ];
-  if (pkg.storageKwh > 0) list.push(`${pkg.storageKwh} kWh Storage Capacity`);
+  if (storageBaseKwh > 0) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
   return list;
 }
 
@@ -113,13 +114,20 @@ function PackageCard({
   onInquire,
 }: {
   pkg: ApiSolarPackage;
-  onInquire: () => void;
+  onInquire: (sel: PackageSelection) => void;
 }) {
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
   const [showDetails, setShowDetails] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<number | null>(null);
-  const features = getFeatures(pkg);
+
+  // Capacities scale with their component counts; savings derives from production capacity.
+  const scale = (base: number, count: number, def: number) => def > 0 ? base * (count / def) : base;
+  const liveSolarKwp   = Math.round(scale(pkg.solarKwp, qty.panels, defaults.panels) * 100) / 100;
+  const liveInverterKw = Math.round(scale(pkg.inverterKw, qty.inverter, defaults.inverter) * 10) / 10;
+  const liveStorageKwh = Math.round(scale(pkg.storageKwh, qty.batteries, defaults.batteries) * 100) / 100;
+  const savings = computeMonthlySavings(liveSolarKwp);
+  const features = getFeatures(pkg.storageKwh, liveInverterKw, liveSolarKwp, liveStorageKwh);
 
   const bump = (key: keyof QtyState, delta: number) => {
     setQty((prev) => ({ ...prev, [key]: Math.max(defaults[key], prev[key] + delta) }));
@@ -217,10 +225,37 @@ function PackageCard({
             {pesoFmt(priceToDisplay)}
           </div>
         )}
-        <div className="as-pkg-size-label">{pkg.solarKwp} kWp System</div>
+        <div className="as-pkg-size-label">{formatCapacity(liveSolarKwp, "power", { unit: "kWp" })} System</div>
+        <div className="as-pkg-savings">Saves ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}/mo</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
-          onClick={onInquire}
+          onClick={() => {
+            const sel: PackageSelection = {
+              qty,
+              solarKwp: liveSolarKwp,
+              inverterKw: liveInverterKw,
+              storageKwh: liveStorageKwh,
+              savings,
+              price: dynamicPrice ?? pkg.totalPrice,
+              components: pkg.components?.map((pc) => {
+                let multiplier = 1;
+                if (pc.component.category === "Solar Panel" && defaults.panels > 0)
+                  multiplier = qty.panels / defaults.panels;
+                else if (pc.component.category === "Inverter" && defaults.inverter > 0)
+                  multiplier = qty.inverter / defaults.inverter;
+                else if (pc.component.category === "Battery" && defaults.batteries > 0)
+                  multiplier = qty.batteries / defaults.batteries;
+                return {
+                  brand: pc.component.brand,
+                  name: pc.component.name,
+                  category: pc.component.category,
+                  quantity: Math.round(pc.quantity * multiplier),
+                  unitPrice: pc.component.pricingEnabled ? pc.component.unitPrice : null,
+                };
+              }) ?? [],
+            };
+            onInquire(sel);
+          }}
         >
           Inquire
         </button>
@@ -261,9 +296,10 @@ function PackageCard({
         <div className="as-pkg-detail-panel">
           {[
             ["Phase", pkg.phase === "single" ? "Single Phase" : "Three Phase"],
-            ["Production Capacity", `${pkg.solarKwp} kWp`],
-            ["Load Capacity", `${pkg.inverterKw} kW`],
-            ...(pkg.storageKwh > 0 ? [["Storage Capacity", `${pkg.storageKwh} kWh`]] : []),
+            ["Production Capacity", formatCapacity(liveSolarKwp, "power", { unit: "kWp" })],
+            ["Load Capacity", formatCapacity(liveInverterKw, "power", { unit: "kW" })],
+            ...(pkg.storageKwh > 0 ? [["Storage Capacity", formatCapacity(liveStorageKwh, "energy", { unit: "kWh" })]] : []),
+            ["Monthly Savings", `₱${savings.min.toLocaleString()} – ₱${savings.max.toLocaleString()}`],
             ...(priceToDisplay != null ? [["Total Price", pesoFmt(priceToDisplay)]] : []),
           ].map(([label, val]) => (
             <div key={label} className="as-pkg-detail-row">
@@ -338,6 +374,7 @@ export default function ASPackages() {
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedPkg, setSelectedPkg] = useState<ApiSolarPackage | null>(null);
+  const [selectedSelection, setSelectedSelection] = useState<PackageSelection | null>(null);
   const [inquireOpen, setInquireOpen] = useState(false);
   const [ctaModalOpen, setCtaModalOpen] = useState(false);
 
@@ -410,7 +447,7 @@ export default function ASPackages() {
                 <h2 className="as-packages-group-label">{group.label}</h2>
                 <div className="as-packages-grid">
                   {visible.map((pkg) => (
-                    <PackageCard key={pkg.id} pkg={pkg} onInquire={() => { setSelectedPkg(pkg); setInquireOpen(true); }} />
+                    <PackageCard key={pkg.id} pkg={pkg} onInquire={(sel) => { setSelectedPkg(pkg); setSelectedSelection(sel); setInquireOpen(true); }} />
                   ))}
                 </div>
                 {surplus > 0 && (
@@ -458,7 +495,8 @@ export default function ASPackages() {
       <ASPackageInquiry
         isOpen={inquireOpen}
         pkg={selectedPkg}
-        onClose={() => { setInquireOpen(false); setSelectedPkg(null); }}
+        selection={selectedSelection}
+        onClose={() => { setInquireOpen(false); setSelectedPkg(null); setSelectedSelection(null); }}
       />
       <ASTalkToAnExpert isOpen={ctaModalOpen} onClose={() => setCtaModalOpen(false)} />
     </div>

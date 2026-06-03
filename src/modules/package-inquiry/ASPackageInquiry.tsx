@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { ApiSolarPackage } from "../../services/ASContent";
-import { submitPackageInquiry } from "../../services/ASContent";
+import type { ApiSolarPackage, PackageSelection } from "../../services/ASContent";
+import { submitPackageInquiry, computeMonthlySavings } from "../../services/ASContent";
+import { formatCapacity } from "../../lib/units";
 import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
 
 type Props = {
   isOpen: boolean;
   pkg: ApiSolarPackage | null;
+  selection?: PackageSelection | null;
   onClose: () => void;
 };
 
@@ -26,7 +28,7 @@ function validate(f: FormState): FormErrors {
 
 const EMPTY: FormState = { name: "", location: "", email: "", phone: "" };
 
-export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
+export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Props) {
   const [isClosing, setIsClosing] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -79,6 +81,10 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
     setIsSubmitting(true);
     setSubmitError("");
     try {
+      // Scope B: submit the customer's customized config when available.
+      const savings = selection
+        ? { min: selection.savings.min, max: selection.savings.max }
+        : computeMonthlySavings(pkg.solarKwp);
       await submitPackageInquiry({
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
@@ -87,13 +93,15 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
         packageId: pkg.id,
         packageName: pkg.name,
         packageDetails: {
-          solarKwp: pkg.solarKwp,
-          inverterKw: pkg.inverterKw,
-          storageKwh: pkg.storageKwh,
+          solarKwp:     selection ? selection.solarKwp     : pkg.solarKwp,
+          inverterKw:   selection ? selection.inverterKw   : pkg.inverterKw,
+          storageKwh:   selection ? selection.storageKwh   : pkg.storageKwh,
           phase: pkg.phase,
-          billRangeMin: pkg.billRangeMin,
-          billRangeMax: pkg.billRangeMax,
-          totalPrice: pkg.totalPrice,
+          billRangeMin: savings.min,
+          billRangeMax: savings.max,
+          totalPrice:   selection ? selection.price        : pkg.totalPrice,
+          qty:          selection?.qty,
+          components:   selection?.components,
         },
       });
       setSuccess(true);
@@ -132,18 +140,32 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
               Thank you! We've received your inquiry. One of our solar experts will get back to you within 1–2 business days.
             </p>
 
-            <div className="as-inq-success-pkg">
-              <div className="as-inq-success-pkg-name">{pkg.name}</div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>Load Capacity: {pkg.inverterKw} kW</div>
-              <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>Approx. Monthly Saving: ₱{pkg.billRangeMin.toLocaleString()} – ₱{pkg.billRangeMax.toLocaleString()}</div>
-              {pkg.components && pkg.components.length > 0 && (
-                <ul style={{ marginLeft: 20, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                  {pkg.components.map((pc) => (
-                    <li key={pc.id}>{pc.quantity}pc{pc.quantity > 1 ? 's' : ''} {pc.component.brand} {pc.component.name}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            {(() => {
+              const solarKwp   = selection?.solarKwp   ?? pkg.solarKwp;
+              const inverterKw = selection?.inverterKw  ?? pkg.inverterKw;
+              const storageKwh = selection?.storageKwh  ?? pkg.storageKwh;
+              const savings    = selection?.savings     ?? computeMonthlySavings(pkg.solarKwp);
+              const price      = selection?.price       ?? pkg.totalPrice;
+              const comps      = selection?.components  ?? pkg.components?.map(pc => ({ brand: pc.component.brand, name: pc.component.name, category: pc.component.category, quantity: pc.quantity, unitPrice: pc.component.unitPrice }));
+              return (
+                <div className="as-inq-success-pkg">
+                  <div className="as-inq-success-pkg-name">{pkg.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
+                  {storageKwh > 0 && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  {price != null && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                  {comps && comps.length > 0 && (
+                    <ul style={{ marginLeft: 20, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                      {comps.map((c, i) => (
+                        <li key={i}>{c.quantity}pc{c.quantity > 1 ? "s" : ""} {c.brand} {c.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
 
             <button type="button" className="as-inq-success-close-btn" onClick={handleClose}>
               Close
@@ -156,14 +178,25 @@ export default function ASPackageInquiry({ isOpen, pkg, onClose }: Props) {
               You're almost there! Provide your details below. Our team will reach out to schedule your free site assessment.
             </p>
 
-            {pkg && (
-              <div className="as-inq-pkg-summary">
-                <div className="as-inq-pkg-summary-label">System</div>
-                <div className="as-inq-pkg-summary-name">{pkg.name}</div>
-                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>Load Capacity: {pkg.inverterKw} kW</div>
-                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Approx. Monthly Saving: ₱{pkg.billRangeMin.toLocaleString()} – ₱{pkg.billRangeMax.toLocaleString()}</div>
-              </div>
-            )}
+            {pkg && (() => {
+              const solarKwp   = selection?.solarKwp   ?? pkg.solarKwp;
+              const inverterKw = selection?.inverterKw  ?? pkg.inverterKw;
+              const storageKwh = selection?.storageKwh  ?? pkg.storageKwh;
+              const savings    = selection?.savings     ?? computeMonthlySavings(pkg.solarKwp);
+              const price      = selection?.price       ?? pkg.totalPrice;
+              return (
+                <div className="as-inq-pkg-summary">
+                  <div className="as-inq-pkg-summary-label">System</div>
+                  <div className="as-inq-pkg-summary-name">{pkg.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
+                  {storageKwh > 0 && <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 2 }}>Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  {price != null && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                </div>
+              );
+            })()}
 
             <div className="as-inq-field">
               <label className="as-inq-label">Name</label>

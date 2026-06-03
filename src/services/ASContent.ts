@@ -360,6 +360,7 @@ export interface ApiSolarComponent {
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
+  capacityUnit?: string | null; // Display unit the capacity was entered in (e.g. "Wp", "kW", "kWh"); null = use category default
   createdAt: string;
   updatedAt: string;
 }
@@ -375,7 +376,8 @@ export interface ComponentInput {
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
-  // Note: 'unit' and 'sortOrder' are deprecated - units are now determined by category
+  capacityUnit?: string | null; // Display unit for the capacity field; persisted so editing reopens in the same unit
+  // Note: 'unit' (SKU unit) and 'sortOrder' are deprecated - capacity units are dimension-driven by category
 }
 
 export interface ApiPackageComponent {
@@ -409,6 +411,17 @@ export interface ApiSolarPackage {
 export interface PackageComponentLine {
   componentId: string;
   quantity: number;
+}
+
+/**
+ * Monthly savings estimate from production capacity.
+ * Formula: productionKwp × 4 peak-sun-hours × 30 days × ₱12/kWh,
+ * rounded DOWN to the nearest ₱500. Range is savings ±₱1000.
+ */
+export function computeMonthlySavings(productionKwp: number): { savings: number; min: number; max: number } {
+  const raw = productionKwp * 4 * 30 * 12;
+  const savings = Math.floor(raw / 500) * 500;
+  return { savings, min: Math.max(0, savings - 1000), max: savings + 1000 };
 }
 
 export interface PackageInput {
@@ -547,6 +560,22 @@ export async function adminLoadDefaultComponents(apiKey: string, force = false) 
 
 // ─── Package Inquiries API ────────────────────────────────────────────────────
 
+// Customized config the customer actually inquired about (Scope B: faithful submission).
+// All capacity fields are canonical kilo values (kWp / kW / kWh).
+// qty and components carry the customer's scaled selections.
+export interface PackageDetails {
+  solarKwp: number;
+  inverterKw: number;
+  storageKwh: number;
+  phase: string;
+  billRangeMin: number;
+  billRangeMax: number;
+  totalPrice: number | null;
+  // Scope B additions — present when the customer customized the package:
+  qty?: { inverter: number; batteries: number; panels: number };
+  components?: Array<{ brand: string; name: string; category: string; quantity: number; unitPrice: number | null }>;
+}
+
 export interface PackageInquiry {
   id: string;
   name: string;
@@ -555,18 +584,21 @@ export interface PackageInquiry {
   location: string;
   packageId: string;
   packageName: string;
-  packageDetails: {
-    solarKwp: number;
-    inverterKw: number;
-    storageKwh: number;
-    phase: string;
-    billRangeMin: number;
-    billRangeMax: number;
-    totalPrice: number | null;
-  };
+  packageDetails: PackageDetails;
   status: 'new' | 'contacted' | 'converted';
   createdAt: string;
   updatedAt: string;
+}
+
+// The live, scaled selection built in PackageCard when the customer clicks Inquire.
+export interface PackageSelection {
+  qty: { inverter: number; batteries: number; panels: number };
+  solarKwp: number;
+  inverterKw: number;
+  storageKwh: number;
+  savings: { min: number; max: number };
+  price: number | null;
+  components: Array<{ brand: string; name: string; category: string; quantity: number; unitPrice: number | null }>;
 }
 
 export async function submitPackageInquiry(data: {
@@ -576,7 +608,7 @@ export async function submitPackageInquiry(data: {
   location: string;
   packageId: string;
   packageName: string;
-  packageDetails: PackageInquiry['packageDetails'];
+  packageDetails: PackageDetails;
 }) {
   const res = await apiFetch(`${API_BASE}/packages/inquiries`, {
     method: 'POST',
