@@ -5,7 +5,7 @@ import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
-import pkgPerson from "../assets/images/pkg.svg";
+
 
 // Mobile responsive styles for CEO image
 const ctaMobileStyles = `
@@ -483,10 +483,7 @@ export default function ASPackages() {
               </button>
             </div>
           </div>
-          <div className="as-packages-cta-visual" aria-hidden="true">
-            <img src={pkgPerson} alt="" className="as-packages-cta-person as-ceo-dark" />
-            <img src={pkgPerson} alt="" className="as-packages-cta-person as-ceo-light" />
-          </div>
+          <div className="as-packages-cta-visual" aria-hidden="true" />
         </div>
 
       </div>
