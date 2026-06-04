@@ -1133,37 +1133,37 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                   {/* Ratio bounds — shown for core component types */}
                   {(form.category === "Inverter" || form.category === "Battery" || form.category === "Solar Panel") && (
                     <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: 4 }}>
-                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Stepper Bounds</div>
+                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Quantity Range</div>
                       {form.category === "Inverter" ? (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <div><label className="ad-label">Min Inverters (absolute)</label>
+                          <div><label className="ad-label">Min</label>
                             <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMin ?? 1}
                               onChange={e => setF("parallelMin", Number(e.target.value))} /></div>
-                          <div><label className="ad-label">Max Inverters (absolute)</label>
+                          <div><label className="ad-label">Max</label>
                             <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMax ?? 4}
                               onChange={e => setF("parallelMax", Number(e.target.value))} /></div>
                         </div>
                       ) : (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <div><label className="ad-label">Min per Inverter</label>
+                          <div><label className="ad-label">Min per inverter</label>
                             <input type="number" className="ad-input" min={1} max={1000} value={form.perInverterMin ?? 1}
                               onChange={e => setF("perInverterMin", Number(e.target.value))} /></div>
-                          <div><label className="ad-label">Max per Inverter</label>
+                          <div><label className="ad-label">Max per inverter</label>
                             <input type="number" className="ad-input" min={1} max={1000} value={form.perInverterMax ?? 4}
                               onChange={e => setF("perInverterMax", Number(e.target.value))} /></div>
                         </div>
                       )}
                       <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 6, display: "block" }}>
                         {form.category === "Inverter"
-                          ? "Absolute count limits for this inverter in a package. Steppers clamp to these values."
-                          : "Per-inverter multipliers. Actual bounds = min/max × inverterCount."}
+                          ? "How many of this inverter the customer can add to the package."
+                          : "How many of this item the customer can add per inverter."}
                       </small>
                     </div>
                   )}
 
                   {/* Data sheet URL */}
                   <div style={{ gridColumn: "1 / -1" }}>
-                    <label className="ad-label">Data Sheet URL <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — PDF link shown in package details)</span></label>
+                    <label className="ad-label">Product Data Sheet <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — paste a link to the PDF)</span></label>
                     <input className="ad-input" value={form.dataSheetUrl ?? ""} placeholder="https://…/datasheet.pdf"
                       onChange={e => setF("dataSheetUrl", e.target.value || null)} />
                   </div>

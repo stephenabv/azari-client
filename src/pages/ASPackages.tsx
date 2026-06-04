@@ -93,7 +93,7 @@ function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: numbe
   const list = [
     `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
     "Mobile Device Monitoring",
-    `${formatCapacity(inverterKw, "power", { unit: "kW" })} Load Capacity`,
+    `${formatCapacity(inverterKw, "power", { unit: "kW" })} ${isHybrid ? "Load Capacity" : "System Capacity"}`,
     `${formatCapacity(solarKwp, "power", { unit: "kWp" })} Production Capacity`,
   ];
   if (isHybrid) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
@@ -252,7 +252,7 @@ function PackageCard({
       <div className="as-pkg-top">
         <div className="as-pkg-name">{pkg.name}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
-        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} Load Capacity</div>
+        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} {isHybrid ? "Load Capacity" : "System Capacity"}</div>
         <div className="as-pkg-savings">Saves ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}/mo</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
