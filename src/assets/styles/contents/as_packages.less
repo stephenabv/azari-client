@@ -374,6 +374,35 @@
   }
 }
 
+.as-pkg-detail-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.as-pkg-detail-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 2px;
+}
+
+.as-pkg-datasheet-link {
+  font-size: 11px;
+  color: rgba(120, 180, 255, 0.8);
+  text-decoration: none;
+  transition: color 0.15s;
+
+  &:hover {
+    color: rgba(120, 180, 255, 1);
+    text-decoration: underline;
+  }
+}
+
 .as-packages-cta {
   margin-top: clamp(60px, 8vw, 120px);
   display: flex;

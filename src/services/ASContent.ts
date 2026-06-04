@@ -360,7 +360,13 @@ export interface ApiSolarComponent {
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
-  capacityUnit?: string | null; // Display unit the capacity was entered in (e.g. "Wp", "kW", "kWh"); null = use category default
+  capacityUnit?: string | null;
+  // Ratio-bound fields — read by the package-builder stepper UI
+  parallelMin: number;   // Inverter: min absolute count in a package
+  parallelMax: number;   // Inverter: max absolute count in a package
+  perInverterMin: number; // Battery/Panel: min units per inverter
+  perInverterMax: number; // Battery/Panel: max units per inverter
+  dataSheetUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -376,7 +382,12 @@ export interface ComponentInput {
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
-  capacityUnit?: string | null; // Display unit for the capacity field; persisted so editing reopens in the same unit
+  capacityUnit?: string | null;
+  parallelMin?: number;
+  parallelMax?: number;
+  perInverterMin?: number;
+  perInverterMax?: number;
+  dataSheetUrl?: string | null;
   // Note: 'unit' (SKU unit) and 'sortOrder' are deprecated - capacity units are dimension-driven by category
 }
 
@@ -403,6 +414,8 @@ export interface ApiSolarPackage {
   isActive: boolean;
   isRecommended: boolean;
   sortOrder: number; // DEPRECATED: Sorting now uses createdAt
+  imageUrl?: string | null;
+  mainFeatures: string[];
   components: ApiPackageComponent[];
   createdAt: string;
   updatedAt: string;
@@ -434,6 +447,8 @@ export interface PackageInput {
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
+  mainFeatures?: string[];
+  imageUrl?: string | null;
   components?: PackageComponentLine[];
 }
 
@@ -649,5 +664,37 @@ export async function adminDeletePackageInquiry(apiKey: string, id: string) {
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUploadPackageImage(apiKey: string, id: string, imageFile: File) {
+  const fd = new FormData();
+  fd.append('image', imageFile);
+  const res = await apiFetch(`${API_BASE}/admin/packages/${id}/image`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey },
+    body: fd,
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Upload failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUploadComponentDataSheet(apiKey: string, id: string, pdfFile: File) {
+  const fd = new FormData();
+  fd.append('dataSheet', pdfFile);
+  const res = await apiFetch(`${API_BASE}/admin/components/${id}/datasheet`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey },
+    body: fd,
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Upload failed: ${res.status}`);
+  }
   return res.json();
 }

@@ -835,7 +835,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, mainFeatures: [], imageUrl: null };
 
 function autoName(kwp: number, kw: number, kwh: number) {
   const parts: string[] = [];
@@ -872,7 +872,9 @@ const EMPTY_COMP: ComponentInput = {
   name: "", brand: "", model: "", category: "Solar Panel",
   pricingEnabled: false, isActive: true,
   productionCapacityKwp: 0, loadCapacityKw: 0, storageCapacityKwh: 0,
-  capacityUnit: "Wp", // default for the initial "Solar Panel" category (see CATEGORY_SPEC)
+  capacityUnit: "Wp",
+  parallelMin: 1, parallelMax: 4, perInverterMin: 1, perInverterMax: 4,
+  dataSheetUrl: "",
 };
 
 function ComponentsManager({ apiKey }: { apiKey: string }) {
@@ -918,7 +920,13 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
       productionCapacityKwp: c.productionCapacityKwp,
       loadCapacityKw: c.loadCapacityKw,
       storageCapacityKwh: c.storageCapacityKwh,
-      capacityUnit: unit });
+      capacityUnit: unit,
+      parallelMin: c.parallelMin ?? 1,
+      parallelMax: c.parallelMax ?? 4,
+      perInverterMin: c.perInverterMin ?? 1,
+      perInverterMax: c.perInverterMax ?? 4,
+      dataSheetUrl: c.dataSheetUrl ?? "",
+    });
     setMsg(""); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); };
@@ -1120,6 +1128,44 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                       onChange={e => setF("isActive", e.target.checked)}
                       style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
                     <label htmlFor="comp-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active</label>
+                  </div>
+
+                  {/* Ratio bounds — shown for core component types */}
+                  {(form.category === "Inverter" || form.category === "Battery" || form.category === "Solar Panel") && (
+                    <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: 4 }}>
+                      <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Stepper Bounds</div>
+                      {form.category === "Inverter" ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <div><label className="ad-label">Min Inverters (absolute)</label>
+                            <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMin ?? 1}
+                              onChange={e => setF("parallelMin", Number(e.target.value))} /></div>
+                          <div><label className="ad-label">Max Inverters (absolute)</label>
+                            <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMax ?? 4}
+                              onChange={e => setF("parallelMax", Number(e.target.value))} /></div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <div><label className="ad-label">Min per Inverter</label>
+                            <input type="number" className="ad-input" min={1} max={1000} value={form.perInverterMin ?? 1}
+                              onChange={e => setF("perInverterMin", Number(e.target.value))} /></div>
+                          <div><label className="ad-label">Max per Inverter</label>
+                            <input type="number" className="ad-input" min={1} max={1000} value={form.perInverterMax ?? 4}
+                              onChange={e => setF("perInverterMax", Number(e.target.value))} /></div>
+                        </div>
+                      )}
+                      <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 6, display: "block" }}>
+                        {form.category === "Inverter"
+                          ? "Absolute count limits for this inverter in a package. Steppers clamp to these values."
+                          : "Per-inverter multipliers. Actual bounds = min/max × inverterCount."}
+                      </small>
+                    </div>
+                  )}
+
+                  {/* Data sheet URL */}
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <label className="ad-label">Data Sheet URL <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — PDF link shown in package details)</span></label>
+                    <input className="ad-input" value={form.dataSheetUrl ?? ""} placeholder="https://…/datasheet.pdf"
+                      onChange={e => setF("dataSheetUrl", e.target.value || null)} />
                   </div>
                 </div>
                 <div style={{
@@ -1774,6 +1820,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       storageKwh: p.storageKwh, phase: p.phase,
       billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax,
       isActive: p.isActive, isRecommended: p.isRecommended ?? false,
+      mainFeatures: p.mainFeatures ?? [],
+      imageUrl: p.imageUrl ?? null,
       components: (p.components ?? []).map(pc => ({ componentId: pc.componentId, quantity: pc.quantity })),
     });
     setNameEdited(true); setCatSearches({}); setMsg(""); setShowForm(true);
@@ -2161,6 +2209,27 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               </div>
               <p className="ad-pkg-hint">Derived from production capacity: {form.solarKwp.toFixed(2)} kWp × 4h × 30d × ₱12/kWh, floored to ₱500, ±₱1,000.</p>
             </div>
+            {/* Main Features — extra bullets on the card */}
+            <div className="ad-form-full" style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 16, marginTop: 8 }}>
+              <label className="ad-label">Main Features <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — shown as card bullets; one per line)</span></label>
+              <textarea
+                className="ad-input"
+                rows={4}
+                style={{ resize: "vertical", fontFamily: "inherit", fontSize: 12 }}
+                placeholder={"Hybrid System\nMobile Device Monitoring\n5kW Load Capacity"}
+                value={(form.mainFeatures ?? []).join("\n")}
+                onChange={e => setField("mainFeatures", e.target.value.split("\n").map(s => s.trimEnd()).filter(s => s))}
+              />
+              <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4, display: "block" }}>Leave blank to auto-generate capacity bullets from components.</small>
+            </div>
+
+            {/* Package image URL */}
+            <div className="ad-form-full">
+              <label className="ad-label">Package Image URL <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — shown in More Details)</span></label>
+              <input className="ad-input" value={form.imageUrl ?? ""} placeholder="https://…/image.jpg or leave blank"
+                onChange={e => setField("imageUrl", e.target.value || null)} />
+            </div>
+
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
               <input type="checkbox" id="pkg-active" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
               <label htmlFor="pkg-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active — visible to customers</label>

@@ -46,30 +46,58 @@ const INITIAL_VISIBLE = 6;
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };
 
-function getSystemType(storageKwh: number): string {
-  return storageKwh > 0 ? "Hybrid" : "Grid-Tied";
+// ─── Package builder helpers ───────────────────────────────────────────────────
+
+function getCoreComponents(pkg: ApiSolarPackage) {
+  return {
+    inverterLine: pkg.components?.find(pc => pc.component.category === "Inverter") ?? null,
+    batteryLine:  pkg.components?.find(pc => pc.component.category === "Battery")  ?? null,
+    panelLine:    pkg.components?.find(pc => pc.component.category === "Solar Panel") ?? null,
+  };
 }
 
-function getFeatures(storageBaseKwh: number, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
-  const sysType = getSystemType(storageBaseKwh);
+function defaultQty(pkg: ApiSolarPackage): QtyState {
+  const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
+  return {
+    inverter:  inverterLine?.quantity ?? 1,
+    batteries: batteryLine?.quantity  ?? 0,
+    panels:    panelLine?.quantity    ?? 1,
+  };
+}
+
+type Bounds = { iMin: number; iMax: number; bMin: number; bMax: number; pMin: number; pMax: number };
+
+function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
+  const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
+  const ic = inverterLine?.component;
+  const bc = batteryLine?.component;
+  const pc = panelLine?.component;
+  return {
+    iMin: ic?.parallelMin    ?? 1,
+    iMax: ic?.parallelMax    ?? 1,
+    bMin: bc ? (bc.perInverterMin * inverterCount) : 0,
+    bMax: bc ? (bc.perInverterMax * inverterCount) : 0,
+    pMin: pc ? (pc.perInverterMin * inverterCount) : 1,
+    pMax: pc ? (pc.perInverterMax * inverterCount) : 1,
+  };
+}
+
+function clamp(v: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, v));
+}
+
+function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
+  const isHybrid = pkg.storageKwh > 0;
+  // mainFeatures override the auto-generated capacity bullets when present
+  if (pkg.mainFeatures?.length) return pkg.mainFeatures;
   const list = [
-    `${sysType === "Hybrid" ? "Hybrid" : "Grid Tied"} System`,
+    `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
     "Mobile Device Monitoring",
     `${formatCapacity(inverterKw, "power", { unit: "kW" })} Load Capacity`,
     `${formatCapacity(solarKwp, "power", { unit: "kWp" })} Production Capacity`,
   ];
-  if (storageBaseKwh > 0) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
+  if (isHybrid) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
   return list;
-}
-
-function defaultQty(pkg: ApiSolarPackage): QtyState {
-  const qty = { inverter: 0, batteries: 0, panels: 0 };
-  pkg.components?.forEach((pc) => {
-    if (pc.component.category === "Inverter") qty.inverter += pc.quantity;
-    else if (pc.component.category === "Battery") qty.batteries += pc.quantity;
-    else if (pc.component.category === "Solar Panel") qty.panels += pc.quantity;
-  });
-  return qty;
 }
 
 function pesoFmt(v: number): string {
@@ -80,11 +108,13 @@ function QuantityStepper({
   label,
   value,
   min,
+  max,
   onBump,
 }: {
   label: string;
   value: number;
   min: number;
+  max: number;
   onBump: (delta: number) => void;
 }) {
   return (
@@ -101,6 +131,7 @@ function QuantityStepper({
         <button
           className="as-pkg-qty-btn"
           onClick={() => onBump(1)}
+          disabled={value >= max}
           aria-label={`Increase ${label}`}
         >+</button>
       </div>
@@ -120,141 +151,112 @@ function PackageCard({
   const [showDetails, setShowDetails] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<number | null>(null);
 
-  // Capacities scale with their component counts; savings derives from production capacity.
-  const scale = (base: number, count: number, def: number) => def > 0 ? base * (count / def) : base;
-  const liveSolarKwp   = Math.round(scale(pkg.solarKwp, qty.panels, defaults.panels) * 100) / 100;
-  const liveInverterKw = Math.round(scale(pkg.inverterKw, qty.inverter, defaults.inverter) * 10) / 10;
-  const liveStorageKwh = Math.round(scale(pkg.storageKwh, qty.batteries, defaults.batteries) * 100) / 100;
+  const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
+  const isHybrid = pkg.storageKwh > 0;
+
+  // Live capacity — derived from actual component specs, not from pkg flat fields
+  const liveInverterKw = Math.round((inverterLine?.component.loadCapacityKw ?? 0) * qty.inverter * 10) / 10;
+  const liveSolarKwp   = Math.round((panelLine?.component.productionCapacityKwp ?? 0) * qty.panels * 100) / 100;
+  const liveStorageKwh = Math.round((batteryLine?.component.storageCapacityKwh ?? 0) * qty.batteries * 100) / 100;
+
   const savings = computeMonthlySavings(liveSolarKwp);
-  const features = getFeatures(pkg.storageKwh, liveInverterKw, liveSolarKwp, liveStorageKwh);
+  const features = buildFeatures(pkg, liveInverterKw, liveSolarKwp, liveStorageKwh);
 
-  const bump = (key: keyof QtyState, delta: number) => {
-    setQty((prev) => ({ ...prev, [key]: Math.max(defaults[key], prev[key] + delta) }));
+  // Bounds derived from catalog product fields (recomputed whenever inverter count changes)
+  const bounds = computeBounds(pkg, qty.inverter);
+
+  const bumpInverter = (delta: number) => {
+    setQty((prev) => {
+      const newI = clamp(prev.inverter + delta, bounds.iMin, bounds.iMax);
+      const nb = computeBounds(pkg, newI);
+      return {
+        inverter:  newI,
+        batteries: clamp(prev.batteries, nb.bMin, nb.bMax),
+        panels:    clamp(prev.panels,    nb.pMin, nb.pMax),
+      };
+    });
   };
+  const bumpBatteries = (delta: number) =>
+    setQty((prev) => ({ ...prev, batteries: clamp(prev.batteries + delta, bounds.bMin, bounds.bMax) }));
+  const bumpPanels = (delta: number) =>
+    setQty((prev) => ({ ...prev, panels: clamp(prev.panels + delta, bounds.pMin, bounds.pMax) }));
 
-  // Calculate dynamic pricing based on actual component quantities
-  const calculateDynamicPrice = (): { price: number | null; breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> } => {
-    if (!pkg.components || pkg.components.length === 0) {
-      return { price: pkg.totalPrice, breakdown: [] };
-    }
-
+  // Dynamic price: use live qty for core components; keep default qty for accessories
+  const calcPrice = (): { price: number | null; breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> } => {
+    if (!pkg.components?.length) return { price: pkg.totalPrice, breakdown: [] };
     const breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> = [];
-    let totalPrice = 0;
+    let total = 0;
     let allPriced = true;
-    const defaults = defaultQty(pkg);
-
-    // Calculate price based on actual component quantities adjusted by user
     pkg.components.forEach((pc) => {
       const comp = pc.component;
-      if (!comp.pricingEnabled || comp.unitPrice === null) {
-        allPriced = false;
-        return;
-      }
-
-      // Calculate multiplier: (current qty / default qty per category)
-      let multiplier = 1;
-      if (comp.category === "Solar Panel" && defaults.panels > 0) {
-        multiplier = qty.panels / defaults.panels;
-      } else if (comp.category === "Inverter" && defaults.inverter > 0) {
-        multiplier = qty.inverter / defaults.inverter;
-      } else if (comp.category === "Battery" && defaults.batteries > 0) {
-        multiplier = qty.batteries / defaults.batteries;
-      }
-
-      // Total quantity = base quantity in package * multiplier
-      const componentQty = pc.quantity * multiplier;
-      const componentTotal = componentQty * comp.unitPrice;
-      totalPrice += componentTotal;
-      breakdown.push({
-        name: `${comp.name} (${comp.brand})`,
-        qty: componentQty,
-        unitPrice: comp.unitPrice,
-        total: componentTotal,
-      });
+      if (!comp.pricingEnabled || comp.unitPrice === null) { allPriced = false; return; }
+      const count =
+        comp.category === "Inverter"    ? qty.inverter  :
+        comp.category === "Battery"     ? qty.batteries :
+        comp.category === "Solar Panel" ? qty.panels    : pc.quantity;
+      const lineTotal = count * comp.unitPrice;
+      total += lineTotal;
+      breakdown.push({ name: `${comp.name} (${comp.brand})`, qty: count, unitPrice: comp.unitPrice, total: lineTotal });
     });
-
-    return { price: allPriced ? totalPrice : null, breakdown };
+    return { price: allPriced ? total : null, breakdown };
   };
 
-  const { price: dynamicPrice, breakdown } = calculateDynamicPrice();
+  const { price: dynamicPrice, breakdown } = calcPrice();
 
-  // Animate price changes
+  // Animate price counter on change
   useEffect(() => {
-    if (dynamicPrice === null) {
-      setDisplayPrice(null);
-      return;
-    }
-
-    const startPrice = displayPrice ?? (pkg.totalPrice ?? dynamicPrice);
-    const targetPrice = dynamicPrice;
-    const difference = targetPrice - startPrice;
-    const duration = 500; // ms
-    const startTime = Date.now();
-
-    const animatePrice = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      // Easing function: ease-out
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      const currentPrice = startPrice + difference * easeProgress;
-      setDisplayPrice(Math.round(currentPrice));
-
-      if (progress < 1) {
-        requestAnimationFrame(animatePrice);
-      } else {
-        setDisplayPrice(targetPrice);
-      }
+    if (dynamicPrice === null) { setDisplayPrice(null); return; }
+    const start = displayPrice ?? (pkg.totalPrice ?? dynamicPrice);
+    const diff = dynamicPrice - start;
+    const duration = 500;
+    const t0 = Date.now();
+    const tick = () => {
+      const p = Math.min((Date.now() - t0) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setDisplayPrice(Math.round(start + diff * ease));
+      if (p < 1) requestAnimationFrame(tick);
+      else setDisplayPrice(dynamicPrice);
     };
-
-    requestAnimationFrame(animatePrice);
-  }, [dynamicPrice, displayPrice, pkg.totalPrice]);
+    requestAnimationFrame(tick);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dynamicPrice]);
 
   const priceToDisplay = displayPrice ?? dynamicPrice ?? pkg.totalPrice;
 
+  const buildSelection = (): PackageSelection => ({
+    qty,
+    solarKwp: liveSolarKwp,
+    inverterKw: liveInverterKw,
+    storageKwh: liveStorageKwh,
+    savings,
+    price: dynamicPrice ?? pkg.totalPrice,
+    components: pkg.components?.map((pc) => {
+      const count =
+        pc.component.category === "Inverter"    ? qty.inverter  :
+        pc.component.category === "Battery"     ? qty.batteries :
+        pc.component.category === "Solar Panel" ? qty.panels    : pc.quantity;
+      return {
+        brand: pc.component.brand,
+        name: pc.component.name,
+        category: pc.component.category,
+        quantity: count,
+        unitPrice: pc.component.pricingEnabled ? pc.component.unitPrice : null,
+      };
+    }) ?? [],
+  });
+
   return (
     <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`}>
-      {pkg.isRecommended && (
-        <div className="as-pkg-recommended-badge">Recommended</div>
-      )}
+      {pkg.isRecommended && <div className="as-pkg-recommended-badge">Recommended</div>}
 
       <div className="as-pkg-top">
         <div className="as-pkg-name">{pkg.name}</div>
-        {(priceToDisplay != null) && (
-          <div className="as-pkg-price">
-            {pesoFmt(priceToDisplay)}
-          </div>
-        )}
-        <div className="as-pkg-size-label">{formatCapacity(liveSolarKwp, "power", { unit: "kWp" })} System</div>
+        {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
+        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} Load Capacity</div>
         <div className="as-pkg-savings">Saves ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}/mo</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
-          onClick={() => {
-            const sel: PackageSelection = {
-              qty,
-              solarKwp: liveSolarKwp,
-              inverterKw: liveInverterKw,
-              storageKwh: liveStorageKwh,
-              savings,
-              price: dynamicPrice ?? pkg.totalPrice,
-              components: pkg.components?.map((pc) => {
-                let multiplier = 1;
-                if (pc.component.category === "Solar Panel" && defaults.panels > 0)
-                  multiplier = qty.panels / defaults.panels;
-                else if (pc.component.category === "Inverter" && defaults.inverter > 0)
-                  multiplier = qty.inverter / defaults.inverter;
-                else if (pc.component.category === "Battery" && defaults.batteries > 0)
-                  multiplier = qty.batteries / defaults.batteries;
-                return {
-                  brand: pc.component.brand,
-                  name: pc.component.name,
-                  category: pc.component.category,
-                  quantity: Math.round(pc.quantity * multiplier),
-                  unitPrice: pc.component.pricingEnabled ? pc.component.unitPrice : null,
-                };
-              }) ?? [],
-            };
-            onInquire(sel);
-          }}
+          onClick={() => onInquire(buildSelection())}
         >
           Inquire
         </button>
@@ -274,11 +276,29 @@ function PackageCard({
       <p className="as-pkg-customize-note">*You can customize your system</p>
 
       <div className="as-pkg-qty-table">
-        <QuantityStepper label="Inverter" value={qty.inverter} min={defaults.inverter} onBump={(d) => bump("inverter", d)} />
-        {pkg.storageKwh > 0 && (
-          <QuantityStepper label="Batteries" value={qty.batteries} min={defaults.batteries} onBump={(d) => bump("batteries", d)} />
+        <QuantityStepper
+          label="Inverters"
+          value={qty.inverter}
+          min={bounds.iMin}
+          max={bounds.iMax}
+          onBump={bumpInverter}
+        />
+        {isHybrid && (
+          <QuantityStepper
+            label="Batteries"
+            value={qty.batteries}
+            min={bounds.bMin}
+            max={bounds.bMax}
+            onBump={bumpBatteries}
+          />
         )}
-        <QuantityStepper label="Solar Panels" value={qty.panels} min={defaults.panels} onBump={(d) => bump("panels", d)} />
+        <QuantityStepper
+          label="Solar Panels"
+          value={qty.panels}
+          min={bounds.pMin}
+          max={bounds.pMax}
+          onBump={bumpPanels}
+        />
       </div>
 
       <button className="as-pkg-details-link" onClick={() => setShowDetails((v) => !v)}>
@@ -293,40 +313,87 @@ function PackageCard({
 
       {showDetails && (
         <div className="as-pkg-detail-panel">
-          {[
-            ["Phase", pkg.phase === "single" ? "Single Phase" : "Three Phase"],
-            ["Production Capacity", formatCapacity(liveSolarKwp, "power", { unit: "kWp" })],
-            ["Load Capacity", formatCapacity(liveInverterKw, "power", { unit: "kW" })],
-            ...(pkg.storageKwh > 0 ? [["Storage Capacity", formatCapacity(liveStorageKwh, "energy", { unit: "kWh" })]] : []),
-            ["Monthly Savings", `₱${savings.min.toLocaleString()} – ₱${savings.max.toLocaleString()}`],
-            ...(priceToDisplay != null ? [["Total Price", pesoFmt(priceToDisplay)]] : []),
-          ].map(([label, val]) => (
-            <div key={label} className="as-pkg-detail-row">
-              <span>{label}</span>
-              <strong>{val}</strong>
-            </div>
-          ))}
+          {pkg.imageUrl && (
+            <img
+              src={pkg.imageUrl}
+              alt={pkg.name}
+              style={{ width: "100%", borderRadius: 6, marginBottom: 12, objectFit: "cover", maxHeight: 180 }}
+            />
+          )}
 
-          {breakdown.length > 0 && (
-            <>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 12, paddingTop: 12 }}>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Component Breakdown
-                </div>
-                {breakdown.map((item) => (
-                  <div key={item.name} style={{ fontSize: "12px", marginBottom: 6, color: "rgba(255,255,255,0.8)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span>{item.name}</span>
-                      <span style={{ opacity: 0.7 }}>×{item.qty}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: 0.6, marginTop: 2 }}>
-                      <span>{pesoFmt(item.unitPrice)} each</span>
-                      <span>{pesoFmt(item.total)}</span>
-                    </div>
-                  </div>
-                ))}
+          {/* Core component info */}
+          {inverterLine && (
+            <div className="as-pkg-detail-section">
+              <div className="as-pkg-detail-section-title">Inverter</div>
+              <div className="as-pkg-detail-row"><span>Model</span><strong>{inverterLine.component.model}</strong></div>
+              <div className="as-pkg-detail-row">
+                <span>Load Capacity</span>
+                <strong>{formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" })} × {qty.inverter} = {formatCapacity(liveInverterKw, "power", { unit: "kW" })}</strong>
               </div>
-            </>
+              {inverterLine.component.dataSheetUrl && (
+                <div className="as-pkg-detail-row">
+                  <a href={inverterLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isHybrid && batteryLine && (
+            <div className="as-pkg-detail-section">
+              <div className="as-pkg-detail-section-title">Battery</div>
+              <div className="as-pkg-detail-row"><span>Model</span><strong>{batteryLine.component.model}</strong></div>
+              <div className="as-pkg-detail-row">
+                <span>Storage Capacity</span>
+                <strong>{formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" })} × {qty.batteries} = {formatCapacity(liveStorageKwh, "energy", { unit: "kWh" })}</strong>
+              </div>
+              {batteryLine.component.dataSheetUrl && (
+                <div className="as-pkg-detail-row">
+                  <a href={batteryLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {panelLine && (
+            <div className="as-pkg-detail-section">
+              <div className="as-pkg-detail-section-title">Solar Panel</div>
+              <div className="as-pkg-detail-row"><span>Model</span><strong>{panelLine.component.model}</strong></div>
+              <div className="as-pkg-detail-row">
+                <span>Production Capacity</span>
+                <strong>{Math.round(panelLine.component.productionCapacityKwp * 1000)}W × {qty.panels} = {formatCapacity(liveSolarKwp, "power", { unit: "kWp" })}</strong>
+              </div>
+              {panelLine.component.dataSheetUrl && (
+                <div className="as-pkg-detail-row">
+                  <a href={panelLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Price breakdown */}
+          {breakdown.length > 0 && (
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 12, paddingTop: 12 }}>
+              <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Price Breakdown
+              </div>
+              {breakdown.map((item) => (
+                <div key={item.name} style={{ fontSize: "12px", marginBottom: 6, color: "rgba(255,255,255,0.8)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>{item.name}</span>
+                    <span style={{ opacity: 0.7 }}>×{item.qty}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: 0.6, marginTop: 2 }}>
+                    <span>{pesoFmt(item.unitPrice)} each</span>
+                    <span>{pesoFmt(item.total)}</span>
+                  </div>
+                </div>
+              ))}
+              {priceToDisplay != null && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 700, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                  <span>Total</span><span>{pesoFmt(priceToDisplay)}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
