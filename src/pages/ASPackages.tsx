@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type PackageSelection } from "../services/ASContent";
+import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
@@ -72,18 +73,41 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   const ic = inverterLine?.component;
   const bc = batteryLine?.component;
   const pc = panelLine?.component;
+  const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
+    ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
+    : 1;
+  const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
+    ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
+    : 1;
   return {
-    iMin: ic?.parallelMin    ?? 1,
-    iMax: ic?.parallelMax    ?? 1,
-    bMin: bc ? (bc.perInverterMin * inverterCount) : 0,
-    bMax: bc ? (bc.perInverterMax * inverterCount) : 0,
-    pMin: pc ? (pc.perInverterMin * inverterCount) : 1,
-    pMax: pc ? (pc.perInverterMax * inverterCount) : 1,
+    iMin: ic?.parallelMin ?? 1,
+    iMax: ic?.parallelMax ?? 1,
+    bMin: bc ? inverterCount : 0,
+    bMax: bc ? batteryMaxPerInverter * inverterCount : 0,
+    pMin: pc ? inverterCount : 1,
+    pMax: panelMaxPerInverter * inverterCount,
   };
 }
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
+}
+
+function coreQty(pc: ApiPackageComponent, qty: QtyState): number {
+  const cat = pc.component.category;
+  if (cat === "Inverter")    return qty.inverter;
+  if (cat === "Battery")     return qty.batteries;
+  if (cat === "Solar Panel") return qty.panels;
+  return pc.quantity;
+}
+
+function effectiveQty(pc: ApiPackageComponent, allPcs: ApiPackageComponent[], qty: QtyState): number {
+  if (pc.baseComponentId) {
+    const basePc = allPcs.find(p => p.componentId === pc.baseComponentId && !p.baseComponentId);
+    if (!basePc) return pc.quantity;
+    return Math.max(1, Math.ceil(coreQty(basePc, qty) * (pc.multiplier ?? 1)));
+  }
+  return coreQty(pc, qty);
 }
 
 function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
@@ -148,11 +172,28 @@ function PackageCard({
 }) {
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
-  const [showDetails, setShowDetails] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showOtherComponents, setShowOtherComponents] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<number | null>(null);
+  const [navbarBottom, setNavbarBottom] = useState(91);
+
+  useEffect(() => {
+    if (!showModal) return;
+
+    const navbar = document.querySelector('header.navbar-section');
+    const nb = navbar ? Math.round(navbar.getBoundingClientRect().bottom) : 91;
+    setNavbarBottom(nb);
+
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [showModal]);
 
   const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
   const isHybrid = pkg.storageKwh > 0;
+  const displayName = inverterLine?.component.model ?? pkg.name;
 
   // Live capacity — derived from actual component specs, not from pkg flat fields
   const liveInverterKw = Math.round((inverterLine?.component.loadCapacityKw ?? 0) * qty.inverter * 10) / 10;
@@ -190,10 +231,7 @@ function PackageCard({
     pkg.components.forEach((pc) => {
       const comp = pc.component;
       if (!comp.pricingEnabled || comp.unitPrice === null) { allPriced = false; return; }
-      const count =
-        comp.category === "Inverter"    ? qty.inverter  :
-        comp.category === "Battery"     ? qty.batteries :
-        comp.category === "Solar Panel" ? qty.panels    : pc.quantity;
+      const count = effectiveQty(pc, pkg.components ?? [], qty);
       const lineTotal = count * comp.unitPrice;
       total += lineTotal;
       breakdown.push({ name: `${comp.name} (${comp.brand})`, qty: count, unitPrice: comp.unitPrice, total: lineTotal });
@@ -201,7 +239,7 @@ function PackageCard({
     return { price: allPriced ? total : null, breakdown };
   };
 
-  const { price: dynamicPrice, breakdown } = calcPrice();
+  const { price: dynamicPrice } = calcPrice();
 
   // Animate price counter on change
   useEffect(() => {
@@ -231,10 +269,7 @@ function PackageCard({
     savings,
     price: dynamicPrice ?? pkg.totalPrice,
     components: pkg.components?.map((pc) => {
-      const count =
-        pc.component.category === "Inverter"    ? qty.inverter  :
-        pc.component.category === "Battery"     ? qty.batteries :
-        pc.component.category === "Solar Panel" ? qty.panels    : pc.quantity;
+      const count = effectiveQty(pc, pkg.components ?? [], qty);
       return {
         brand: pc.component.brand,
         name: pc.component.name,
@@ -250,7 +285,7 @@ function PackageCard({
       {pkg.isRecommended && <div className="as-pkg-recommended-badge">Recommended</div>}
 
       <div className="as-pkg-top">
-        <div className="as-pkg-name">{pkg.name}</div>
+        <div className="as-pkg-name">{displayName}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
         <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} {isHybrid ? "Load Capacity" : "System Capacity"}</div>
         <div className="as-pkg-savings">Saves ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}/mo</div>
@@ -301,101 +336,174 @@ function PackageCard({
         />
       </div>
 
-      <button className="as-pkg-details-link" onClick={() => setShowDetails((v) => !v)}>
-        {showDetails ? "See less details" : "See more details"}
-        <svg
-          width="10" height="6" viewBox="0 0 10 6" fill="none"
-          style={{ transform: showDetails ? "rotate(180deg)" : undefined, transition: "transform 0.2s ease" }}
-        >
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+      <button className="as-pkg-details-link" onClick={() => { setShowModal(true); setShowOtherComponents(false); }}>
+        See more details
+        {/* <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path d="M1 5H9M5.5 1.5L9 5L5.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg> */}
       </button>
 
-      {showDetails && (
-        <div className="as-pkg-detail-panel">
-          {pkg.imageUrl && (
-            <img
-              src={pkg.imageUrl}
-              alt={pkg.name}
-              style={{ width: "100%", borderRadius: 6, marginBottom: 12, objectFit: "cover", maxHeight: 180 }}
-            />
-          )}
+      {showModal && createPortal(
+        <div className="as-pkg-modal-overlay" style={{ top: `${navbarBottom}px` }} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
+          <div className="as-pkg-modal" style={{ maxHeight: `calc(100vh - ${navbarBottom}px - 32px)` }} onClick={(e) => e.stopPropagation()}>
 
-          {/* Core component info */}
-          {inverterLine && (
-            <div className="as-pkg-detail-section">
-              <div className="as-pkg-detail-section-title">Inverter</div>
-              <div className="as-pkg-detail-row"><span>Model</span><strong>{inverterLine.component.model}</strong></div>
-              <div className="as-pkg-detail-row">
-                <span>Load Capacity</span>
-                <strong>{formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" })} × {qty.inverter} = {formatCapacity(liveInverterKw, "power", { unit: "kW" })}</strong>
-              </div>
-              {inverterLine.component.dataSheetUrl && (
-                <div className="as-pkg-detail-row">
-                  <a href={inverterLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
-                </div>
+            {/* Hero — image background + summary */}
+            <div className="as-pkg-modal-hero">
+              {pkg.imageUrl && (
+                <div className="as-pkg-modal-hero-bg" style={{ backgroundImage: `url(${pkg.imageUrl})` }} />
               )}
-            </div>
-          )}
+              <div className="as-pkg-modal-hero-gradient" />
 
-          {isHybrid && batteryLine && (
-            <div className="as-pkg-detail-section">
-              <div className="as-pkg-detail-section-title">Battery</div>
-              <div className="as-pkg-detail-row"><span>Model</span><strong>{batteryLine.component.model}</strong></div>
-              <div className="as-pkg-detail-row">
-                <span>Storage Capacity</span>
-                <strong>{formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" })} × {qty.batteries} = {formatCapacity(liveStorageKwh, "energy", { unit: "kWh" })}</strong>
-              </div>
-              {batteryLine.component.dataSheetUrl && (
-                <div className="as-pkg-detail-row">
-                  <a href={batteryLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
+              <button className="as-pkg-modal-close" onClick={() => setShowModal(false)} aria-label="Close details">✕</button>
+
+              <div className="as-pkg-modal-hero-content">
+                <div className="as-pkg-modal-hero-label">{displayName}</div>
+                {priceToDisplay != null && (
+                  <div className="as-pkg-modal-hero-price">{pesoFmt(priceToDisplay)}</div>
+                )}
+                <div className="as-pkg-modal-hero-size">
+                  {formatCapacity(liveInverterKw, "power", { unit: "kW" })} {isHybrid ? "Load Capacity" : "System Capacity"}
                 </div>
-              )}
-            </div>
-          )}
-
-          {panelLine && (
-            <div className="as-pkg-detail-section">
-              <div className="as-pkg-detail-section-title">Solar Panel</div>
-              <div className="as-pkg-detail-row"><span>Model</span><strong>{panelLine.component.model}</strong></div>
-              <div className="as-pkg-detail-row">
-                <span>Production Capacity</span>
-                <strong>{Math.round(panelLine.component.productionCapacityKwp * 1000)}W × {qty.panels} = {formatCapacity(liveSolarKwp, "power", { unit: "kWp" })}</strong>
-              </div>
-              {panelLine.component.dataSheetUrl && (
-                <div className="as-pkg-detail-row">
-                  <a href={panelLine.component.dataSheetUrl} target="_blank" rel="noopener noreferrer" className="as-pkg-datasheet-link">Data Sheet ↗</a>
+                <div className="as-pkg-modal-hero-savings">
+                  Approx. Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Price breakdown */}
-          {breakdown.length > 0 && (
-            <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 12, paddingTop: 12 }}>
-              <div style={{ fontSize: "12px", fontWeight: 600, color: "rgba(255,255,255,0.6)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                Price Breakdown
+                <button
+                  className="as-pkg-modal-hero-inquire"
+                  onClick={() => { setShowModal(false); onInquire(buildSelection()); }}
+                >
+                  Inquire
+                </button>
               </div>
-              {breakdown.map((item) => (
-                <div key={item.name} style={{ fontSize: "12px", marginBottom: 6, color: "rgba(255,255,255,0.8)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span>{item.name}</span>
-                    <span style={{ opacity: 0.7 }}>×{item.qty}</span>
+            </div>
+
+            {/* Body — scrollable spec sections */}
+            <div className="as-pkg-modal-body">
+
+              {/* Inverter Specification */}
+              {inverterLine && (
+                <div className="as-pkg-spec-section">
+                  <div className="as-pkg-spec-sec-header">
+                    <span className="as-pkg-spec-sec-title">Inverter Specification</span>
+                    <a
+                      href={inverterLine.component.dataSheetUrl ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`as-pkg-spec-datasheet${!inverterLine.component.dataSheetUrl ? " is-disabled" : ""}`}
+                      aria-disabled={!inverterLine.component.dataSheetUrl}
+                    >
+                      Download Data Sheet
+                    </a>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", opacity: 0.6, marginTop: 2 }}>
-                    <span>{pesoFmt(item.unitPrice)} each</span>
-                    <span>{pesoFmt(item.total)}</span>
+                  <div className="as-pkg-spec-rows">
+                    <div className="as-pkg-spec-row">
+                      Model Name
+                      <span className="spec-value">{inverterLine.component.brand} {inverterLine.component.model}</span>
+                    </div>
+                    <div className="as-pkg-spec-row">
+                      Inverter Capacity
+                      <span className="spec-value">{formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" })}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
-              {priceToDisplay != null && (
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", fontWeight: 700, marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-                  <span>Total</span><span>{pesoFmt(priceToDisplay)}</span>
+              )}
+
+              {/* Battery Specification */}
+              {isHybrid && batteryLine && (
+                <div className="as-pkg-spec-section">
+                  <div className="as-pkg-spec-sec-header">
+                    <span className="as-pkg-spec-sec-title">Battery Specification</span>
+                    <a
+                      href={batteryLine.component.dataSheetUrl ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`as-pkg-spec-datasheet${!batteryLine.component.dataSheetUrl ? " is-disabled" : ""}`}
+                      aria-disabled={!batteryLine.component.dataSheetUrl}
+                    >
+                      Download Data Sheet
+                    </a>
+                  </div>
+                  <div className="as-pkg-spec-rows">
+                    <div className="as-pkg-spec-row">
+                      Model Name
+                      <span className="spec-value">{batteryLine.component.brand} {batteryLine.component.model}</span>
+                    </div>
+                    <div className="as-pkg-spec-row">
+                      Battery Capacity
+                      <span className="spec-value">{formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" })}</span>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Solar Panel Specification */}
+              {panelLine && (
+                <div className="as-pkg-spec-section">
+                  <div className="as-pkg-spec-sec-header">
+                    <span className="as-pkg-spec-sec-title">Solar Panel Specification</span>
+                    <a
+                      href={panelLine.component.dataSheetUrl ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`as-pkg-spec-datasheet${!panelLine.component.dataSheetUrl ? " is-disabled" : ""}`}
+                      aria-disabled={!panelLine.component.dataSheetUrl}
+                    >
+                      Download Data Sheet
+                    </a>
+                  </div>
+                  <div className="as-pkg-spec-rows">
+                    <div className="as-pkg-spec-row">
+                      Model Name
+                      <span className="spec-value">{panelLine.component.brand} {panelLine.component.model}</span>
+                    </div>
+                    <div className="as-pkg-spec-row">
+                      Production Capacity
+                      <span className="spec-value">{Math.round(panelLine.component.productionCapacityKwp * 1000)}W</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Other Components — collapsed until "See more details" is tapped */}
+              {(() => {
+                const CORE = ["Inverter", "Battery", "Solar Panel"];
+                const otherPcs = (pkg.components ?? []).filter((pc) => !CORE.includes(pc.component.category));
+                if (otherPcs.length === 0) return null;
+
+                if (!showOtherComponents) {
+                  return (
+                    <div className="as-pkg-modal-see-more">
+                      <button className="as-pkg-modal-see-more-btn" onClick={() => setShowOtherComponents(true)}>
+                        See more details
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="as-pkg-spec-section">
+                    <div className="as-pkg-spec-sec-header">
+                      <span className="as-pkg-spec-sec-title">Components</span>
+                    </div>
+                    <div className="as-pkg-spec-others-list">
+                      {otherPcs.map((pc) => {
+                        const count = effectiveQty(pc, pkg.components ?? [], qty);
+                        return (
+                          <div key={pc.componentId} className="as-pkg-spec-other-item">
+                            <span className="other-qty">{count}×</span>
+                            <span className="other-name">{pc.component.brand} {pc.component.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
-          )}
-        </div>
+
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

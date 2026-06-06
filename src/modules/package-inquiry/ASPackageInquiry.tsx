@@ -141,21 +141,16 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
             </p>
 
             {(() => {
-              const solarKwp   = selection?.solarKwp   ?? pkg.solarKwp;
-              const inverterKw = selection?.inverterKw  ?? pkg.inverterKw;
-              const storageKwh = selection?.storageKwh  ?? pkg.storageKwh;
-              const savings    = selection?.savings     ?? computeMonthlySavings(pkg.solarKwp);
-              const price      = selection?.price       ?? pkg.totalPrice;
-              const comps      = selection?.components  ?? pkg.components?.map(pc => ({ brand: pc.component.brand, name: pc.component.name, category: pc.component.category, quantity: pc.quantity, unitPrice: pc.component.unitPrice }));
+              const inverterComp = pkg.components?.find(pc => pc.component.category === "Inverter");
+              const systemName   = inverterComp?.component.model ?? pkg.name;
+              const inverterKw   = selection?.inverterKw ?? pkg.inverterKw;
+              const savings      = selection?.savings    ?? computeMonthlySavings(pkg.solarKwp);
+              const comps        = selection?.components ?? pkg.components?.map(pc => ({ brand: pc.component.brand, name: pc.component.name, category: pc.component.category, quantity: pc.quantity, unitPrice: pc.component.unitPrice }));
               return (
                 <div className="as-inq-success-pkg">
-                  <div className="as-inq-success-pkg-name">{pkg.name}</div>
-                  <div className="as-inq-success-detail-phase">{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-                  <div className="as-inq-success-detail-row">Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div className="as-inq-success-pkg-name">{systemName}</div>
                   <div className="as-inq-success-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  {storageKwh > 0 && <div className="as-inq-success-detail-row">Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
                   <div className="as-inq-success-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
-                  {price != null && <div className="as-inq-success-detail-row">Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
                   {comps && comps.length > 0 && (
                     <ul className="as-inq-success-components">
                       {comps.map((c, i) => (
@@ -179,21 +174,16 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
             </p>
 
             {pkg && (() => {
-              const solarKwp   = selection?.solarKwp   ?? pkg.solarKwp;
-              const inverterKw = selection?.inverterKw  ?? pkg.inverterKw;
-              const storageKwh = selection?.storageKwh  ?? pkg.storageKwh;
-              const savings    = selection?.savings     ?? computeMonthlySavings(pkg.solarKwp);
-              const price      = selection?.price       ?? pkg.totalPrice;
+              const inverterComp = pkg.components?.find(pc => pc.component.category === "Inverter");
+              const systemName   = inverterComp?.component.model ?? pkg.name;
+              const inverterKw   = selection?.inverterKw ?? pkg.inverterKw;
+              const savings      = selection?.savings    ?? computeMonthlySavings(pkg.solarKwp);
               return (
                 <div className="as-inq-pkg-summary">
                   <div className="as-inq-pkg-summary-label">System</div>
-                  <div className="as-inq-pkg-summary-name">{pkg.name}</div>
-                  <div className="as-inq-detail-phase">{pkg.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-                  <div className="as-inq-detail-row">Production: {formatCapacity(solarKwp, "power", { unit: "kWp" })}</div>
+                  <div className="as-inq-pkg-summary-name">{systemName}</div>
                   <div className="as-inq-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  {storageKwh > 0 && <div className="as-inq-detail-row">Storage: {formatCapacity(storageKwh, "energy", { unit: "kWh" })}</div>}
                   <div className="as-inq-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
-                  {price != null && <div className="as-inq-detail-row">Total Price: ₱{price.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
                 </div>
               );
             })()}

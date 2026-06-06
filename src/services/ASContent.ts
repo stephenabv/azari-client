@@ -396,6 +396,8 @@ export interface ApiPackageComponent {
   packageId: string;
   componentId: string;
   quantity: number;
+  baseComponentId?: string | null;
+  multiplier?: number;
   component: ApiSolarComponent;
 }
 
@@ -424,6 +426,8 @@ export interface ApiSolarPackage {
 export interface PackageComponentLine {
   componentId: string;
   quantity: number;
+  baseComponentId?: string | null;  // drives derived quantity; null = fixed
+  multiplier?: number;              // quantity = ceil(base.quantity * multiplier)
 }
 
 /**
@@ -543,8 +547,10 @@ export async function adminUpdateComponent(apiKey: string, id: string, data: Par
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
-    throw new Error(body.message ?? `Update failed: ${res.status}`);
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string; errors?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } };
+    const firstFieldError = body.errors?.fieldErrors ? Object.values(body.errors.fieldErrors).flat()[0] : null;
+    const firstFormError = body.errors?.formErrors?.[0];
+    throw new Error(firstFieldError ?? firstFormError ?? body.message ?? `Update failed: ${res.status}`);
   }
   return res.json();
 }

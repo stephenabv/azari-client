@@ -336,7 +336,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  align-self: flex-start;
+  align-self: center;
   margin-top: auto;
   transition: opacity 0.15s ease;
 
@@ -400,6 +400,317 @@
   &:hover {
     color: rgba(120, 180, 255, 1);
     text-decoration: underline;
+  }
+}
+
+// ── Package detail modal ─────────────────────────────────────────────────────
+
+.as-pkg-modal-overlay {
+  position: fixed;
+  top: 91px; // fallback; overridden by inline style from JS DOM measurement
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 16px;
+}
+
+.as-pkg-modal {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 91px - 32px); // fallback; overridden by inline style
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  animation: pkgModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @media (max-width: 560px) {
+    max-width: 100%;
+    border-radius: 16px;
+  }
+}
+
+@keyframes pkgModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// ── Modal hero (image + package summary) ─────────────────────────────────────
+
+.as-pkg-modal-hero {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 20px 20px 0 0;
+  background: #181818;
+  min-height: clamp(250px, 40vw, 340px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+
+  @media (max-width: 560px) {
+    border-radius: 16px 16px 0 0;
+    min-height: 270px;
+  }
+}
+
+.as-pkg-modal-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: right center;
+  opacity: 0.85;
+}
+
+.as-pkg-modal-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(5, 5, 5, 0.92) 18%, rgba(5, 5, 5, 0.45) 58%, rgba(5, 5, 5, 0.08) 100%),
+    linear-gradient(to bottom, rgba(5, 5, 5, 0.05) 30%, rgba(5, 5, 5, 1) 95%);
+}
+
+.as-pkg-modal-close {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.42);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+  }
+}
+
+.as-pkg-modal-hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 20px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.as-pkg-modal-hero-label {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0;
+  margin-bottom: 2px;
+}
+
+.as-pkg-modal-hero-price {
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(26px, 5.5vw, 32px);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.as-pkg-modal-hero-size {
+  font-family: "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.as-pkg-modal-hero-savings {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.as-pkg-modal-hero-inquire {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 16px;
+  background: #fc615a;
+  border: none;
+  border-radius: 12px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+
+  &:hover { opacity: 0.9; }
+  &:active { transform: scale(0.98); }
+}
+
+// ── Modal body (spec sections) ────────────────────────────────────────────────
+
+.as-pkg-modal-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #050505;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+  }
+}
+
+.as-pkg-modal-desc {
+  padding: 16px 22px 4px;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.as-pkg-spec-section {
+  padding: 22px 22px 18px;
+}
+
+.as-pkg-spec-sec-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.as-pkg-spec-sec-title {
+  font-family: "Inter", sans-serif;
+  font-size: clamp(16px, 3.2vw, 19px);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.as-pkg-spec-datasheet {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fc615a;
+  text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  &.is-disabled {
+    color: rgba(255, 255, 255, 0.2);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+.as-pkg-modal-see-more {
+  display: flex;
+  justify-content: center;
+  padding: 14px 20px 26px;
+}
+
+.as-pkg-modal-see-more-btn {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #ffffff;
+  }
+}
+
+.as-pkg-spec-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-left: 14px;
+}
+
+.as-pkg-spec-row {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.4;
+
+  .spec-value {
+    display: block;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12.5px;
+    margin-top: 1px;
+  }
+}
+
+.as-pkg-spec-others-list {
+  display: flex;
+  flex-direction: column;
+  padding-left: 14px;
+}
+
+.as-pkg-spec-other-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  .other-qty {
+    color: rgba(255, 255, 255, 0.32);
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .other-name {
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 0;
   }
 }
 
