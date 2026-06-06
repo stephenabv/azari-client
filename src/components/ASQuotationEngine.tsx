@@ -25,9 +25,12 @@ import type {
   ProposalRequestFormData,
 } from "../models/quotation";
 
-import residentialIcon from "../assets/icons/icon-resident.svg";
-import commercialIcon from "../assets/icons/icon-commercial.svg";
-import industrialIcon from "../assets/icons/icon-industrial.svg";
+import residentialIcon from "../assets/logos/quotation-page/residential.svg";
+import residentialSelectedIcon from "../assets/logos/quotation-page/residential-selected.svg";
+import commercialIcon from "../assets/logos/quotation-page/commercial.svg";
+import commercialSelectedIcon from "../assets/logos/quotation-page/commercial-selected.svg";
+import industrialIcon from "../assets/logos/quotation-page/indurstrial.svg";
+import industrialSelectedIcon from "../assets/logos/quotation-page/industrial-selected.svg";
 
 type ModalType =
   | "add-appliance"
@@ -53,16 +56,19 @@ const propertyTypes = [
   {
     title: "Residential",
     icon: residentialIcon,
+    selectedIcon: residentialSelectedIcon,
     description: "Standard detached housing or townhouses. Optimized for rooftop efficiency.",
   },
   {
     title: "Commercial",
     icon: commercialIcon,
+    selectedIcon: commercialSelectedIcon,
     description: "Office buildings, retail spaces, and warehouses. Higher load capacity sizing.",
   },
   {
     title: "Industrial",
     icon: industrialIcon,
+    selectedIcon: industrialSelectedIcon,
     description: "Manufacturing plants and large facilities. High-voltage integration focused.",
   },
 ];
@@ -965,7 +971,7 @@ export default function ASQuotationEngine() {
                     }}
                   >
                     <span className="as-property-icon">
-                      <img src={item.icon} alt={item.title} />
+                      <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
                     </span>
                     <span className="as-property-check" />
                     <h3>{item.title}</h3>
