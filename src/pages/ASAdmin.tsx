@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
   adminGetStats,
@@ -841,6 +842,31 @@ const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageK
 
 const ACCESSORY_CATEGORIES = ['Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'];
 
+function EditableNumber({ value, min = 1, max = null, onChange, className, style }: {
+  value: number; min?: number; max?: number | null; onChange: (n: number) => void;
+  className?: string; style?: CSSProperties;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      className={className}
+      style={style}
+      value={draft !== null ? draft : String(value)}
+      onFocus={e => { setDraft(String(value)); e.currentTarget.select(); }}
+      onChange={e => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={() => {
+        const n = Math.max(min, parseInt(draft ?? '', 10) || min);
+        const clamped = max != null ? Math.min(n, max) : n;
+        onChange(clamped);
+        setDraft(null);
+      }}
+      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+    />
+  );
+}
+
 function recomputeDerivedQtys(lines: PackageComponentLine[]): PackageComponentLine[] {
   return lines.map(line => {
     if (!line.baseComponentId) return line;
@@ -1347,6 +1373,8 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [selectedInquiry, setSelectedInquiry] = useState<PackageInquiry | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | PackageInquiry["status"]>("all");
 
   useEffect(() => {
     void load();
@@ -1375,7 +1403,8 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
     try {
       await adminUpdatePackageInquiry(apiKey, id, { status });
       setMsg("✓ Status updated");
-      await load();
+      setInquiries(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+      setSelectedInquiry(prev => prev?.id === id ? { ...prev, status } : prev);
     } catch (e) {
       setMsg(`Failed to update: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
@@ -1384,13 +1413,13 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   };
 
   const deleteInquiry = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this inquiry? This action cannot be undone.")) return;
+    if (!window.confirm("Delete this inquiry? This cannot be undone.")) return;
     setDeleting(id);
     try {
       await adminDeletePackageInquiry(apiKey, id);
       setMsg("✓ Inquiry deleted");
       setSelectedInquiry(null);
-      await load();
+      setInquiries(prev => prev.filter(i => i.id !== id));
     } catch (e) {
       setMsg(`Failed to delete: ${e instanceof Error ? e.message : "Unknown error"}`);
     } finally {
@@ -1398,379 +1427,279 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
     }
   };
 
+  const filtered = inquiries.filter(inq => {
+    if (statusFilter !== "all" && inq.status !== statusFilter) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return inq.name.toLowerCase().includes(q) || inq.email.toLowerCase().includes(q) || inq.packageName.toLowerCase().includes(q);
+  });
+
+  const counts = {
+    new:       inquiries.filter(i => i.status === "new").length,
+    contacted: inquiries.filter(i => i.status === "contacted").length,
+    converted: inquiries.filter(i => i.status === "converted").length,
+  };
+
+  const InqStatusSelect = ({ inq }: { inq: PackageInquiry }) => (
+    <select
+      className={`ad-inq-status-select is-${inq.status}`}
+      value={inq.status}
+      disabled={updating === inq.id}
+      onChange={e => void updateStatus(inq.id, e.target.value as PackageInquiry['status'])}
+    >
+      <option value="new">New</option>
+      <option value="contacted">Contacted</option>
+      <option value="converted">Converted</option>
+    </select>
+  );
+
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+
   return (
     <div>
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Package Inquiries</div>
-          <div className="ad-section-sub">
-            {loading ? "Loading…" : (
-              <>
-                <span>{inquiries.length} total inquiries</span>
-                {inquiries.length > 0 && (
-                  <>
-                    <span style={{ margin: "0 12px", color: "var(--ad-border)" }}>•</span>
-                    <span>
-                      {inquiries.filter(i => i.status === 'new').length} New
-                    </span>
-                    <span style={{ margin: "0 8px", color: "var(--ad-border)" }}>•</span>
-                    <span>
-                      {inquiries.filter(i => i.status === 'contacted').length} Contacted
-                    </span>
-                    <span style={{ margin: "0 8px", color: "var(--ad-border)" }}>•</span>
-                    <span>
-                      {inquiries.filter(i => i.status === 'converted').length} Converted
-                    </span>
-                  </>
-                )}
-              </>
-            )}
-          </div>
+          {!loading && (
+            <div className="ad-section-sub">
+              {inquiries.length} total
+              {inquiries.length > 0 && (
+                <> ·&nbsp;
+                  <span className="ad-inq-count is-new">{counts.new} New</span>
+                  &nbsp;·&nbsp;
+                  <span className="ad-inq-count is-contacted">{counts.contacted} Contacted</span>
+                  &nbsp;·&nbsp;
+                  <span className="ad-inq-count is-converted">{counts.converted} Converted</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {msg && <Toast msg={msg} />}
 
-      {loading ? (
-        <div style={{ padding: 20, color: "var(--ad-text3)" }}>Loading inquiries...</div>
-      ) : inquiries.length === 0 ? (
-        <div style={{ padding: 20, color: "var(--ad-text3)" }}>No inquiries yet</div>
-      ) : (
-        <table className="ad-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--ad-border)" }}>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Reference</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Name</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Email</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Package</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Capacity</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Status</th>
-              <th style={{ padding: 12, textAlign: "left", fontWeight: 600, fontSize: 12, color: "var(--ad-text3)" }}>Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {inquiries.map((inq) => {
-              const ref = `PKG-INQ-${inq.id.slice(0, 8).toUpperCase()}`;
-              return (
-                <tr key={inq.id} style={{ borderBottom: "1px solid var(--ad-border)" }}>
-                  <td style={{ padding: 12, fontSize: 13, fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>
-                    {ref}
-                  </td>
-                  <td style={{ padding: 12, fontSize: 13 }}>
-                    <button
-                      onClick={() => setSelectedInquiry(inq)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "var(--ad-primary, #fc615a)",
-                        cursor: "pointer",
-                        fontWeight: 500,
-                        textDecoration: "underline",
-                      }}
-                    >
-                      {inq.name}
-                    </button>
-                  </td>
-                  <td style={{ padding: 12, fontSize: 13, color: "var(--ad-text2)" }}>{inq.email}</td>
-                  <td style={{ padding: 12, fontSize: 13 }}>{inq.packageName}</td>
-                  <td style={{ padding: 12, fontSize: 13 }}>{formatCapacity(inq.packageDetails.inverterKw, "power", { unit: "kW" })}</td>
-                  <td style={{ padding: 12 }}>
-                    <select
-                      value={inq.status}
-                      onChange={(e) => void updateStatus(inq.id, e.target.value as PackageInquiry['status'])}
-                      disabled={updating === inq.id}
-                      style={{
-                        padding: "6px 8px",
-                        borderRadius: 4,
-                        border: "1px solid var(--ad-border)",
-                        background: "var(--ad-input-bg)",
-                        color: "var(--ad-text)",
-                        fontSize: 12,
-                        cursor: updating === inq.id ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <option value="new">New</option>
-                      <option value="contacted">Contacted</option>
-                      <option value="converted">Converted</option>
-                    </select>
-                  </td>
-                  <td style={{ padding: 12, fontSize: 12, color: "var(--ad-text3)" }}>
-                    {new Date(inq.createdAt).toLocaleDateString()}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {!loading && inquiries.length > 0 && (
+        <div className="ad-inq-toolbar">
+          <input
+            className="ad-input ad-inq-search"
+            type="search"
+            placeholder="Search name, email or package…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <select
+            className="ad-select ad-inq-filter"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+          >
+            <option value="all">All ({inquiries.length})</option>
+            <option value="new">New ({counts.new})</option>
+            <option value="contacted">Contacted ({counts.contacted})</option>
+            <option value="converted">Converted ({counts.converted})</option>
+          </select>
+        </div>
       )}
 
-      {selectedInquiry && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: "16px",
-            overflowY: "auto",
-          }}
-          onClick={() => setSelectedInquiry(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "var(--ad-bg)",
-              borderRadius: "12px",
-              padding: "32px",
-              maxWidth: "700px",
-              width: "100%",
-              maxHeight: "90vh",
-              overflowY: "auto",
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-              border: "1px solid var(--ad-border)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "28px",
-              }}
-            >
+      {loading ? (
+        <div style={{ padding: 20, color: "var(--ad-text3)" }}>Loading…</div>
+      ) : filtered.length === 0 ? (
+        <div style={{ padding: 20, color: "var(--ad-text3)" }}>
+          {inquiries.length === 0 ? "No inquiries yet." : "No results match your search."}
+        </div>
+      ) : (
+        <>
+          {/* ── Desktop table ── */}
+          <div className="ad-inq-table-wrap">
+            <table className="ad-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th className="ad-inq-th">Name</th>
+                  <th className="ad-inq-th">Contact</th>
+                  <th className="ad-inq-th">Package</th>
+                  <th className="ad-inq-th">Status</th>
+                  <th className="ad-inq-th">Date</th>
+                  <th className="ad-inq-th" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(inq => (
+                  <tr key={inq.id} className="ad-inq-tr">
+                    <td className="ad-inq-td">
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{inq.name}</div>
+                      <div className="ad-inq-ref">PKG-{inq.id.slice(0, 8).toUpperCase()}</div>
+                    </td>
+                    <td className="ad-inq-td">
+                      <div style={{ fontSize: 13 }}>{inq.email}</div>
+                      <div className="ad-inq-ref">{inq.phone}</div>
+                    </td>
+                    <td className="ad-inq-td">
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{inq.packageName}</div>
+                      <div className="ad-inq-ref">
+                        {formatCapacity(inq.packageDetails.inverterKw, "power", { unit: "kW" })}
+                        {inq.packageDetails.storageKwh > 0 && ` · ${formatCapacity(inq.packageDetails.storageKwh, "energy", { unit: "kWh" })}`}
+                        {` · ${inq.packageDetails.phase === "single" ? "Single" : "Three"} Phase`}
+                      </div>
+                    </td>
+                    <td className="ad-inq-td">
+                      <InqStatusSelect inq={inq} />
+                    </td>
+                    <td className="ad-inq-td">
+                      <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>{fmtDate(inq.createdAt)}</div>
+                    </td>
+                    <td className="ad-inq-td">
+                      <button className="ad-btn ad-btn--sm" onClick={() => setSelectedInquiry(inq)}>View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ── Mobile cards ── */}
+          <div className="ad-inq-cards">
+            {filtered.map(inq => (
+              <div key={inq.id} className="ad-inq-card">
+                <div className="ad-inq-card-top">
+                  <div>
+                    <div className="ad-inq-card-name">{inq.name}</div>
+                    <div className="ad-inq-ref">{inq.email} · {inq.phone}</div>
+                  </div>
+                  <button className="ad-btn ad-btn--sm" onClick={() => setSelectedInquiry(inq)} style={{ flexShrink: 0 }}>Details</button>
+                </div>
+                <div className="ad-inq-card-pkg">
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{inq.packageName}</span>
+                  <span className="ad-inq-ref">
+                    {formatCapacity(inq.packageDetails.inverterKw, "power", { unit: "kW" })}
+                    {inq.packageDetails.storageKwh > 0 && ` · ${formatCapacity(inq.packageDetails.storageKwh, "energy", { unit: "kWh" })}`}
+                    {` · ${inq.packageDetails.phase === "single" ? "Single" : "Three"} Phase`}
+                  </span>
+                  <span className="ad-inq-ref">{fmtDate(inq.createdAt)} · PKG-{inq.id.slice(0, 8).toUpperCase()}</span>
+                </div>
+                <div className="ad-inq-card-footer">
+                  <InqStatusSelect inq={inq} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ── Detail modal ── */}
+      {selectedInquiry && createPortal(
+        <div className="ad-inq-modal-overlay" onClick={() => setSelectedInquiry(null)}>
+          <div className="ad-inq-modal" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="ad-inq-modal-header">
               <div>
-                <h3 style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>Inquiry Details</h3>
-                <div style={{ fontSize: "12px", color: "var(--ad-text3)", marginTop: "4px", fontWeight: 600 }}>
-                  PKG-INQ-{selectedInquiry.id.slice(0, 8).toUpperCase()}
-                </div>
+                <div className="ad-inq-modal-title">Inquiry Details</div>
+                <div className="ad-inq-ref" style={{ marginTop: 3 }}>PKG-{selectedInquiry.id.slice(0, 8).toUpperCase()}</div>
               </div>
-              <button
-                onClick={() => setSelectedInquiry(null)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "28px",
-                  color: "var(--ad-text3)",
-                  cursor: "pointer",
-                  padding: "0",
-                  width: "32px",
-                  height: "32px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ×
-              </button>
+              <button className="ad-inq-modal-close" onClick={() => setSelectedInquiry(null)}>×</button>
             </div>
 
-            {/* Contact Information Section */}
-            <div style={{ marginBottom: "28px" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Contact Information</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "16px" }}>
-                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Full Name</div>
-                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.name}</div>
-                </div>
-                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Email Address</div>
-                  <div style={{ fontSize: "14px", fontWeight: 500, wordBreak: "break-all" }}>{selectedInquiry.email}</div>
-                </div>
-                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Phone Number</div>
-                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.phone}</div>
-                </div>
-                <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "6px" }}>Location</div>
-                  <div style={{ fontSize: "14px", fontWeight: 500 }}>{selectedInquiry.location}</div>
-                </div>
+            {/* Status — always visible at top */}
+            <div className="ad-inq-modal-section">
+              <div className="ad-inq-modal-sec-label">Status</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <InqStatusSelect inq={selectedInquiry} />
+                <span className="ad-inq-ref">{fmtDate(selectedInquiry.createdAt)} · {new Date(selectedInquiry.createdAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
             </div>
 
-            {/* Package Details Section */}
-            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>System Specifications</div>
-              <div style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "16px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "16px" }}>
-                  <div>
-                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Package Name</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageName}</div>
+            {/* Contact */}
+            <div className="ad-inq-modal-section">
+              <div className="ad-inq-modal-sec-label">Contact Information</div>
+              <div className="ad-inq-modal-grid">
+                {[
+                  ["Full Name",     selectedInquiry.name],
+                  ["Email",         selectedInquiry.email],
+                  ["Phone",         selectedInquiry.phone],
+                  ["Location",      selectedInquiry.location],
+                ].map(([label, value]) => (
+                  <div key={label} className="ad-inq-modal-field">
+                    <div className="ad-inq-modal-field-label">{label}</div>
+                    <div className="ad-inq-modal-field-value" style={{ wordBreak: "break-all" }}>{value}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Production</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.solarKwp, "power", { unit: "kWp" })}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* System specs */}
+            <div className="ad-inq-modal-section">
+              <div className="ad-inq-modal-sec-label">System Specifications</div>
+              <div className="ad-inq-modal-grid">
+                {[
+                  ["Package",         selectedInquiry.packageName],
+                  ["Load Capacity",   formatCapacity(selectedInquiry.packageDetails.inverterKw,  "power",  { unit: "kW" })],
+                  ["Production",      formatCapacity(selectedInquiry.packageDetails.solarKwp,    "power",  { unit: "kWp" })],
+                  ...(selectedInquiry.packageDetails.storageKwh > 0 ? [["Storage", formatCapacity(selectedInquiry.packageDetails.storageKwh, "energy", { unit: "kWh" })]] : []),
+                  ["Phase",           selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"],
+                  ...(selectedInquiry.packageDetails.billRangeMin != null ? [[
+                    "Monthly Savings",
+                    `₱${selectedInquiry.packageDetails.billRangeMin.toLocaleString("en-PH")} – ₱${selectedInquiry.packageDetails.billRangeMax?.toLocaleString("en-PH")}`,
+                  ]] : []),
+                ].map(([label, value]) => (
+                  <div key={label} className="ad-inq-modal-field">
+                    <div className="ad-inq-modal-field-label">{label}</div>
+                    <div className="ad-inq-modal-field-value">{value}</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Load Capacity</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.inverterKw, "power", { unit: "kW" })}</div>
-                  </div>
-                  {selectedInquiry.packageDetails.storageKwh > 0 && (
-                    <div>
-                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Storage</div>
-                      <div style={{ fontSize: "14px", fontWeight: 600 }}>{formatCapacity(selectedInquiry.packageDetails.storageKwh, "energy", { unit: "kWh" })}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Phase Type</div>
-                    <div style={{ fontSize: "14px", fontWeight: 600 }}>{selectedInquiry.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"}</div>
-                  </div>
-                  {(selectedInquiry.packageDetails.billRangeMin != null && selectedInquiry.packageDetails.billRangeMax != null) && (
-                    <div>
-                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Monthly Savings</div>
-                      <div style={{ fontSize: "14px", fontWeight: 600 }}>₱{(selectedInquiry.packageDetails.billRangeMin).toLocaleString("en-PH")} – ₱{(selectedInquiry.packageDetails.billRangeMax).toLocaleString("en-PH")}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Total Price</div>
+                ))}
+                <div className="ad-inq-modal-field">
+                  <div className="ad-inq-modal-field-label">Total Price</div>
+                  <div className="ad-inq-modal-field-value" style={{ color: selectedInquiry.packageDetails.totalPrice != null ? "var(--ad-accent)" : undefined }}>
                     {selectedInquiry.packageDetails.totalPrice != null
-                      ? <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--ad-primary, #fc615a)" }}>₱{(selectedInquiry.packageDetails.totalPrice).toLocaleString("en-PH")}</div>
-                      : <div style={{ fontSize: "14px", fontWeight: 500, color: "var(--ad-text3)" }}>Price TBD</div>}
+                      ? `₱${selectedInquiry.packageDetails.totalPrice.toLocaleString("en-PH")}`
+                      : "Price TBD"}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Selected Components Section */}
-            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Selected Components</div>
-              {(() => {
-                const comps = selectedInquiry.packageDetails.components;
-                if (!comps || comps.length === 0) {
-                  return <div style={{ fontSize: "13px", color: "var(--ad-text3)", fontStyle: "italic", padding: "12px 0" }}>Component breakdown not captured for this inquiry.</div>;
-                }
-                const EMOJI: Record<string, string> = { "Solar Panel": "☀️", "Inverter": "⚡", "Battery": "🔋" };
-                const order = ["Solar Panel", "Inverter", "Battery"];
-                const byCategory = comps.reduce<Record<string, typeof comps>>((acc, c) => {
-                  (acc[c.category] ??= []).push(c);
-                  return acc;
-                }, {});
-                const categories = [
-                  ...order.filter(cat => byCategory[cat]),
-                  ...Object.keys(byCategory).filter(cat => !order.includes(cat)),
-                ];
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {/* Components */}
+            {(() => {
+              const comps = selectedInquiry.packageDetails.components;
+              if (!comps || comps.length === 0) return null;
+              const EMOJI: Record<string, string> = { "Solar Panel": "☀️", "Inverter": "⚡", "Battery": "🔋" };
+              const order = ["Solar Panel", "Inverter", "Battery"];
+              const byCategory = comps.reduce<Record<string, typeof comps>>((acc, c) => { (acc[c.category] ??= []).push(c); return acc; }, {});
+              const categories = [...order.filter(c => byCategory[c]), ...Object.keys(byCategory).filter(c => !order.includes(c))];
+              return (
+                <div className="ad-inq-modal-section">
+                  <div className="ad-inq-modal-sec-label">Selected Components</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {categories.map(cat => (
-                      <div key={cat} style={{ background: "var(--ad-input-bg)", borderRadius: "8px", padding: "14px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "10px" }}>
-                          {EMOJI[cat] ?? "📦"} {cat}
-                        </div>
+                      <div key={cat} className="ad-inq-modal-field" style={{ gap: 8 }}>
+                        <div className="ad-inq-modal-field-label">{EMOJI[cat] ?? "📦"} {cat}</div>
                         {byCategory[cat].map((c, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px", padding: "4px 0", borderBottom: i < byCategory[cat].length - 1 ? "1px solid var(--ad-border)" : "none" }}>
-                            <span style={{ fontWeight: 500 }}><span style={{ fontWeight: 700, marginRight: 6 }}>{c.quantity}×</span>{c.brand} {c.name}</span>
-                            {c.unitPrice != null && <span style={{ color: "var(--ad-text3)", fontSize: 12 }}>₱{c.unitPrice.toLocaleString("en-PH")} ea.</span>}
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "3px 0", borderBottom: i < byCategory[cat].length - 1 ? "1px solid var(--ad-border)" : "none" }}>
+                            <span><span style={{ fontWeight: 700, marginRight: 6 }}>{c.quantity}×</span>{c.brand} {c.name}</span>
+                            {c.unitPrice != null && <span className="ad-inq-ref">₱{c.unitPrice.toLocaleString("en-PH")} ea.</span>}
                           </div>
                         ))}
                       </div>
                     ))}
                   </div>
-                );
-              })()}
-            </div>
-
-            {/* Status & Timeline Section */}
-            <div style={{ marginBottom: "28px", borderTop: "1px solid var(--ad-border)", paddingTop: "28px" }}>
-              <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "14px" }}>Status & Timeline</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                <div>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Current Status</div>
-                  <select
-                    value={selectedInquiry.status}
-                    onChange={(e) => void updateStatus(selectedInquiry.id, e.target.value as PackageInquiry['status'])}
-                    disabled={updating === selectedInquiry.id}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--ad-border)",
-                      background: "var(--ad-bg)",
-                      color: "var(--ad-text)",
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      cursor: updating === selectedInquiry.id ? "not-allowed" : "pointer",
-                      opacity: updating === selectedInquiry.id ? 0.6 : 1,
-                    }}
-                  >
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="converted">Converted</option>
-                  </select>
                 </div>
-                <div>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Submitted On</div>
-                  <div style={{ fontSize: "13px", padding: "8px 0" }}>
-                    {new Date(selectedInquiry.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: "8px" }}>Time</div>
-                  <div style={{ fontSize: "13px", padding: "8px 0" }}>
-                    {new Date(selectedInquiry.createdAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Actions */}
-            <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "20px", display: "flex", gap: "12px", justifyContent: "space-between" }}>
+            <div className="ad-inq-modal-actions">
               <button
-                onClick={() => void deleteInquiry(selectedInquiry.id)}
+                className="ad-btn ad-btn--danger"
                 disabled={deleting === selectedInquiry.id}
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: "6px",
-                  border: "1px solid #ef4444",
-                  background: "rgba(239, 68, 68, 0.1)",
-                  color: "#ef4444",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: deleting === selectedInquiry.id ? "not-allowed" : "pointer",
-                  transition: "all 0.2s",
-                  opacity: deleting === selectedInquiry.id ? 0.6 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (deleting !== selectedInquiry.id) {
-                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                }}
-                title="Delete this inquiry permanently"
+                onClick={() => void deleteInquiry(selectedInquiry.id)}
               >
-                {deleting === selectedInquiry.id ? "Deleting..." : "Delete"}
+                {deleting === selectedInquiry.id ? "Deleting…" : "Delete"}
               </button>
-              <button
-                onClick={() => setSelectedInquiry(null)}
-                style={{
-                  padding: "10px 20px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--ad-border)",
-                  background: "var(--ad-input-bg)",
-                  color: "var(--ad-text)",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "var(--ad-border)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--ad-input-bg)";
-                }}
-              >
-                Close
-              </button>
+              <button className="ad-btn ad-btn--ghost" onClick={() => setSelectedInquiry(null)}>Close</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -2271,21 +2200,27 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                         <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Each</span>
                                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text)" }}>1 × {baseComp.name}</span>
                                         <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>needs</span>
-                                        <input
-                                          className="ad-pkg-multiplier-input"
-                                          type="number"
-                                          min={1}
-                                          step={1}
-                                          value={line.multiplier ?? 1}
-                                          onChange={e => {
-                                            const m = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                            setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, multiplier: m } : c));
-                                          }}
-                                          onBlur={e => {
-                                            const m = Math.max(1, parseInt(e.target.value, 10) || 1);
-                                            setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, multiplier: m } : c));
-                                          }}
-                                        />
+                                        <div className="ad-pkg-multiplier-stepper">
+                                          <button type="button" className="ad-pkg-multiplier-btn"
+                                            disabled={(line.multiplier ?? 1) <= 1}
+                                            onClick={() => {
+                                              const m = Math.max(1, (line.multiplier ?? 1) - 1);
+                                              setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, multiplier: m } : c));
+                                            }}
+                                          >−</button>
+                                          <EditableNumber
+                                            className="ad-pkg-multiplier-val"
+                                            value={line.multiplier ?? 1}
+                                            min={1}
+                                            onChange={m => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, multiplier: m } : c))}
+                                          />
+                                          <button type="button" className="ad-pkg-multiplier-btn"
+                                            onClick={() => {
+                                              const m = (line.multiplier ?? 1) + 1;
+                                              setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, multiplier: m } : c));
+                                            }}
+                                          >+</button>
+                                        </div>
                                         <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>unit{(line.multiplier ?? 1) !== 1 ? "s" : ""}</span>
                                         <div className="ad-pkg-multiplier-result">
                                           <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ad-accent)" }}>{line.quantity}</span>
@@ -2307,7 +2242,13 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                         onClick={() => { if (line.quantity > 1) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity - 1 } : c)); }}
                                         style={{ background: "none", border: "none", color: "var(--ad-text3)", cursor: line.quantity <= 1 ? "not-allowed" : "pointer", fontSize: 15, padding: "0 5px", fontWeight: "bold", opacity: line.quantity <= 1 ? 0.3 : 1 }}
                                       >−</button>
-                                      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", minWidth: 24, textAlign: "center" }}>{line.quantity}</span>
+                                      <EditableNumber
+                                        style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", width: 32, textAlign: "center", background: "none", border: "none", outline: "none" }}
+                                        value={line.quantity}
+                                        min={1}
+                                        max={componentMax}
+                                        onChange={n => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: n } : c))}
+                                      />
                                       <button
                                         onClick={() => { if (componentMax === null || line.quantity < componentMax) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c)); }}
                                         disabled={componentMax !== null && line.quantity >= componentMax}

@@ -1054,13 +1054,50 @@
   flex-wrap: wrap;
 }
 
-.ad-pkg-multiplier-input {
-  .ad-input();
-  width: 64px;
-  padding: 3px 8px;
+.ad-pkg-multiplier-stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--ad-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ad-pkg-multiplier-btn {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--ad-text2);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--ad-border);
+    color: var(--ad-text);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}
+
+.ad-pkg-multiplier-val {
+  width: 32px;
+  text-align: center;
   font-size: 12px;
   font-weight: 600;
-  text-align: center;
+  color: var(--ad-text);
+  padding: 0 2px;
+  background: none;
+  border: none;
+  outline: none;
+  cursor: text;
 }
 
 .ad-pkg-multiplier-result {
@@ -1251,4 +1288,260 @@
   .ad-stat-value {
     font-size: 28px;
   }
+}
+
+/* ── Package Inquiries UI ─────────────────────────────────────── */
+
+.ad-inq-count {
+  font-weight: 600;
+  &.is-new       { color: #60a5fa; }
+  &.is-contacted { color: #fb923c; }
+  &.is-converted { color: #4ade80; }
+}
+
+.ad-inq-toolbar {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0 16px;
+  flex-wrap: wrap;
+}
+
+.ad-inq-search {
+  flex: 1;
+  min-width: 180px;
+}
+
+.ad-inq-filter {
+  width: 160px;
+  flex-shrink: 0;
+}
+
+.ad-inq-ref {
+  font-size: 11px;
+  color: var(--ad-text3);
+  margin-top: 2px;
+}
+
+/* ── Desktop table ── */
+.ad-inq-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--ad-border);
+  @media (max-width: 767px) { display: none; }
+}
+
+.ad-inq-th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ad-text3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border-bottom: 1px solid var(--ad-border);
+  white-space: nowrap;
+}
+
+.ad-inq-tr {
+  &:hover { background: var(--ad-surface2); }
+  &:last-child td { border-bottom: none; }
+}
+
+.ad-inq-td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--ad-border);
+  vertical-align: middle;
+}
+
+/* ── Mobile cards ── */
+.ad-inq-cards {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  @media (max-width: 767px) { display: flex; }
+}
+
+.ad-inq-card {
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ad-inq-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ad-inq-card-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ad-inq-card-pkg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--ad-input-bg);
+  border-radius: 7px;
+}
+
+.ad-inq-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Status select ── */
+.ad-inq-status-select {
+  appearance: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ad-border);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: opacity 0.15s;
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  &.is-new {
+    background: rgba(96, 165, 250, 0.12);
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.3);
+  }
+  &.is-contacted {
+    background: rgba(251, 146, 60, 0.12);
+    color: #fb923c;
+    border-color: rgba(251, 146, 60, 0.3);
+  }
+  &.is-converted {
+    background: rgba(74, 222, 128, 0.12);
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+  }
+}
+
+/* ── Detail modal ── */
+.ad-inq-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.ad-inq-modal {
+  background: var(--ad-bg);
+  border: 1px solid var(--ad-border2);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-inq-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--ad-border);
+  position: sticky;
+  top: 0;
+  background: var(--ad-bg);
+  z-index: 1;
+}
+
+.ad-inq-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.ad-inq-modal-close {
+  background: none;
+  border: none;
+  font-size: 26px;
+  color: var(--ad-text3);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  &:hover { background: var(--ad-border); color: var(--ad-text); }
+}
+
+.ad-inq-modal-section {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--ad-border);
+  &:last-child { border-bottom: none; }
+}
+
+.ad-inq-modal-sec-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ad-text3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+}
+
+.ad-inq-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.ad-inq-modal-field {
+  background: var(--ad-surface);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ad-inq-modal-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ad-text3);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.ad-inq-modal-field-value {
+  font-size: 13px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.ad-inq-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  border-top: 1px solid var(--ad-border);
+  gap: 10px;
+  position: sticky;
+  bottom: 0;
+  background: var(--ad-bg);
 }
