@@ -1175,12 +1175,14 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                     </div>
                   )}
 
-                  {/* Data sheet URL */}
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <label className="ad-label">Product Data Sheet <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — paste a link to the PDF)</span></label>
-                    <input className="ad-input" value={form.dataSheetUrl ?? ""} placeholder="https://…/datasheet.pdf"
-                      onChange={e => setF("dataSheetUrl", e.target.value || null)} />
-                  </div>
+                  {/* Data sheet URL — only for core component types */}
+                  {!ACCESSORY_CATEGORIES.includes(form.category) && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label className="ad-label">Product Data Sheet <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — paste a link to the PDF)</span></label>
+                      <input className="ad-input" value={form.dataSheetUrl ?? ""} placeholder="https://…/datasheet.pdf"
+                        onChange={e => setF("dataSheetUrl", e.target.value || null)} />
+                    </div>
+                  )}
                 </div>
                 <div style={{
                   display: "flex", gap: "clamp(8px, 2vw, 12px)", marginTop: "clamp(16px, 3vw, 20px)",
