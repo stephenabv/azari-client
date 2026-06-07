@@ -2488,6 +2488,30 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                               // Fallback mode: always allow at least 1, matching public card behaviour
                               return invComp.batteryMaxCapacity != null ? rawBattMax : Math.max(1, rawBattMax);
                             })() : null;
+                            // DC:AC 1.2 suggested panel count, clamped between battery charge floor and hardware max
+                            const suggestedPanels: number | null = isSolarPanel ? (() => {
+                              const invLine2 = (form.components ?? []).find(l2 => allComponents.find(c2 => c2.id === l2.componentId)?.category === 'Inverter');
+                              if (!invLine2) return null;
+                              const invComp2 = allComponents.find(c2 => c2.id === invLine2.componentId);
+                              if (!invComp2 || (comp.productionCapacityKwp ?? 0) <= 0) return null;
+                              const panelKwp = comp.productionCapacityKwp ?? 1;
+                              const dcAcTarget = Math.round(invComp2.loadCapacityKw * invLine2.quantity * 1.2 / panelKwp);
+                              const battLine2 = (form.components ?? []).find(l2 => allComponents.find(c2 => c2.id === l2.componentId)?.category === 'Battery');
+                              const battComp2 = battLine2 ? allComponents.find(c2 => c2.id === battLine2.componentId) : null;
+                              const battFloor = (battLine2 && battComp2 && (battComp2.storageCapacityKwh ?? 0) > 0)
+                                ? Math.ceil((battLine2.quantity * (battComp2.storageCapacityKwh ?? 0)) / (4 * 0.80 * panelKwp))
+                                : 1;
+                              const maxQty = componentMax ?? dcAcTarget;
+                              return Math.min(maxQty, Math.max(battFloor, dcAcTarget));
+                            })() : null;
+                            const panelBelowBattFloor: boolean = isSolarPanel ? (() => {
+                              const battLine2 = (form.components ?? []).find(l2 => allComponents.find(c2 => c2.id === l2.componentId)?.category === 'Battery');
+                              const battComp2 = battLine2 ? allComponents.find(c2 => c2.id === battLine2.componentId) : null;
+                              const panelKwp = comp.productionCapacityKwp ?? 0;
+                              if (!battLine2 || !battComp2 || panelKwp <= 0 || (battComp2.storageCapacityKwh ?? 0) <= 0) return false;
+                              const battFloor = Math.ceil((battLine2.quantity * (battComp2.storageCapacityKwh ?? 0)) / (4 * 0.80 * panelKwp));
+                              return line.quantity < battFloor;
+                            })() : false;
                             const isAccessory = ACCESSORY_CATEGORIES.includes(comp.category);
                             const isDerived = isAccessory && !!line.baseComponentId;
                             const nonDerivedLines = (form.components ?? []).filter(l => !l.baseComponentId && l.componentId !== line.componentId);
@@ -2575,31 +2599,42 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
                                 {/* Qty stepper (non-derived) */}
                                 {!isDerived && (
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--ad-bg)", border: "1px solid var(--ad-border)", borderRadius: 6, padding: "2px 4px" }}>
-                                      <button
-                                        onClick={() => { if (line.quantity > 1) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity - 1 } : c)); }}
-                                        style={{ background: "none", border: "none", color: "var(--ad-text3)", cursor: line.quantity <= 1 ? "not-allowed" : "pointer", fontSize: 15, padding: "0 5px", fontWeight: "bold", opacity: line.quantity <= 1 ? 0.3 : 1 }}
-                                      >−</button>
-                                      <EditableNumber
-                                        style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", width: 32, textAlign: "center", background: "none", border: "none", outline: "none" }}
-                                        value={line.quantity}
-                                        min={1}
-                                        max={componentMax}
-                                        onChange={n => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: n } : c))}
-                                      />
-                                      <button
-                                        onClick={() => { if (componentMax === null || line.quantity < componentMax) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c)); }}
-                                        disabled={componentMax !== null && line.quantity >= componentMax}
-                                        style={{ background: "none", border: "none", color: "var(--ad-text3)", cursor: (componentMax !== null && line.quantity >= componentMax) ? "not-allowed" : "pointer", fontSize: 15, padding: "0 5px", fontWeight: "bold", opacity: (componentMax !== null && line.quantity >= componentMax) ? 0.3 : 1 }}
-                                      >+</button>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--ad-bg)", border: "1px solid var(--ad-border)", borderRadius: 6, padding: "2px 4px" }}>
+                                        <button
+                                          onClick={() => { if (line.quantity > 1) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity - 1 } : c)); }}
+                                          style={{ background: "none", border: "none", color: "var(--ad-text3)", cursor: line.quantity <= 1 ? "not-allowed" : "pointer", fontSize: 15, padding: "0 5px", fontWeight: "bold", opacity: line.quantity <= 1 ? 0.3 : 1 }}
+                                        >−</button>
+                                        <EditableNumber
+                                          style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", width: 32, textAlign: "center", background: "none", border: "none", outline: "none" }}
+                                          value={line.quantity}
+                                          min={1}
+                                          max={componentMax}
+                                          onChange={n => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: n } : c))}
+                                        />
+                                        <button
+                                          onClick={() => { if (componentMax === null || line.quantity < componentMax) setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: c.quantity + 1 } : c)); }}
+                                          disabled={componentMax !== null && line.quantity >= componentMax}
+                                          style={{ background: "none", border: "none", color: "var(--ad-text3)", cursor: (componentMax !== null && line.quantity >= componentMax) ? "not-allowed" : "pointer", fontSize: 15, padding: "0 5px", fontWeight: "bold", opacity: (componentMax !== null && line.quantity >= componentMax) ? 0.3 : 1 }}
+                                        >+</button>
+                                      </div>
+                                      {componentMax !== null && (
+                                        <button
+                                          onClick={() => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: componentMax } : c))}
+                                          disabled={line.quantity >= componentMax}
+                                          style={{ fontSize: 10, padding: "3px 8px", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 5, color: "#3b82f6", cursor: line.quantity >= componentMax ? "not-allowed" : "pointer", opacity: line.quantity >= componentMax ? 0.4 : 1 }}
+                                        >Max ({componentMax})</button>
+                                      )}
+                                      {suggestedPanels !== null && line.quantity !== suggestedPanels && (
+                                        <button
+                                          onClick={() => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: suggestedPanels! } : c))}
+                                          style={{ fontSize: 10, padding: "3px 8px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 5, color: "#22c55e", cursor: "pointer" }}
+                                        >Suggest ({suggestedPanels})</button>
+                                      )}
                                     </div>
-                                    {componentMax !== null && (
-                                      <button
-                                        onClick={() => setComponents((form.components ?? []).map((c, i) => i === idx ? { ...c, quantity: componentMax } : c))}
-                                        disabled={line.quantity >= componentMax}
-                                        style={{ fontSize: 10, padding: "3px 8px", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 5, color: "#3b82f6", cursor: line.quantity >= componentMax ? "not-allowed" : "pointer", opacity: line.quantity >= componentMax ? 0.4 : 1 }}
-                                      >Max ({componentMax})</button>
+                                    {panelBelowBattFloor && (
+                                      <div style={{ fontSize: 10, color: "#f59e0b" }}>⚠ Array may not fully charge batteries at 4 PSH</div>
                                     )}
                                   </div>
                                 )}

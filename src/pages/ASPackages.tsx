@@ -84,7 +84,7 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   if (ic?.pvMaxPower != null && pc != null && pc.productionCapacityKwp > 0) {
     const totalPvMin = (ic.pvMinPower ?? 0) * inverterCount;
     const totalPvMax = ic.pvMaxPower * inverterCount;
-    pMin = totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : 1;
+    pMin = Math.max(cfgP, totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : cfgP);
     pMax = Math.floor(totalPvMax / pc.productionCapacityKwp);
   } else {
     // Legacy: cap at floor(inverter rated kW / panel kWp) per inverter
@@ -99,7 +99,7 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   let bMin: number, bMax: number;
   if (ic?.batteryMaxCapacity != null && bc != null && bc.storageCapacityKwh > 0) {
     const totalBattMax = ic.batteryMaxCapacity * inverterCount;
-    bMin = 1;
+    bMin = Math.max(cfgB, 1);
     bMax = Math.floor(totalBattMax / bc.storageCapacityKwh);
   } else {
     // Legacy: floor(inverter rated kW / battery kWh) per inverter
@@ -145,11 +145,13 @@ function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: numbe
   const isHybrid = pkg.storageKwh > 0;
   // mainFeatures override the auto-generated capacity bullets when present
   if (pkg.mainFeatures?.length) return pkg.mainFeatures;
+  // Daily energy yield: kWp × 4 PSH × 0.80 PR (consistent with computeMonthlySavings)
+  const dailyKwh = Math.round(solarKwp * 4 * 0.80 * 10) / 10;
   const list = [
     `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
     "Mobile Device Monitoring",
     `${formatCapacity(inverterKw, "power", { unit: "kW" })} ${isHybrid ? "Load Capacity" : "System Capacity"}`,
-    `${formatCapacity(solarKwp, "power", { unit: "kWp" })} Production Capacity`,
+    `${dailyKwh} kWh/day Production Capacity`,
   ];
   if (isHybrid) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
   return list;
