@@ -6,6 +6,7 @@ import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
+import checkBullet from "../assets/logos/packages/check-bullet.svg";
 
 
 // Mobile responsive styles for CEO image
@@ -325,8 +326,8 @@ function PackageCard({
       <div className="as-pkg-top">
         <div className="as-pkg-name">{displayName}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
-        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} {isHybrid ? "Load Capacity" : "System Capacity"}</div>
-        <div className="as-pkg-savings">Saves ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}/mo</div>
+        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} System</div>
+        <div className="as-pkg-savings">Approx. Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
           onClick={() => onInquire(buildSelection())}
@@ -340,7 +341,7 @@ function PackageCard({
       <ul className="as-pkg-features">
         {features.map((f) => (
           <li key={f} className="as-pkg-feature-row">
-            <span className="as-pkg-check" aria-hidden="true">✓</span>
+            <img src={checkBullet} alt="" aria-hidden="true" width={14} style={{ flexShrink: 0, marginTop: 2 }} />
             <span>{f}</span>
           </li>
         ))}
@@ -403,7 +404,7 @@ function PackageCard({
                   <div className="as-pkg-modal-hero-price">{pesoFmt(priceToDisplay)}</div>
                 )}
                 <div className="as-pkg-modal-hero-size">
-                  {formatCapacity(liveInverterKw, "power", { unit: "kW" })} {isHybrid ? "Load Capacity" : "System Capacity"}
+                  {formatCapacity(liveInverterKw, "power", { unit: "kW" })} System
                 </div>
                 <div className="as-pkg-modal-hero-savings">
                   Approx. Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}

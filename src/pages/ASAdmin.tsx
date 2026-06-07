@@ -2019,6 +2019,13 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [systemType, setSystemType]   = useState<'hybrid' | 'grid-tied'>('hybrid');
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
   const [pkgImagePreview, setPkgImagePreview] = useState<string>("");
+  const [pkgSearch, setPkgSearch]             = useState("");
+  const [showFilters, setShowFilters]         = useState(false);
+  const [filterPhase, setFilterPhase]         = useState<Set<string>>(new Set());
+  const [filterType, setFilterType]           = useState<Set<string>>(new Set());
+  const [filterStatus, setFilterStatus]       = useState<Set<string>>(new Set());
+  const [filterBillRange, setFilterBillRange] = useState<Set<string>>(new Set());
+  const [filterRecommended, setFilterRecommended] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -2226,6 +2233,42 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
   const activeCount = packages.filter((p) => p.isActive).length;
+
+  const toggleFilterSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, val: string) =>
+    setter(prev => { const n = new Set(prev); n.has(val) ? n.delete(val) : n.add(val); return n; });
+
+  const BILL_TIERS: Array<[string, string, (p: ApiSolarPackage) => boolean]> = [
+    ["bill-low",   "Up to ₱5,000/mo",      p => p.billRangeMin < 5000],
+    ["bill-mid",   "₱5,000 – ₱15,000/mo",  p => p.billRangeMin >= 5000 && p.billRangeMin < 15000],
+    ["bill-high",  "₱15,000 – ₱30,000/mo", p => p.billRangeMin >= 15000 && p.billRangeMin < 30000],
+    ["bill-xhigh", "Above ₱30,000/mo",     p => p.billRangeMin >= 30000],
+  ];
+
+  const clearFilters = () => { setFilterPhase(new Set()); setFilterType(new Set()); setFilterStatus(new Set()); setFilterBillRange(new Set()); setFilterRecommended(false); };
+
+  const filteredPackages = (() => {
+    let r = packages;
+    if (pkgSearch.trim()) {
+      const q = pkgSearch.toLowerCase();
+      r = r.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.components ?? []).some(pc =>
+          pc.component.name.toLowerCase().includes(q) ||
+          pc.component.brand.toLowerCase().includes(q) ||
+          pc.component.model.toLowerCase().includes(q)
+        )
+      );
+    }
+    if (filterPhase.size > 0)     r = r.filter(p => filterPhase.has(p.phase));
+    if (filterType.size > 0)      r = r.filter(p => filterType.has(p.storageKwh > 0 ? "hybrid" : "grid-tied"));
+    if (filterStatus.size > 0)    r = r.filter(p => filterStatus.has(p.isActive ? "active" : "inactive"));
+    if (filterBillRange.size > 0) r = r.filter(p => BILL_TIERS.some(([v, , fn]) => filterBillRange.has(v) && fn(p)));
+    if (filterRecommended)        r = r.filter(p => p.isRecommended);
+    return r;
+  })();
+
+  const activeFilterCount = filterPhase.size + filterType.size + filterStatus.size + filterBillRange.size + (filterRecommended ? 1 : 0);
+  const isFiltering = pkgSearch.trim().length > 0 || activeFilterCount > 0;
 
   return (
     <div>
@@ -2771,6 +2814,121 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           </div>
         </>
       )}
+      {/* Backdrop closes filter panel on outside click */}
+      {showFilters && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowFilters(false)} />}
+
+      {/* Search + filter bar — shown only when packages exist */}
+      {!loading && packages.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Search input */}
+          <div style={{ position: "relative", flex: "1 1 240px", minWidth: 180 }}>
+            <input
+              type="text"
+              className="ad-input"
+              placeholder="Search by package name, inverter, battery, panel…"
+              value={pkgSearch}
+              onChange={(e) => setPkgSearch(e.target.value)}
+              style={{ paddingLeft: 34, paddingTop: 8, paddingBottom: 8 }}
+            />
+            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.35, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            {pkgSearch && (
+              <button onClick={() => setPkgSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ad-text3)", fontSize: 14, padding: "2px 4px", lineHeight: 1 }}>✕</button>
+            )}
+          </div>
+
+          {/* Filter button + dropdown */}
+          <div style={{ position: "relative", zIndex: 100 }}>
+            <button
+              className={`ad-btn ad-btn--sm${activeFilterCount === 0 ? " ad-btn--ghost" : ""}`}
+              onClick={() => setShowFilters(s => !s)}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filters
+              {activeFilterCount > 0 && (
+                <span style={{ background: "#fc615a", color: "#fff", borderRadius: 999, fontSize: 10, padding: "1px 6px", fontWeight: 700, lineHeight: "14px" }}>{activeFilterCount}</span>
+              )}
+            </button>
+
+            {showFilters && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", minWidth: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.25)" }}>
+
+                {/* Phase */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Phase</div>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    {[["single", "Single Phase"], ["three", "Three Phase"]] .map(([v, l]) => (
+                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                        <input type="checkbox" checked={filterPhase.has(v)} onChange={() => toggleFilterSet(setFilterPhase, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* System type */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>System Type</div>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    {[["hybrid", "Hybrid"], ["grid-tied", "Grid-Tied"]].map(([v, l]) => (
+                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                        <input type="checkbox" checked={filterType.has(v)} onChange={() => toggleFilterSet(setFilterType, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Visibility */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Visibility</div>
+                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    {[["active", "Active"], ["inactive", "Hidden"]].map(([v, l]) => (
+                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                        <input type="checkbox" checked={filterStatus.has(v)} onChange={() => toggleFilterSet(setFilterStatus, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price tier — bill range rough buckets */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Bill Range</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {BILL_TIERS.map(([v, l]) => (
+                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                        <input type="checkbox" checked={filterBillRange.has(v)} onChange={() => toggleFilterSet(setFilterBillRange, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recommended */}
+                <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 12, marginBottom: activeFilterCount > 0 ? 12 : 0 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                    <input type="checkbox" checked={filterRecommended} onChange={(e) => setFilterRecommended(e.target.checked)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />
+                    Recommended only
+                  </label>
+                </div>
+
+                {activeFilterCount > 0 && (
+                  <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ width: "100%" }} onClick={clearFilters}>Clear all filters</button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Result count */}
+          {isFiltering && (
+            <span style={{ fontSize: 12, color: "var(--ad-text3)", whiteSpace: "nowrap" }}>
+              {filteredPackages.length} of {packages.length} package{packages.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading packages…</div>
       ) : packages.length === 0 ? (
@@ -2778,9 +2936,16 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
           <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 450, margin: "0 auto" }}>Click <strong>+ Add Package</strong> to build a new solar package. Choose components from your <strong>Inventory</strong> tab, and the system will auto-calculate your system specs and total price. Active packages appear on the public <strong>/packages</strong> page.</div>
         </div>
+      ) : filteredPackages.length === 0 ? (
+        <div className="ad-card" style={{ textAlign: "center", padding: "40px 24px" }}>
+          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 6 }}>No packages match</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Try adjusting your search or filters.{" "}
+            <button onClick={() => { setPkgSearch(""); clearFilters(); }} style={{ background: "none", border: "none", color: "var(--ad-accent)", cursor: "pointer", fontSize: 13, textDecoration: "underline", padding: 0 }}>Clear all</button>
+          </div>
+        </div>
       ) : (
         <div className="ad-pkg-mgr-grid">
-          {packages.map((p) => (
+          {filteredPackages.map((p) => (
             <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`}>
               <div className="ad-pkg-mgr-top">
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
