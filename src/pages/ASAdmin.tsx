@@ -29,6 +29,7 @@ import {
   adminCreateComponent,
   adminUpdateComponent,
   adminDeleteComponent,
+  adminGetComponentUsage,
   adminUpdateTalkProjectStatus,
   adminUpdateQuotationProjectStatus,
   adminGetPackageInquiries,
@@ -44,6 +45,7 @@ import {
   type ApiSolarComponent,
   type ComponentInput,
   type PackageComponentLine,
+  type PackageUsageItem,
 } from "../services/ASContent";
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
@@ -902,6 +904,74 @@ function computePackageSpecs(selected: SelectedComponent[], components: ApiSolar
 
 // ─── ComponentsManager ────────────────────────────────────────────────────────
 
+type ViolatedPackage = {
+  id: string; name: string; isActive: boolean; violations: string[];
+  components: PackageUsageItem['components'];
+};
+type CleanedResult = { id: string; name: string; removed: string[]; error?: string };
+
+function computePkgViolations(
+  pkg: PackageUsageItem,
+  editedId: string,
+  newForm: Pick<ComponentInput, 'pvMaxPower' | 'pvMinPower' | 'batteryMaxCapacity' | 'loadCapacityKw' | 'parallelMax' | 'productionCapacityKwp' | 'storageCapacityKwh'>
+): string[] {
+  const violations: string[] = [];
+  const invLine   = pkg.components.find(l => l.component.category === 'Inverter');
+  const panelLine = pkg.components.find(l => l.component.category === 'Solar Panel');
+  const battLine  = pkg.components.find(l => l.component.category === 'Battery');
+  if (!invLine) return violations;
+
+  const isEditedInv = invLine.componentId === editedId;
+  const invQty = invLine.quantity;
+
+  const pvMax = isEditedInv
+    ? ((newForm.pvMaxPower ?? null) ?? newForm.loadCapacityKw)
+    : ((invLine.component.pvMaxPower ?? null) ?? invLine.component.loadCapacityKw);
+
+  const battMax = isEditedInv
+    ? ((newForm.batteryMaxCapacity ?? null) ?? newForm.loadCapacityKw)
+    : ((invLine.component.batteryMaxCapacity ?? null) ?? invLine.component.loadCapacityKw);
+
+  if (panelLine) {
+    const isEditedPanel = panelLine.componentId === editedId;
+    const panelKwp = isEditedPanel
+      ? (newForm.productionCapacityKwp ?? 0)
+      : panelLine.component.productionCapacityKwp;
+    if (panelKwp > 0 && pvMax != null) {
+      const maxPanels = Math.floor(pvMax * invQty / panelKwp);
+      if (panelLine.quantity > maxPanels) {
+        violations.push(
+          `Panels: ${panelLine.quantity} installed, new max is ${maxPanels} (${(panelLine.quantity * panelKwp).toFixed(2)} kWp > ${(pvMax * invQty).toFixed(2)} kWp limit)`
+        );
+      }
+    }
+  }
+
+  if (battLine) {
+    const isEditedBatt = battLine.componentId === editedId;
+    const battKwh = isEditedBatt
+      ? (newForm.storageCapacityKwh ?? 0)
+      : battLine.component.storageCapacityKwh;
+    if (battKwh > 0 && battMax != null) {
+      const maxBatt = Math.floor(battMax * invQty / battKwh);
+      if (battLine.quantity > maxBatt) {
+        violations.push(
+          `Batteries: ${battLine.quantity} installed, new max is ${maxBatt} (${(battLine.quantity * battKwh).toFixed(1)} kWh > ${(battMax * invQty).toFixed(1)} kWh limit)`
+        );
+      }
+    }
+  }
+
+  if (isEditedInv) {
+    const newParallelMax = newForm.parallelMax ?? 4;
+    if (invQty > newParallelMax) {
+      violations.push(`Inverters: ${invQty} installed, new parallel limit is ${newParallelMax}`);
+    }
+  }
+
+  return violations;
+}
+
 const COMPONENT_CATEGORIES = [
   "Solar Panel", "Inverter", "Battery", "Mounting & Racking",
   "Wiring & Protection", "Monitoring", "Others",
@@ -913,10 +983,11 @@ const EMPTY_COMP: ComponentInput = {
   productionCapacityKwp: 0, loadCapacityKw: 0, storageCapacityKwh: 0,
   capacityUnit: "Wp",
   parallelMin: 1, parallelMax: 4, perInverterMin: 1, perInverterMax: 4,
+  pvMinPower: null, pvMaxPower: null, batteryMaxCapacity: null,
   dataSheetUrl: null,
 };
 
-function ComponentsManager({ apiKey }: { apiKey: string }) {
+function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToPackages?: () => void }) {
   const [components, setComponents] = useState<ApiSolarComponent[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showForm, setShowForm]     = useState(false);
@@ -927,6 +998,10 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   const [msg, setMsg]               = useState("");
   const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
   const [componentPage, setComponentPage] = useState<Record<string, number>>({}); // Page per category
+  // Edit-confirmation state — set when editing a component that's used in packages
+  const [editConfirm, setEditConfirm] = useState<ViolatedPackage[] | null>(null);
+  // Post-save cleanup state — shown after auto-removing violating components from packages
+  const [postSaveCleanup, setPostSaveCleanup] = useState<CleanedResult[] | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -968,17 +1043,19 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
       parallelMax: c.parallelMax ?? 4,
       perInverterMin: c.perInverterMin ?? 1,
       perInverterMax: c.perInverterMax ?? 4,
+      pvMinPower: c.pvMinPower ?? null,
+      pvMaxPower: c.pvMaxPower ?? null,
+      batteryMaxCapacity: c.batteryMaxCapacity ?? null,
       dataSheetUrl: c.dataSheetUrl?.trim() || null,
     });
-    setMsg(""); setShowForm(true);
+    setMsg(""); setEditConfirm(null); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); };
+  const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); setEditConfirm(null); setPostSaveCleanup(null); };
 
-  const handleSave = async () => {
+  const handleSave = async (bypassConfirm = false) => {
     if (!form.name.trim() || !form.brand.trim() || !form.model.trim()) {
       setMsg("Please enter component name, brand, and model"); return;
     }
-    // Validate required specs based on category
     if (form.category === 'Solar Panel' && (!form.productionCapacityKwp || form.productionCapacityKwp <= 0)) {
       setMsg("Please enter Production Capacity (must be greater than 0 kWp)"); return;
     }
@@ -991,6 +1068,39 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
     if (form.pricingEnabled && (form.unitPrice == null || form.unitPrice <= 0)) {
       setMsg("Please enter a unit price when pricing is enabled"); return;
     }
+
+    // For edits: check if the component is used in packages before proceeding
+    if (editingId && !bypassConfirm) {
+      setSaving(true);
+      try {
+        const usage = await adminGetComponentUsage(apiKey, editingId);
+        if (usage.data.length > 0) {
+          const oldComp = components.find(c => c.id === editingId);
+          const ratingChanged = !oldComp || (
+            (form.category === 'Inverter' && (
+              (form.pvMaxPower ?? null) !== (oldComp.pvMaxPower ?? null) ||
+              (form.pvMinPower ?? null) !== (oldComp.pvMinPower ?? null) ||
+              (form.batteryMaxCapacity ?? null) !== (oldComp.batteryMaxCapacity ?? null) ||
+              form.loadCapacityKw !== oldComp.loadCapacityKw ||
+              (form.parallelMax ?? 4) !== (oldComp.parallelMax ?? 4)
+            )) ||
+            (form.category === 'Solar Panel' && form.productionCapacityKwp !== oldComp.productionCapacityKwp) ||
+            (form.category === 'Battery' && form.storageCapacityKwh !== oldComp.storageCapacityKwh)
+          );
+          const withViolations: ViolatedPackage[] = usage.data.map(pkg => ({
+            id: pkg.id,
+            name: pkg.name,
+            isActive: pkg.isActive,
+            violations: ratingChanged ? computePkgViolations(pkg, editingId, form) : [],
+            components: pkg.components,
+          }));
+          setEditConfirm(withViolations);
+          return; // Hold — wait for user confirmation in the UI
+        }
+      } catch { /* if check fails, proceed with save */ }
+      finally { setSaving(false); }
+    }
+
     setSaving(true); setMsg("");
     try {
       const spec = CATEGORY_SPEC[form.category];
@@ -1000,15 +1110,53 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
         capacityUnit: spec ? (form.capacityUnit ?? spec.default) : null,
         dataSheetUrl: form.dataSheetUrl?.trim() || null,
       };
+      const affectedPackages = editConfirm ?? [];
+      const violatedPackages = affectedPackages.filter(p => p.violations.length > 0);
       if (editingId) {
         await adminUpdateComponent(apiKey, editingId, payload);
-        setMsg("✓ Component updated successfully");
+
+        if (violatedPackages.length > 0) {
+          // Auto-remove the out-of-bounds component lines from each affected package
+          const cleanResults: CleanedResult[] = [];
+          for (const pkg of violatedPackages) {
+            const toRemove = new Set<string>();
+            pkg.violations.forEach(v => {
+              if (v.startsWith('Panels:'))    toRemove.add('Solar Panel');
+              if (v.startsWith('Batteries:')) toRemove.add('Battery');
+              if (v.startsWith('Inverters:')) toRemove.add('Inverter');
+            });
+            const keptComponents = pkg.components
+              .filter(l => !toRemove.has(l.component.category))
+              .map(l => ({ componentId: l.componentId, quantity: l.quantity, baseComponentId: l.baseComponentId ?? null, multiplier: l.multiplier ?? 1 }));
+            try {
+              await adminUpdatePackage(apiKey, pkg.id, { components: keptComponents });
+              cleanResults.push({ id: pkg.id, name: pkg.name, removed: [...toRemove] });
+            } catch (err) {
+              cleanResults.push({ id: pkg.id, name: pkg.name, removed: [...toRemove], error: (err as Error).message });
+            }
+          }
+          setEditConfirm(null);
+          await load();
+          setMsg(`✓ Component updated — ${cleanResults.length} package${cleanResults.length !== 1 ? 's' : ''} cleaned up`);
+          setPostSaveCleanup(cleanResults);
+        } else if (affectedPackages.length > 0) {
+          setEditConfirm(null);
+          await load();
+          setMsg(`✓ Component updated — review ${affectedPackages.length} affected package${affectedPackages.length !== 1 ? 's' : ''}: ${affectedPackages.map(p => p.name).join(', ')}`);
+          setTimeout(closeForm, 3000);
+        } else {
+          setEditConfirm(null);
+          await load();
+          setMsg("✓ Component updated successfully");
+          setTimeout(closeForm, 1500);
+        }
       } else {
         await adminCreateComponent(apiKey, payload);
         setMsg("✓ Component added to inventory");
+        setEditConfirm(null);
+        await load();
+        setTimeout(closeForm, 1500);
       }
-      await load();
-      setTimeout(closeForm, 1500);
     } catch (e) {
       const errorMsg = (e as Error).message;
       if (errorMsg.includes("409") || errorMsg.includes("conflict")) {
@@ -1021,7 +1169,19 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}"? Packages using it may be affected.`)) return;
+    // Block deletion if the component is used in any packages
+    setDeleting(id);
+    try {
+      const usage = await adminGetComponentUsage(apiKey, id);
+      if (usage.data.length > 0) {
+        const pkgList = usage.data.map(p => `"${p.name}"`).join(', ');
+        setMsg(`Cannot delete "${name}" — it is used in ${usage.data.length} package${usage.data.length !== 1 ? 's' : ''}: ${pkgList}. Remove it from those packages first.`);
+        return;
+      }
+    } catch { /* if check fails, let the delete attempt surface its own error */ }
+    finally { setDeleting(null); }
+
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     setDeleting(id);
     try {
       await adminDeleteComponent(apiKey, id);
@@ -1099,6 +1259,31 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
               <div style={{
                 padding: "clamp(12px, 4vw, 20px)", overflow: "auto", flex: 1, display: "flex", flexDirection: "column"
               }}>
+                {postSaveCleanup ? (
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✓ Component updated</div>
+                    <div style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 14, lineHeight: 1.5 }}>
+                      Out-of-bounds components were automatically removed from {postSaveCleanup.length} package{postSaveCleanup.length !== 1 ? 's' : ''}. Open each package to reconfigure the quantities.
+                    </div>
+                    {postSaveCleanup.map(r => (
+                      <div key={r.id} style={{ marginBottom: 8, padding: "10px 12px", background: r.error ? "rgba(220,38,38,0.06)" : "rgba(34,197,94,0.06)", border: `1px solid ${r.error ? "rgba(220,38,38,0.22)" : "rgba(34,197,94,0.2)"}`, borderRadius: 6 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)", marginBottom: 3 }}>{r.name}</div>
+                        {r.error
+                          ? <div style={{ fontSize: 12, color: "#dc2626" }}>⚠ Failed to update: {r.error}</div>
+                          : <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>Removed: {r.removed.join(', ')}</div>
+                        }
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                      <button onClick={closeForm} className="ad-btn ad-btn--ghost" style={{ flex: "1 1 auto" }}>Done</button>
+                      {onGoToPackages && (
+                        <button onClick={() => { onGoToPackages(); closeForm(); }} className="ad-btn" style={{ flex: "1 1 auto" }}>
+                          Go to Packages →
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (<>
                 <div style={{
                   display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
                   gap: "clamp(12px, 3vw, 16px)"
@@ -1178,25 +1363,63 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                     <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: 4 }}>
                       <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Quantity Range</div>
                       {form.category === "Inverter" ? (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <div><label className="ad-label">Min</label>
-                            <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMin ?? 1}
-                              onChange={e => setF("parallelMin", Number(e.target.value))} /></div>
-                          <div><label className="ad-label">Max</label>
+                        <>
+                          <div>
+                            <label className="ad-label">Max Parallel Units</label>
                             <input type="number" className="ad-input" min={1} max={1000} value={form.parallelMax ?? 4}
-                              onChange={e => setF("parallelMax", Number(e.target.value))} /></div>
-                        </div>
+                              onChange={e => setF("parallelMax", Math.max(1, Number(e.target.value) || 1))} />
+                          </div>
+                          <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 6, display: "block" }}>
+                            How many of this inverter the customer can add to the package. Min is always 1.
+                          </small>
+                          {/* PV input range — drives panel quantity window */}
+                          <div style={{ marginTop: 14, borderTop: "1px solid var(--ad-border)", paddingTop: 12 }}>
+                            <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                              PV Input Range <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>(optional — enables physics-based panel bounds)</span>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                              <div>
+                                <label className="ad-label">Min PV Input (kWp)</label>
+                                <input type="number" className="ad-input" min={0} step="0.1"
+                                  value={form.pvMinPower ?? ""}
+                                  placeholder="e.g. 3.0"
+                                  onChange={e => setF("pvMinPower", e.target.value === "" ? null : Number(e.target.value))} />
+                              </div>
+                              <div>
+                                <label className="ad-label">Max PV Input (kWp)</label>
+                                <input type="number" className="ad-input" min={0} step="0.1"
+                                  value={form.pvMaxPower ?? ""}
+                                  placeholder="e.g. 7.5"
+                                  onChange={e => setF("pvMaxPower", e.target.value === "" ? null : Number(e.target.value))} />
+                              </div>
+                            </div>
+                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4, display: "block" }}>
+                              From the inverter datasheet: "Max. DC Input Power" / "Max. PV Array Power". When set, panel count is derived from <strong>floor(pvMax × Q ÷ panelWp)</strong> instead of rated output.
+                            </small>
+                          </div>
+                          {/* Battery max capacity — drives battery quantity window */}
+                          <div style={{ marginTop: 14, borderTop: "1px solid var(--ad-border)", paddingTop: 12 }}>
+                            <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                              Battery Support <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>(optional)</span>
+                            </div>
+                            <div>
+                              <label className="ad-label">Max Battery Capacity (kWh per unit)</label>
+                              <input type="number" className="ad-input" min={0} step="0.1"
+                                value={form.batteryMaxCapacity ?? ""}
+                                placeholder="e.g. 15.0"
+                                onChange={e => setF("batteryMaxCapacity", e.target.value === "" ? null : Number(e.target.value))} />
+                            </div>
+                            <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4, display: "block" }}>
+                              Max battery storage this inverter supports per unit. When set, battery count is derived from <strong>floor(battMax × Q ÷ moduleKWh)</strong>.
+                            </small>
+                          </div>
+                        </>
                       ) : (
                         <div style={{ fontSize: 12, color: "var(--ad-text2)", padding: "10px 12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: 6, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
                           {form.category === "Battery"
-                            ? <>Battery count is governed by inverter count. Configure the quantity per package during package creation.</>
-                            : <>Panel count is automatically limited by the paired inverter's capacity: <strong>floor(inverter kW ÷ panel kWp)</strong>. Configure per package during package creation.</>}
+                            ? <>Battery count is derived from the paired inverter's <strong>Max Battery Capacity</strong> field. Configure that on the inverter product.</>
+                            : <>Panel count is derived from the paired inverter's <strong>PV Input Range</strong> fields. Configure those on the inverter product.</>}
                         </div>
-                      )}
-                      {form.category === "Inverter" && (
-                        <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 6, display: "block" }}>
-                          How many of this inverter the customer can add to the package.
-                        </small>
                       )}
                     </div>
                   )}
@@ -1210,15 +1433,90 @@ function ComponentsManager({ apiKey }: { apiKey: string }) {
                     </div>
                   )}
                 </div>
-                <div style={{
-                  display: "flex", gap: "clamp(8px, 2vw, 12px)", marginTop: "clamp(16px, 3vw, 20px)",
-                  flexWrap: "wrap-reverse", justifyContent: "flex-end"
-                }}>
-                  <button onClick={closeForm} className="ad-btn ad-btn--ghost" style={{ flex: "1 1 auto", minWidth: "100px" }}>Cancel</button>
-                  <button onClick={() => void handleSave()} disabled={saving} className="ad-btn" style={{ flex: "1 1 auto", minWidth: "120px" }}>
-                    {saving ? "Saving…" : editingId ? "Update" : "Add"}
-                  </button>
-                </div>
+                {/* Edit confirmation — shown when the component is in use and user clicked Update */}
+                {editConfirm && (() => {
+                  const violating    = editConfirm.filter(p => p.violations.length > 0);
+                  const nonViolating = editConfirm.filter(p => p.violations.length === 0);
+                  const hasViolations = violating.length > 0;
+                  return (
+                    <div style={{
+                      marginTop: "clamp(14px, 3vw, 20px)",
+                      padding: "14px 16px",
+                      borderRadius: 8,
+                      background: hasViolations ? "rgba(220, 38, 38, 0.06)" : "rgba(251, 191, 36, 0.08)",
+                      border: hasViolations ? "1px solid rgba(220, 38, 38, 0.3)" : "1px solid rgba(251, 191, 36, 0.35)",
+                    }}>
+                      {hasViolations ? (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>
+                            ⚠ Rating change will break {violating.length} package{violating.length !== 1 ? 's' : ''}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 10, lineHeight: 1.5 }}>
+                            The new values push these packages outside their allowed quantity range. Save anyway — you'll be guided to fix them.
+                          </div>
+                          {violating.map(p => (
+                            <div key={p.id} style={{ marginBottom: 8, padding: "8px 10px", background: "rgba(220,38,38,0.05)", border: "1px solid rgba(220,38,38,0.18)", borderRadius: 6 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text)", marginBottom: 3 }}>{p.name}{!p.isActive ? " (inactive)" : ""}</div>
+                              {p.violations.map((v, i) => <div key={i} style={{ fontSize: 11, color: "#dc2626", lineHeight: 1.5 }}>• {v}</div>)}
+                            </div>
+                          ))}
+                          {nonViolating.length > 0 && (
+                            <div style={{ fontSize: 12, color: "var(--ad-text2)", marginTop: 8 }}>
+                              Also affected (no quantity issues): {nonViolating.map(p => p.name).join(', ')}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 6 }}>
+                            ⚠ This component is used in {editConfirm.length} package{editConfirm.length !== 1 ? 's' : ''}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--ad-text2)", marginBottom: 10, lineHeight: 1.5 }}>
+                            Saving will update the component data. Review each affected package afterwards to make sure its specs and pricing are still aligned.
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                            {editConfirm.map(p => (
+                              <span key={p.id} style={{
+                                fontSize: 11, padding: "3px 10px", borderRadius: 12, fontWeight: 600,
+                                background: p.isActive ? "rgba(34,197,94,0.12)" : "var(--ad-surface)",
+                                color: p.isActive ? "#22c55e" : "var(--ad-text3)",
+                                border: `1px solid ${p.isActive ? "rgba(34,197,94,0.3)" : "var(--ad-border)"}`,
+                              }}>
+                                {p.name}{!p.isActive ? " (inactive)" : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: hasViolations ? 12 : 0 }}>
+                        <button onClick={() => setEditConfirm(null)} className="ad-btn ad-btn--ghost" style={{ flex: "1 1 auto", minWidth: 90 }}>
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => void handleSave(true)}
+                          disabled={saving}
+                          className="ad-btn"
+                          style={{ flex: "1 1 auto", minWidth: 140, background: hasViolations ? "#dc2626" : "#d97706", borderColor: hasViolations ? "#dc2626" : "#d97706" }}
+                        >
+                          {saving ? "Saving…" : hasViolations ? "Save & Fix Packages" : "Yes, Update Anyway"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {!editConfirm && (
+                  <div style={{
+                    display: "flex", gap: "clamp(8px, 2vw, 12px)", marginTop: "clamp(16px, 3vw, 20px)",
+                    flexWrap: "wrap-reverse", justifyContent: "flex-end"
+                  }}>
+                    <button onClick={closeForm} className="ad-btn ad-btn--ghost" style={{ flex: "1 1 auto", minWidth: "100px" }}>Cancel</button>
+                    <button onClick={() => void handleSave()} disabled={saving} className="ad-btn" style={{ flex: "1 1 auto", minWidth: "120px" }}>
+                      {saving ? "Checking…" : editingId ? "Update" : "Add"}
+                    </button>
+                  </div>
+                )}
+                </>)}
               </div>
             </div>
           </div>
@@ -1835,24 +2133,34 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       if (inverterComp) {
         const panelEntries = components.filter(c => allComponents.find(a => a.id === c.componentId)?.category === 'Solar Panel');
         if (panelEntries.length > 0) {
-          const totalPanelKw = panelEntries.reduce((sum, entry) => {
+          const totalPanelKwp = panelEntries.reduce((sum, entry) => {
             const panelComp = allComponents.find(c => c.id === entry.componentId);
             return sum + entry.quantity * (panelComp?.productionCapacityKwp ?? 0);
           }, 0);
-          const maxKw = inverterComp.loadCapacityKw * inverterEntry.quantity;
-          if (totalPanelKw > maxKw + 0.001) {
-            return `Total panel output (${totalPanelKw.toFixed(2)} kWp) exceeds inverter capacity (${maxKw.toFixed(1)} kW). Reduce panel count or use a larger inverter.`;
+          // Use pvMaxPower when set; fall back to rated output
+          const pvCapPerUnit = inverterComp.pvMaxPower ?? inverterComp.loadCapacityKw;
+          const maxKwp = pvCapPerUnit * inverterEntry.quantity;
+          if (totalPanelKwp > maxKwp + 0.001) {
+            return `Total panel array (${totalPanelKwp.toFixed(2)} kWp) exceeds inverter max PV input (${maxKwp.toFixed(1)} kWp). Reduce panel count or use a larger inverter.`;
           }
         }
         const batteryEntry = components.find(c => allComponents.find(a => a.id === c.componentId)?.category === 'Battery');
         if (batteryEntry) {
           const batteryComp = allComponents.find(c => c.id === batteryEntry.componentId);
           if (batteryComp && batteryComp.storageCapacityKwh > 0) {
-            const maxBatteries = Math.max(1, Math.floor(inverterComp.loadCapacityKw / batteryComp.storageCapacityKwh)) * inverterEntry.quantity;
+            const battCapPerUnit = inverterComp.batteryMaxCapacity ?? inverterComp.loadCapacityKw;
+            const rawMax = Math.floor(battCapPerUnit * inverterEntry.quantity / batteryComp.storageCapacityKwh);
+            // Fallback mode (no batteryMaxCapacity): always allow at least 1 battery, matching public card behaviour
+            const maxBatteries = inverterComp.batteryMaxCapacity != null ? rawMax : Math.max(1, rawMax);
             if (batteryEntry.quantity > maxBatteries) {
-              return `Battery count (${batteryEntry.quantity}) exceeds the inverter limit — max ${maxBatteries} batteries for ${inverterEntry.quantity}× ${inverterComp.loadCapacityKw} kW inverter`;
+              return `Battery count (${batteryEntry.quantity}) exceeds inverter limit — max ${maxBatteries} batteries (${(battCapPerUnit * inverterEntry.quantity).toFixed(1)} kWh total) for ${inverterEntry.quantity}× inverter`;
             }
           }
+        }
+        // Inverter count must not exceed parallelMax
+        const maxInverters = inverterComp.parallelMax ?? 4;
+        if (inverterEntry.quantity > maxInverters) {
+          return `Inverter count (${inverterEntry.quantity}) exceeds the maximum parallel units allowed for this model (${maxInverters})`;
         }
       }
     }
@@ -2020,7 +2328,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                         <div style={{ fontSize: 12, color: "var(--ad-text2)", lineHeight: 1.45 }}>Search and select components to add to your package.</div>
                       </div>
 
-                      {['Solar Panel', 'Inverter', 'Battery', 'Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'].map((category) => {
+                      {['Inverter', 'Solar Panel', 'Battery', 'Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'].map((category) => {
                         if (category === 'Battery' && systemType === 'grid-tied') return null;
                         const addedComponentIds = new Set((form.components ?? []).map(c => c.componentId));
                         const catComps = allComponents.filter(c => c.isActive && c.category === category && !addedComponentIds.has(c.id)).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -2034,71 +2342,97 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                         };
                         const emoji = categoryEmojis[category] ?? '📦';
 
+                        // Solar Panel, Inverter, Battery are single-SKU — lock the slot once one is chosen
+                        const isSingleSku = category === 'Inverter' || category === 'Solar Panel' || category === 'Battery';
+                        const isLocked = isSingleSku && addedInCat.length > 0;
+                        const lockedComp = isLocked ? allComponents.find(c => c.id === addedInCat[0].componentId) : null;
+
                         return (
                           <div key={category} style={{ marginBottom: 10 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
                               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)" }}>{emoji} {category}</span>
                               {addedInCat.length > 0 && (
-                                <span style={{ fontSize: 10, background: "var(--ad-accent-dim)", color: "var(--ad-accent)", borderRadius: 10, padding: "1px 7px", fontWeight: 600 }}>{addedInCat.length} added</span>
+                                <span style={{ fontSize: 10, background: "var(--ad-accent-dim)", color: "var(--ad-accent)", borderRadius: 10, padding: "1px 7px", fontWeight: 600 }}>
+                                  {isLocked ? "selected" : `${addedInCat.length} added`}
+                                </span>
                               )}
                             </div>
-                            <div style={{ position: "relative" }}>
-                              <input
-                                type="search"
-                                className="ad-input"
-                                placeholder={`Search ${category}…`}
-                                value={search}
-                                onChange={(e) => setCatSearches(s => ({ ...s, [category]: e.target.value }))}
-                                onFocus={() => setCatSearches(s => ({ ...s, [category]: s[category] ?? '' }))}
-                                style={{ width: "100%" }}
-                              />
-                              {search !== '' && (
-                                <div style={{
-                                  position: "absolute", top: "100%", left: 0, right: 0,
-                                  background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)",
-                                  borderTop: "none", borderRadius: "0 0 8px 8px",
-                                  maxHeight: 220, overflowY: "auto", zIndex: 20,
-                                  boxShadow: "0 8px 24px rgba(0,0,0,0.18)"
-                                }}>
-                                  {filtered.length === 0 ? (
-                                    <div style={{ padding: 14, textAlign: "center", color: "var(--ad-text3)", fontSize: 12 }}>No matches</div>
-                                  ) : (
-                                    filtered.map(comp => {
-                                      const spec = (comp.productionCapacityKwp ?? 0) > 0 ? ` · ${(comp.productionCapacityKwp ?? 0).toFixed(2)} kWp` :
-                                                   (comp.loadCapacityKw ?? 0) > 0 ? ` · ${(comp.loadCapacityKw ?? 0).toFixed(1)} kW` :
-                                                   (comp.storageCapacityKwh ?? 0) > 0 ? ` · ${(comp.storageCapacityKwh ?? 0).toFixed(2)} kWh` : '';
-                                      return (
-                                        <button key={comp.id} type="button"
-                                          onClick={() => {
-                                            const existing = (form.components ?? []).find(l => l.componentId === comp.id);
-                                            if (existing) {
-                                              if (!existing.baseComponentId) {
-                                                setComponents((form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
-                                              }
-                                            } else {
-                                              setComponents([...(form.components ?? []), { componentId: comp.id, quantity: 1, baseComponentId: null, multiplier: 1 }]);
-                                            }
-                                            setCatSearches(s => ({ ...s, [category]: '' }));
-                                          }}
-                                          style={{
-                                            width: "100%", padding: "9px 13px", textAlign: "left",
-                                            background: "transparent", border: "none",
-                                            borderBottom: "1px solid var(--ad-border)",
-                                            color: "var(--ad-text)", cursor: "pointer",
-                                            fontSize: 13, transition: "background 0.12s",
-                                          }}
-                                          onMouseEnter={(e) => e.currentTarget.style.background = "var(--ad-surface)"}
-                                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                                        >
-                                          <div style={{ fontWeight: 600 }}>{comp.name}</div>
-                                          <div style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 2 }}>{comp.brand} · {comp.model}{spec}</div>
-                                        </button>
-                                      );
-                                    })
+
+                            {isLocked ? (
+                              /* Single-SKU slot is filled — show locked state */
+                              <div style={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                                padding: "9px 12px", borderRadius: 6, fontSize: 12,
+                                background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.22)",
+                              }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <span style={{ color: "#22c55e", marginRight: 5 }}>✓</span>
+                                  <span style={{ fontWeight: 600, color: "var(--ad-text)" }}>{lockedComp?.name ?? category}</span>
+                                  {lockedComp && (
+                                    <span style={{ color: "var(--ad-text3)", marginLeft: 6, fontSize: 11 }}>{lockedComp.brand} · {lockedComp.model}</span>
                                   )}
                                 </div>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              /* Search input + dropdown */
+                              <div style={{ position: "relative" }}>
+                                <input
+                                  type="search"
+                                  className="ad-input"
+                                  placeholder={`Search ${category}…`}
+                                  value={search}
+                                  onChange={(e) => setCatSearches(s => ({ ...s, [category]: e.target.value }))}
+                                  onFocus={() => setCatSearches(s => ({ ...s, [category]: s[category] ?? '' }))}
+                                  style={{ width: "100%" }}
+                                />
+                                {search !== '' && (
+                                  <div style={{
+                                    position: "absolute", top: "100%", left: 0, right: 0,
+                                    background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)",
+                                    borderTop: "none", borderRadius: "0 0 8px 8px",
+                                    maxHeight: 220, overflowY: "auto", zIndex: 20,
+                                    boxShadow: "0 8px 24px rgba(0,0,0,0.18)"
+                                  }}>
+                                    {filtered.length === 0 ? (
+                                      <div style={{ padding: 14, textAlign: "center", color: "var(--ad-text3)", fontSize: 12 }}>No matches</div>
+                                    ) : (
+                                      filtered.map(comp => {
+                                        const spec = (comp.productionCapacityKwp ?? 0) > 0 ? ` · ${(comp.productionCapacityKwp ?? 0).toFixed(2)} kWp` :
+                                                     (comp.loadCapacityKw ?? 0) > 0 ? ` · ${(comp.loadCapacityKw ?? 0).toFixed(1)} kW` :
+                                                     (comp.storageCapacityKwh ?? 0) > 0 ? ` · ${(comp.storageCapacityKwh ?? 0).toFixed(2)} kWh` : '';
+                                        return (
+                                          <button key={comp.id} type="button"
+                                            onClick={() => {
+                                              const existing = (form.components ?? []).find(l => l.componentId === comp.id);
+                                              if (existing) {
+                                                if (!existing.baseComponentId) {
+                                                  setComponents((form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
+                                                }
+                                              } else {
+                                                setComponents([...(form.components ?? []), { componentId: comp.id, quantity: 1, baseComponentId: null, multiplier: 1 }]);
+                                              }
+                                              setCatSearches(s => ({ ...s, [category]: '' }));
+                                            }}
+                                            style={{
+                                              width: "100%", padding: "9px 13px", textAlign: "left",
+                                              background: "transparent", border: "none",
+                                              borderBottom: "1px solid var(--ad-border)",
+                                              color: "var(--ad-text)", cursor: "pointer",
+                                              fontSize: 13, transition: "background 0.12s",
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = "var(--ad-surface)"}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                                          >
+                                            <div style={{ fontWeight: 600 }}>{comp.name}</div>
+                                            <div style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 2 }}>{comp.brand} · {comp.model}{spec}</div>
+                                          </button>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2136,18 +2470,23 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                               if (!invComp) return null;
                               if (isSolarPanel) {
                                 if ((comp.productionCapacityKwp ?? 0) <= 0) return null;
-                                const totalCapacityKw = invComp.loadCapacityKw * invLine.quantity;
+                                // Use pvMaxPower when set (physics-based); fall back to rated output
+                                const pvCapPerUnit = invComp.pvMaxPower ?? invComp.loadCapacityKw;
+                                const totalCapacityKwp = pvCapPerUnit * invLine.quantity;
                                 const usedByOtherPanels = (form.components ?? []).reduce((sum, otherLine, otherIdx) => {
                                   if (otherIdx === idx) return sum;
                                   const otherComp = allComponents.find(c => c.id === otherLine.componentId);
                                   if (!otherComp || otherComp.category !== 'Solar Panel') return sum;
                                   return sum + otherLine.quantity * (otherComp.productionCapacityKwp ?? 0);
                                 }, 0);
-                                const remainingKw = Math.max(0, totalCapacityKw - usedByOtherPanels);
-                                return Math.max(0, Math.floor(remainingKw / (comp.productionCapacityKwp ?? 1)));
+                                const remainingKwp = Math.max(0, totalCapacityKwp - usedByOtherPanels);
+                                return Math.max(0, Math.floor(remainingKwp / (comp.productionCapacityKwp ?? 1)));
                               }
                               if ((comp.storageCapacityKwh ?? 0) <= 0) return null;
-                              return Math.max(1, Math.floor(invComp.loadCapacityKw / (comp.storageCapacityKwh ?? 1))) * invLine.quantity;
+                              const battCapPerUnit = invComp.batteryMaxCapacity ?? invComp.loadCapacityKw;
+                              const rawBattMax = Math.floor(battCapPerUnit * invLine.quantity / (comp.storageCapacityKwh ?? 1));
+                              // Fallback mode: always allow at least 1, matching public card behaviour
+                              return invComp.batteryMaxCapacity != null ? rawBattMax : Math.max(1, rawBattMax);
                             })() : null;
                             const isAccessory = ACCESSORY_CATEGORIES.includes(comp.category);
                             const isDerived = isAccessory && !!line.baseComponentId;
@@ -2497,8 +2836,8 @@ function SectionEditorHeader({ title, onReset }: { title: string; onReset: () =>
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: string; subtext: string; primaryCta: string; secondaryCta: string };
-const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects" };
+type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: string; subtext: string; primaryCta: string; secondaryCta: string; primaryCtaUrl: string; secondaryCtaUrl: string };
+const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects", primaryCtaUrl: "#calculator", secondaryCtaUrl: "/projects" };
 
 function HeroEditor({ apiKey }: { apiKey: string }) {
   const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
@@ -2534,6 +2873,16 @@ function HeroEditor({ apiKey }: { apiKey: string }) {
           <div>
             <label className="ad-label">Secondary Button Label</label>
             <input className="ad-input" value={form.secondaryCta} onChange={ch("secondaryCta")} placeholder="View Projects" />
+          </div>
+          <div>
+            <label className="ad-label">Primary Button URL</label>
+            <input className="ad-input" value={form.primaryCtaUrl} onChange={ch("primaryCtaUrl")} placeholder="#calculator" />
+            <p className="ad-pkg-hint">Use <code>#id</code> to scroll to a section, or a path like <code>/quotation</code> to navigate.</p>
+          </div>
+          <div>
+            <label className="ad-label">Secondary Button URL</label>
+            <input className="ad-input" value={form.secondaryCtaUrl} onChange={ch("secondaryCtaUrl")} placeholder="/projects" />
+            <p className="ad-pkg-hint">Use <code>#id</code> to scroll to a section, or a path like <code>/projects</code> to navigate.</p>
           </div>
         </div>
         <div className="ad-form-actions">
@@ -3125,7 +3474,7 @@ export default function ASAdmin() {
         {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
         {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
         {tab === "projects"    && <ProjectsManager   apiKey={apiKey} />}
-        {tab === "inventory"  && <ComponentsManager apiKey={apiKey} />}
+        {tab === "inventory"  && <ComponentsManager apiKey={apiKey} onGoToPackages={() => setTab("packages")} />}
         {tab === "packages"    && <PackagesManager   apiKey={apiKey} />}
         {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
         {tab === "sections"   && <SectionsManager apiKey={apiKey} />}

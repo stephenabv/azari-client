@@ -15,6 +15,8 @@ type HeroContent = {
   subtext: string;
   primaryCta: string;
   secondaryCta: string;
+  primaryCtaUrl: string;
+  secondaryCtaUrl: string;
 };
 
 const DEFAULT_HERO: HeroContent = {
@@ -24,6 +26,8 @@ const DEFAULT_HERO: HeroContent = {
   subtext: "We Provide Solar Solutions Tailored For Your Home And Business",
   primaryCta: "Calculate Your Savings",
   secondaryCta: "View Projects",
+  primaryCtaUrl: "#calculator",
+  secondaryCtaUrl: "/projects",
 };
 
 function renderHighlighted(text: string, highlights: string): React.ReactNode {
@@ -52,19 +56,13 @@ export default function ASHero() {
     return () => clearTimeout(timeout);
   }, []);
 
-  const handleScrollToCalculator = () => {
-    const element = document.getElementById("calculator");
-
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+  const handleCtaClick = (url: string) => {
+    if (url.startsWith("#")) {
+      const el = document.getElementById(url.slice(1));
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      navigate(url);
     }
-  };
-
-  const handleViewProjects = () => {
-    navigate("/projects");
   };
 
   return (
@@ -100,7 +98,7 @@ export default function ASHero() {
             <button
               type="button"
               className="btn btn-primary"
-              onClick={handleScrollToCalculator}
+              onClick={() => handleCtaClick(hero.primaryCtaUrl ?? "#calculator")}
             >
               {hero.primaryCta}
             </button>
@@ -108,7 +106,7 @@ export default function ASHero() {
             <button
               type="button"
               className="btn btn-outline view_projects"
-              onClick={handleViewProjects}
+              onClick={() => handleCtaClick(hero.secondaryCtaUrl ?? "/projects")}
             >
               {hero.secondaryCta}
             </button>

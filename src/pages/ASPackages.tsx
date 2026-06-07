@@ -74,25 +74,49 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   const bc = batteryLine?.component;
   const pc = panelLine?.component;
 
-  // Admin-configured quantities are the floor — user can never go below them
+  // Admin-configured quantities are the floor for legacy packages
   const cfgI = inverterLine?.quantity ?? 1;
   const cfgB = batteryLine?.quantity  ?? 0;
   const cfgP = panelLine?.quantity    ?? 1;
 
-  const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
-    ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
-    : cfgP;
-  const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
-    ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
-    : cfgB;
+  // Panel bounds — physics-derived when pvMaxPower is set, legacy ratio otherwise
+  let pMin: number, pMax: number;
+  if (ic?.pvMaxPower != null && pc != null && pc.productionCapacityKwp > 0) {
+    const totalPvMin = (ic.pvMinPower ?? 0) * inverterCount;
+    const totalPvMax = ic.pvMaxPower * inverterCount;
+    pMin = totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : 1;
+    pMax = Math.floor(totalPvMax / pc.productionCapacityKwp);
+  } else {
+    // Legacy: cap at floor(inverter rated kW / panel kWp) per inverter
+    const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
+      ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
+      : cfgP;
+    pMin = cfgP;
+    pMax = Math.max(cfgP, panelMaxPerInverter * inverterCount);
+  }
+
+  // Battery bounds — physics-derived when batteryMaxCapacity is set, legacy ratio otherwise
+  let bMin: number, bMax: number;
+  if (ic?.batteryMaxCapacity != null && bc != null && bc.storageCapacityKwh > 0) {
+    const totalBattMax = ic.batteryMaxCapacity * inverterCount;
+    bMin = 1;
+    bMax = Math.floor(totalBattMax / bc.storageCapacityKwh);
+  } else {
+    // Legacy: floor(inverter rated kW / battery kWh) per inverter
+    const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
+      ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
+      : cfgB;
+    bMin = cfgB;
+    bMax = Math.max(cfgB, bc ? batteryMaxPerInverter * inverterCount : 0);
+  }
 
   return {
     iMin: cfgI,
     iMax: Math.max(cfgI, ic?.parallelMax ?? cfgI),
-    bMin: cfgB,
-    bMax: Math.max(cfgB, bc ? batteryMaxPerInverter * inverterCount : 0),
-    pMin: cfgP,
-    pMax: Math.max(cfgP, panelMaxPerInverter * inverterCount),
+    bMin,
+    bMax,
+    pMin,
+    pMax,
   };
 }
 
@@ -502,7 +526,6 @@ function PackageCard({
                     <div className="as-pkg-spec-others-list">
                       {otherPcs.map((pc) => {
                         const comp = pc.component;
-                        const liveQty = effectiveQty(pc, pkg.components ?? [], qty);
                         const capacityStr =
                           comp.loadCapacityKw > 0
                             ? formatCapacity(comp.loadCapacityKw, "power", { unit: "kW" })

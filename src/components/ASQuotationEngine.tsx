@@ -970,10 +970,12 @@ export default function ASQuotationEngine() {
                       }
                     }}
                   >
-                    <span className="as-property-icon">
-                      <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
-                    </span>
-                    <span className="as-property-check" />
+                    <div className="as-property-bg">
+                      <span className="as-property-icon">
+                        <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
+                      </span>
+                      <span className="as-property-check" />
+                    </div>
                     <h3>{item.title}</h3>
                     <p>{item.description}</p>
                   </button>

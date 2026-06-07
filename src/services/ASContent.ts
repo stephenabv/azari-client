@@ -363,9 +363,14 @@ export interface ApiSolarComponent {
   capacityUnit?: string | null;
   // Ratio-bound fields — read by the package-builder stepper UI
   parallelMin: number;   // Inverter: min absolute count in a package
-  parallelMax: number;   // Inverter: max absolute count in a package
-  perInverterMin: number; // Battery/Panel: min units per inverter
-  perInverterMax: number; // Battery/Panel: max units per inverter
+  parallelMax: number;   // Inverter: max absolute count (= max_parallel_units)
+  perInverterMin: number; // Battery/Panel: legacy min units per inverter
+  perInverterMax: number; // Battery/Panel: legacy max units per inverter
+  // Inverter electrical spec — used to derive physics-based panel/battery bounds
+  pvMinPower?: number | null;          // kWp per unit — min PV input (lower panel bound)
+  pvMaxPower?: number | null;          // kWp per unit — max PV input (upper panel bound)
+  batteryMaxCapacity?: number | null;  // kWh per unit — max battery storage supported
+  specsReviewedAt?: string | null;
   dataSheetUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -387,6 +392,9 @@ export interface ComponentInput {
   parallelMax?: number;
   perInverterMin?: number;
   perInverterMax?: number;
+  pvMinPower?: number | null;
+  pvMaxPower?: number | null;
+  batteryMaxCapacity?: number | null;
   dataSheetUrl?: string | null;
   // Note: 'unit' (SKU unit) and 'sortOrder' are deprecated - capacity units are dimension-driven by category
 }
@@ -432,11 +440,13 @@ export interface PackageComponentLine {
 
 /**
  * Monthly savings estimate from production capacity.
- * Formula: productionKwp × 4 peak-sun-hours × 30 days × ₱12/kWh,
+ * Formula: productionKwp × 4 peak-sun-hours × 30 days × ₱12/kWh × 0.80 performance ratio,
  * rounded DOWN to the nearest ₱500. Range is savings ±₱1000.
+ * 0.80 PR accounts for temperature derating, wiring losses, inverter efficiency, and soiling
+ * (NREL PVWatts default for the Philippines).
  */
 export function computeMonthlySavings(productionKwp: number): { savings: number; min: number; max: number } {
-  const raw = productionKwp * 4 * 30 * 12;
+  const raw = productionKwp * 4 * 30 * 12 * 0.80;
   const savings = Math.floor(raw / 500) * 500;
   return { savings, min: Math.max(0, savings - 1000), max: savings + 1000 };
 }
@@ -552,6 +562,37 @@ export async function adminUpdateComponent(apiKey: string, id: string, data: Par
     const firstFormError = body.errors?.formErrors?.[0];
     throw new Error(firstFieldError ?? firstFormError ?? body.message ?? `Update failed: ${res.status}`);
   }
+  return res.json();
+}
+
+export interface PackageUsageItem {
+  id: string;
+  name: string;
+  isActive: boolean;
+  components: Array<{
+    componentId: string;
+    quantity: number;
+    baseComponentId: string | null;
+    multiplier: number;
+    component: {
+      category: string;
+      productionCapacityKwp: number;
+      loadCapacityKw: number;
+      storageCapacityKwh: number;
+      pvMinPower: number | null;
+      pvMaxPower: number | null;
+      batteryMaxCapacity: number | null;
+      parallelMax: number;
+    };
+  }>;
+}
+
+export async function adminGetComponentUsage(apiKey: string, id: string): Promise<{ success: boolean; data: PackageUsageItem[] }> {
+  const res = await apiFetch(`${API_BASE}/admin/components/${id}/usage`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to check usage: ${res.status}`);
   return res.json();
 }
 
