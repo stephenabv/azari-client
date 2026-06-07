@@ -131,6 +131,63 @@ function Toast({ msg }: { msg: string }) {
   );
 }
 
+function ConfirmDeleteModal({ open, title, description, onConfirm, onCancel, confirming }: {
+  open: boolean; title: string; description?: string;
+  onConfirm: () => void; onCancel: () => void; confirming?: boolean;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+  if (!open) return null;
+  return createPortal(
+    <div className="ad-confirm-backdrop" onClick={onCancel}>
+      <div className="ad-confirm-panel" onClick={e => e.stopPropagation()}>
+        <div className="ad-confirm-icon">🗑</div>
+        <div className="ad-confirm-title">{title}</div>
+        {description && <div className="ad-confirm-desc">{description}</div>}
+        <div className="ad-confirm-actions">
+          <button onClick={onCancel} className="ad-btn ad-btn--ghost">Cancel</button>
+          <button onClick={onConfirm} disabled={confirming} className="ad-btn ad-btn--danger">{confirming ? "Deleting…" : "Delete"}</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function AdminModal({ open, onClose, title, subtitle, children, maxWidth }: {
+  open: boolean; onClose: () => void; title: React.ReactNode;
+  subtitle?: string; children: React.ReactNode; maxWidth?: number;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return createPortal(
+    <div className="ad-modal-backdrop" onClick={onClose}>
+      <div className="ad-modal-panel" style={{ maxWidth: maxWidth ?? 640 }} onClick={e => e.stopPropagation()}>
+        <div className="ad-modal-header">
+          <div>
+            <div className="ad-modal-title">{title}</div>
+            {subtitle && <div className="ad-modal-subtitle">{subtitle}</div>}
+          </div>
+          <button onClick={onClose} className="ad-modal-close" aria-label="Close">✕</button>
+        </div>
+        <div className="ad-modal-body">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   return <span className={`ad-badge ${statusClass(status)}`}>{status.replace(/_/g, " ")}</span>;
 }
@@ -378,6 +435,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState("");
+  const [previewRow, setPreviewRow] = useState<Record<string, unknown> | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const limit = 20;
 
   useEffect(() => {
@@ -412,7 +471,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
       const fn = type === "talk" ? adminUpdateTalkProjectStatus : adminUpdateQuotationProjectStatus;
       await fn(apiKey, id, projectStatus);
       setData(prev => (prev as Array<Record<string, unknown>>).map(r => r.id === id ? { ...r, projectStatus } : r));
-    } catch (e) { alert(`Failed: ${(e as Error).message}`); }
+    } catch (e) { setEditMsg(`Failed: ${(e as Error).message}`); }
     finally { setUpdatingProject(null); }
   };
 
@@ -425,16 +484,16 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
     } finally { setRetrying(null); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this record permanently? This cannot be undone.")) return;
-    setDeleting(id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget);
     try {
       const fn = type === "talk" ? adminDeleteTalkInquiry : adminDeleteQuotation;
-      await fn(apiKey, id);
+      await fn(apiKey, deleteTarget);
       await load();
     } catch (e) {
-      alert(`Delete failed: ${(e as Error).message}`);
-    } finally { setDeleting(null); }
+      setEditMsg(`Delete failed: ${(e as Error).message}`);
+    } finally { setDeleting(null); setDeleteTarget(null); }
   };
 
   const openEdit = (row: Record<string, unknown>) => {
@@ -490,46 +549,94 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
         <span className="ad-filter-count">{total} records</span>
       </div>
 
-      {editingRow && (
-        <div className="ad-edit-panel">
-          <div className="ad-edit-panel-header">
-            <div className="ad-edit-panel-title">Edit {type === "talk" ? "Inquiry" : "Quotation Request"}</div>
-            <button onClick={() => { setEditingRow(null); setEditMsg(""); }} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
-          </div>
-          <div className="ad-form-grid">
-            {type === "talk" ? (
-              <>
-                <div><label className="ad-label">Name</label><input className="ad-input" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} /></div>
-                <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
-                <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
-                <div>
-                  <label className="ad-label">Inquiry Type</label>
-                  <select className="ad-select" value={editForm.inquiryType ?? "general"} onChange={(e) => setEditForm((f) => ({ ...f, inquiryType: e.target.value }))}>
-                    <option value="general">General</option>
-                    <option value="quote">Quote</option>
-                    <option value="consultation">Consultation</option>
-                  </select>
-                </div>
-                <div><label className="ad-label">Province</label><input className="ad-input" value={editForm.province ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, province: e.target.value }))} /></div>
-                <div><label className="ad-label">City</label><input className="ad-input" value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} /></div>
-                <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
-              </>
-            ) : (
-              <>
-                <div><label className="ad-label">Full Name</label><input className="ad-input" value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} /></div>
-                <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
-                <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
-                <div><label className="ad-label">Location</label><input className="ad-input" value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} /></div>
-                <div className="ad-form-full"><label className="ad-label">Property Classification</label><input className="ad-input" value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} /></div>
-                <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
-              </>
-            )}
-          </div>
-          <div className="ad-form-actions">
-            <button onClick={() => void handleEditSave()} disabled={editSaving} className="ad-btn">{editSaving ? "Saving…" : "Save Changes"}</button>
-            <Toast msg={editMsg} />
-          </div>
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="Delete this record?"
+        description="This will permanently remove the record and cannot be undone."
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
+
+      <AdminModal
+        open={!!editingRow}
+        onClose={() => { setEditingRow(null); setEditMsg(""); }}
+        title={`Edit ${type === "talk" ? "Talk Inquiry" : "Quotation Request"}`}
+      >
+        <div className="ad-form-grid">
+          {type === "talk" ? (
+            <>
+              <div><label className="ad-label">Name</label><input className="ad-input" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} /></div>
+              <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+              <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
+              <div>
+                <label className="ad-label">Inquiry Type</label>
+                <select className="ad-select" value={editForm.inquiryType ?? "general"} onChange={(e) => setEditForm((f) => ({ ...f, inquiryType: e.target.value }))}>
+                  <option value="general">General</option>
+                  <option value="quote">Quote</option>
+                  <option value="consultation">Consultation</option>
+                </select>
+              </div>
+              <div><label className="ad-label">Province</label><input className="ad-input" value={editForm.province ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, province: e.target.value }))} /></div>
+              <div><label className="ad-label">City</label><input className="ad-input" value={editForm.city ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} /></div>
+              <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
+            </>
+          ) : (
+            <>
+              <div><label className="ad-label">Full Name</label><input className="ad-input" value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} /></div>
+              <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+              <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
+              <div><label className="ad-label">Location</label><input className="ad-input" value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} /></div>
+              <div className="ad-form-full"><label className="ad-label">Property Classification</label><input className="ad-input" value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} /></div>
+              <div className="ad-form-full"><label className="ad-label">Message</label><textarea className="ad-textarea" value={editForm.message ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, message: e.target.value }))} /></div>
+            </>
+          )}
         </div>
+        <div className="ad-form-actions">
+          <button onClick={() => void handleEditSave()} disabled={editSaving} className="ad-btn">{editSaving ? "Saving…" : "Save Changes"}</button>
+          {editMsg && <Toast msg={editMsg} />}
+        </div>
+      </AdminModal>
+
+      {previewRow && (
+        <AdminModal
+          open={!!previewRow}
+          onClose={() => setPreviewRow(null)}
+          title={type === "talk" ? "Talk Inquiry Details" : "Quotation Request Details"}
+          subtitle={fmtRef(previewRow.id as string, type)}
+        >
+          {type === "talk" ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Reference</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontFamily: "monospace" }}>{fmtRef(previewRow.id as string, type)}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Date</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{fmt(previewRow.createdAt as string)}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Name</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.name as string}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email</div><div style={{ fontSize: 14, color: "var(--ad-text)", wordBreak: "break-all" }}>{previewRow.email as string}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Phone</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.phone as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Location</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{[previewRow.city, previewRow.province].filter(Boolean).join(", ") || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Inquiry Type</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.inquiryType as string}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email Status</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><StatusBadge status={previewRow.status as string} /></div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Project Status</div><div style={{ fontSize: 14, color: PROJECT_STATUS_COLORS[(previewRow.projectStatus as string) ?? "new"] ?? "var(--ad-text)" }}>{PROJECT_STATUS_OPTIONS.find(o => o.value === (previewRow.projectStatus ?? "new"))?.label ?? "New"}</div></div>
+              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Reference</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontFamily: "monospace" }}>{fmtRef(previewRow.id as string, type)}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Date</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{fmt(previewRow.createdAt as string)}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Name</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.fullName as string}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email</div><div style={{ fontSize: 14, color: "var(--ad-text)", wordBreak: "break-all" }}>{previewRow.email as string}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Phone</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.phone as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Location</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.location as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Property Classification</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.propertyClassification as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System Size</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.estimatedSystemSizeDisplayText as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Monthly Bill</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.monthlyBill != null ? `₱${(previewRow.monthlyBill as number).toLocaleString("en-PH")}` : "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Estimated Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.estimatedSavings as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Configuration</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.configuration as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email Status</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><StatusBadge status={previewRow.status as string} /></div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Project Status</div><div style={{ fontSize: 14, color: PROJECT_STATUS_COLORS[(previewRow.projectStatus as string) ?? "new"] ?? "var(--ad-text)" }}>{PROJECT_STATUS_OPTIONS.find(o => o.value === (previewRow.projectStatus ?? "new"))?.label ?? "New"}</div></div>
+              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
+            </div>
+          )}
+        </AdminModal>
       )}
 
       {loading ? (
@@ -592,8 +699,9 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                   </td>
                   <td>
                     <div className="ad-table-actions">
+                      <button onClick={() => setPreviewRow(row)} className="ad-btn ad-btn--ghost ad-btn--sm">View</button>
                       <button onClick={() => openEdit(row)} disabled={!!editingRow || deleting === (row.id as string)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
-                      <button onClick={() => void handleDelete(row.id as string)} disabled={deleting === (row.id as string) || !!editingRow} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === (row.id as string) ? 0.5 : 1 }}>
+                      <button onClick={() => setDeleteTarget(row.id as string)} disabled={deleting === (row.id as string) || !!editingRow} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === (row.id as string) ? 0.5 : 1 }}>
                         {deleting === (row.id as string) ? "…" : "Delete"}
                       </button>
                     </div>
@@ -634,6 +742,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [previewProject, setPreviewProject] = useState<ApiProject | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -674,59 +784,90 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     finally { setSaving(false); }
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    setDeleting(id);
-    try { await adminDeleteProject(apiKey, id); setMsg("✓ Project deleted"); await load(); }
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
+    try { await adminDeleteProject(apiKey, deleteTarget.id); setMsg("✓ Project deleted"); await load(); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
-    finally { setDeleting(null); }
+    finally { setDeleting(null); setDeleteTarget(null); }
   };
 
   return (
     <div>
       <div className="ad-section-header">
         <div className="ad-section-title">Projects Portfolio</div>
-        {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Project</button>}
+        <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Project</button>
       </div>
       <Toast msg={msg} />
-      {showForm && (
-        <div className="ad-card" style={{ marginBottom: 20 }}>
-          <div className="ad-edit-panel-header">
-            <div className="ad-edit-panel-title">{editingId ? "Edit Project" : "Add New Project"}</div>
-            <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
-          </div>
-          <div className="ad-form-grid">
-            <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
-            <div>
-              <label className="ad-label">Category</label>
-              <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
-                <option value="Residential">Residential</option>
-                <option value="Commercial">Commercial</option>
-                <option value="Industrial">Industrial</option>
-              </select>
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Delete "${deleteTarget?.title}"?`}
+        description="This will permanently remove the project and cannot be undone."
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
+
+      {previewProject && (
+        <AdminModal
+          open={!!previewProject}
+          onClose={() => setPreviewProject(null)}
+          title={previewProject.title}
+          subtitle={`${previewProject.category} · Created ${new Date(previewProject.createdAt).toLocaleDateString()}`}
+        >
+          {previewProject.imageUrl && (
+            <div style={{ marginBottom: 16 }}>
+              <img src={previewProject.imageUrl} alt={previewProject.title} style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 8, border: "1px solid var(--ad-border)" }} />
             </div>
-            <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
-            <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
-            <div className="ad-form-full">
-              <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
-              <div className="ad-image-row">
-                <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
-                  <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
-                  {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
-                </div>
-                {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Title</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontWeight: 600 }}>{previewProject.title}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Category</div><div style={{ fontSize: 14 }}><span className={`ad-badge ${categoryClass(previewProject.category)}`}>{previewProject.category}</span></div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.system}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Estimated Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.savings}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Recent</div><div style={{ fontSize: 14, color: previewProject.isRecent ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.isRecent ? "Yes — shown as recent" : "No"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Created</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{new Date(previewProject.createdAt).toLocaleDateString()}</div></div>
+          </div>
+        </AdminModal>
+      )}
+
+      <AdminModal
+        open={showForm}
+        onClose={closeForm}
+        title={editingId ? "Edit Project" : "Add New Project"}
+      >
+        <div className="ad-form-grid">
+          <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
+          <div>
+            <label className="ad-label">Category</label>
+            <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
+              <option value="Residential">Residential</option>
+              <option value="Commercial">Commercial</option>
+              <option value="Industrial">Industrial</option>
+            </select>
+          </div>
+          <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
+          <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
+          <div className="ad-form-full">
+            <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
+            <div className="ad-image-row">
+              <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
+                <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
+                {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
               </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-              <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
-              <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
+              {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
             </div>
           </div>
-          <div className="ad-form-actions">
-            <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+            <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+            <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
           </div>
         </div>
-      )}
+        <div className="ad-form-actions">
+          <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
+        </div>
+      </AdminModal>
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading projects…</div>
       ) : projects.length === 0 ? (
@@ -753,8 +894,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   <td style={{ fontSize: 12 }}>{new Date(p.createdAt).toLocaleDateString()}</td>
                   <td>
                     <div className="ad-table-actions">
+                      <button onClick={() => setPreviewProject(p)} className="ad-btn ad-btn--ghost ad-btn--sm">View</button>
                       <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
-                      <button onClick={() => void handleDelete(p.id, p.title)} disabled={deleting === p.id} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>
+                      <button onClick={() => setDeleteTarget({ id: p.id, title: p.title })} disabled={deleting === p.id} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>
                         {deleting === p.id ? "…" : "Delete"}
                       </button>
                     </div>
@@ -1002,6 +1144,8 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   const [editConfirm, setEditConfirm] = useState<ViolatedPackage[] | null>(null);
   // Post-save cleanup state — shown after auto-removing violating components from packages
   const [postSaveCleanup, setPostSaveCleanup] = useState<CleanedResult[] | null>(null);
+  const [previewComponent, setPreviewComponent] = useState<ApiSolarComponent | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -1169,27 +1313,22 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   };
 
   const handleDelete = async (id: string, name: string) => {
-    // Block deletion if the component is used in any packages
-    setDeleting(id);
-    try {
-      const usage = await adminGetComponentUsage(apiKey, id);
-      if (usage.data.length > 0) {
-        const pkgList = usage.data.map(p => `"${p.name}"`).join(', ');
-        setMsg(`Cannot delete "${name}" — it is used in ${usage.data.length} package${usage.data.length !== 1 ? 's' : ''}: ${pkgList}. Remove it from those packages first.`);
-        return;
-      }
-    } catch { /* if check fails, let the delete attempt surface its own error */ }
-    finally { setDeleting(null); }
-
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    setDeleting(id);
-    try {
-      await adminDeleteComponent(apiKey, id);
-      setMsg("✓ Component deleted");
-      await load();
+    // usage check — if component is in packages, block deletion with setMsg
+    const usage = await adminGetComponentUsage(apiKey, id).catch(() => ({ data: [] }));
+    if (usage.data.length > 0) {
+      const packageList = usage.data.map((p: { name: string }) => `"${p.name}"`).join(", ");
+      setMsg(`Cannot delete "${name}" — it is used in ${usage.data.length} package${usage.data.length !== 1 ? "s" : ""}: ${packageList}. Remove it from those packages first.`);
+      return;
     }
+    setDeleteTarget({ id, name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
+    try { await adminDeleteComponent(apiKey, deleteTarget.id); setMsg("✓ Component deleted"); await load(); }
     catch (e) { setMsg(`Delete failed: ${(e as Error).message}`); }
-    finally { setDeleting(null); }
+    finally { setDeleting(null); setDeleteTarget(null); }
   };
 
   const grouped = COMPONENT_CATEGORIES.map(cat => ({
@@ -1210,6 +1349,44 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
           {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Component</button>}
         </div>
       </div>
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Delete "${deleteTarget?.name}"?`}
+        description="This component will be permanently removed."
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
+
+      {previewComponent && (
+        <AdminModal
+          open={!!previewComponent}
+          onClose={() => setPreviewComponent(null)}
+          title={previewComponent.name}
+          subtitle={`${previewComponent.brand} · ${previewComponent.model} · ${previewComponent.category}`}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Name</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontWeight: 600 }}>{previewComponent.name}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Category</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.category}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Brand</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.brand}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Model</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.model}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Unit</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.unit || "—"}</div></div>
+            {previewComponent.pricingEnabled && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Unit Price</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{pesoCmp(previewComponent.unitPrice)}</div></div>}
+            {(previewComponent.loadCapacityKw ?? 0) > 0 && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Load Capacity</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.loadCapacityKw} kW</div></div>}
+            {(previewComponent.productionCapacityKwp ?? 0) > 0 && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Production Capacity</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.productionCapacityKwp} kWp</div></div>}
+            {(previewComponent.storageCapacityKwh ?? 0) > 0 && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Storage Capacity</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.storageCapacityKwh} kWh</div></div>}
+            {previewComponent.pvMinPower != null && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Min PV Input</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.pvMinPower} kWp</div></div>}
+            {previewComponent.pvMaxPower != null && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Max PV Input</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.pvMaxPower} kWp</div></div>}
+            {previewComponent.batteryMaxCapacity != null && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Max Battery Capacity</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.batteryMaxCapacity} kWh/unit</div></div>}
+            {(previewComponent.parallelMin ?? 0) > 0 && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Parallel Min / Max</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewComponent.parallelMin} / {previewComponent.parallelMax}</div></div>}
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Active</div><div style={{ fontSize: 14, color: previewComponent.isActive ? "#22c55e" : "var(--ad-text3)" }}>{previewComponent.isActive ? "Yes" : "No"}</div></div>
+            {previewComponent.dataSheetUrl && (
+              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Data Sheet</div><div style={{ fontSize: 14 }}><a href={previewComponent.dataSheetUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--ad-accent)" }}>{previewComponent.dataSheetUrl}</a></div></div>
+            )}
+          </div>
+        </AdminModal>
+      )}
 
       {msg && <Toast msg={msg} />}
 
@@ -1621,6 +1798,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                             <td style={{ fontSize: 12 }}><span style={{ color: c.isActive ? "#22c55e" : "var(--ad-text3)" }}>{c.isActive ? "Yes" : "No"}</span></td>
                             <td>
                               <div className="ad-table-actions" style={{ display: "flex", gap: 4 }}>
+                                <button onClick={() => setPreviewComponent(c)} className="ad-btn ad-btn--ghost ad-btn--sm" style={{ fontSize: 11 }}>View</button>
                                 <button onClick={() => openEdit(c)} className="ad-btn ad-btn--ghost ad-btn--sm" style={{ fontSize: 11 }}>Edit</button>
                                 <button onClick={() => void handleDelete(c.id, c.name)} disabled={deleting === c.id}
                                   className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === c.id ? 0.5 : 1, fontSize: 11 }}>
@@ -1673,6 +1851,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [selectedInquiry, setSelectedInquiry] = useState<PackageInquiry | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PackageInquiry["status"]>("all");
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -1711,7 +1890,6 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   };
 
   const deleteInquiry = async (id: string) => {
-    if (!window.confirm("Delete this inquiry? This cannot be undone.")) return;
     setDeleting(id);
     try {
       await adminDeletePackageInquiry(apiKey, id);
@@ -1777,6 +1955,15 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
       </div>
 
       {msg && <Toast msg={msg} />}
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="Delete this package inquiry?"
+        description="This will permanently remove the inquiry record."
+        onConfirm={() => { void deleteInquiry(deleteTarget!); setDeleteTarget(null); }}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
 
       {!loading && inquiries.length > 0 && (
         <div className="ad-inq-toolbar">
@@ -1989,7 +2176,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               <button
                 className="ad-btn ad-btn--danger"
                 disabled={deleting === selectedInquiry.id}
-                onClick={() => void deleteInquiry(selectedInquiry.id)}
+                onClick={() => setDeleteTarget(selectedInquiry.id)}
               >
                 {deleting === selectedInquiry.id ? "Deleting…" : "Delete"}
               </button>
@@ -2015,6 +2202,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [toggling, setToggling]       = useState<string | null>(null);
   const [deleting, setDeleting]       = useState<string | null>(null);
   const [msg, setMsg]                 = useState("");
+  const [previewPackage, setPreviewPackage] = useState<ApiSolarPackage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ApiSolarPackage | null>(null);
   const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
   const [systemType, setSystemType]   = useState<'hybrid' | 'grid-tied'>('hybrid');
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
@@ -2218,16 +2407,16 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     finally { setToggling(null); }
   };
 
-  const handleDelete = async (p: ApiSolarPackage) => {
-    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
-    setDeleting(p.id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
     try {
-      await adminDeletePackage(apiKey, p.id);
+      await adminDeletePackage(apiKey, deleteTarget.id);
       setMsg("✓ Package deleted");
       await load();
     }
     catch (e) { setMsg("Failed to delete package. Please try again"); }
-    finally { setDeleting(null); }
+    finally { setDeleting(null); setDeleteTarget(null); }
   };
 
 
@@ -2282,6 +2471,71 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
         </div>
       </div>
       {msg && <Toast msg={msg} />}
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Delete "${deleteTarget?.name}"?`}
+        description="This will permanently delete the package and cannot be undone."
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
+
+      {previewPackage && (
+        <AdminModal
+          open={!!previewPackage}
+          onClose={() => setPreviewPackage(null)}
+          title={previewPackage.name}
+          subtitle={`Created ${new Date(previewPackage.createdAt).toLocaleDateString()}`}
+          maxWidth={680}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Name</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontWeight: 600 }}>{previewPackage.name}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Phase</div><div style={{ fontSize: 14 }}><span className={`ad-badge ${previewPackage.phase === "single" ? "is-residential" : "is-commercial"}`}>{previewPackage.phase === "single" ? "Single Phase" : "Three Phase"}</span></div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System Type</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.storageKwh > 0 ? "Hybrid" : "Grid-Tied"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Solar</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.solarKwp} kWp</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Inverter</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.inverterKw} kW</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Storage</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.storageKwh > 0 ? `${previewPackage.storageKwh} kWh` : "None"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Total Price</div><div style={{ fontSize: 14, color: previewPackage.totalPrice != null ? "var(--ad-accent)" : "var(--ad-text3)" }}>{previewPackage.totalPrice != null ? peso(previewPackage.totalPrice) : "Price TBD"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Bill Range</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{peso(previewPackage.billRangeMin)} – {peso(previewPackage.billRangeMax)}/mo</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Active</div><div style={{ fontSize: 14, color: previewPackage.isActive ? "#22c55e" : "var(--ad-text3)" }}>{previewPackage.isActive ? "Yes" : "No"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Recommended</div><div style={{ fontSize: 14, color: (previewPackage.isRecommended ?? false) ? "#fc615a" : "var(--ad-text3)" }}>{(previewPackage.isRecommended ?? false) ? "★ Yes" : "No"}</div></div>
+            {(previewPackage.mainFeatures ?? []).length > 0 && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Main Features</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--ad-text)", lineHeight: 1.8 }}>
+                  {(previewPackage.mainFeatures ?? []).map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              </div>
+            )}
+            {(previewPackage.components ?? []).length > 0 && (() => {
+              const EMOJI: Record<string, string> = { "Solar Panel": "☀", "Inverter": "⚡", "Battery": "🔋" };
+              const ORDER = ["Solar Panel", "Inverter", "Battery"];
+              const grouped = (previewPackage.components ?? []).reduce<Record<string, typeof previewPackage.components>>((acc, c) => { (acc[c.component.category] ??= []).push(c); return acc; }, {});
+              const cats = [...ORDER.filter(c => grouped[c]), ...Object.keys(grouped).filter(c => !ORDER.includes(c))];
+              return (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Components</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {cats.map(cat => (
+                      <div key={cat}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", marginBottom: 4 }}>{EMOJI[cat] ?? "📦"} {cat}</div>
+                        {(grouped[cat] ?? []).map((line, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--ad-text)", padding: "3px 0", borderBottom: "1px solid var(--ad-border)" }}>
+                            <span><strong>{line.quantity}×</strong> {line.component.brand} {line.component.name}</span>
+                            {line.component.unitPrice != null && <span style={{ color: "var(--ad-text3)", fontSize: 12 }}>₱{line.component.unitPrice.toLocaleString("en-PH")} ea.</span>}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </AdminModal>
+      )}
+
       {showForm && (
         <>
           {/* Modal Overlay */}
@@ -2971,8 +3225,9 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               <div className="ad-pkg-mgr-footer">
                 <span className="ad-pkg-mgr-order">Created {new Date(p.createdAt).toLocaleDateString()}</span>
                 <div className="ad-table-actions">
+                  <button onClick={() => setPreviewPackage(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>View</button>
                   <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
-                  <button onClick={() => void handleDelete(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
+                  <button onClick={() => setDeleteTarget(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
                 </div>
               </div>
             </div>
@@ -3016,21 +3271,37 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
     finally { setSaving(false); }
   };
 
-  const reset = async () => {
-    if (!confirm("Reset to default content? This cannot be undone.")) return;
+  const [resetPending, setResetPending] = useState(false);
+
+  const startReset = () => setResetPending(true);
+  const cancelReset = () => setResetPending(false);
+  const confirmReset = async () => {
+    setResetPending(false);
     try { await adminResetContent(apiKey, contentKey); setMsg("✓ Reset to default"); setTick((t) => t + 1); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
-  return { loading, saving, msg, form, setForm, save, reset };
+  return { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset };
 }
 
-function SectionEditorHeader({ title, onReset }: { title: string; onReset: () => void }) {
+function SectionEditorHeader({ title, onReset, resetPending, onConfirmReset, onCancelReset }: {
+  title: string; onReset: () => void;
+  resetPending?: boolean; onConfirmReset?: () => void; onCancelReset?: () => void;
+}) {
   return (
-    <div className="ad-section-header" style={{ marginBottom: 16 }}>
-      <div className="ad-section-title">{title}</div>
-      <button onClick={onReset} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
-    </div>
+    <>
+      <ConfirmDeleteModal
+        open={!!resetPending}
+        title={`Reset "${title}" to default?`}
+        description="All current content will be replaced with the default values. This cannot be undone."
+        onConfirm={onConfirmReset ?? (() => {})}
+        onCancel={onCancelReset ?? (() => {})}
+      />
+      <div className="ad-section-header" style={{ marginBottom: 16 }}>
+        <div className="ad-section-title">{title}</div>
+        <button onClick={onReset} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+      </div>
+    </>
   );
 }
 
@@ -3086,12 +3357,12 @@ type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: stri
 const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects", primaryCtaUrl: "#calculator", secondaryCtaUrl: "/projects" };
 
 function HeroEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
   const ch = (k: keyof HeroForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Hero Section" onReset={reset} />
+      <SectionEditorHeader title="Hero Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -3153,13 +3424,13 @@ const DEFAULT_METRICS_FORM: MetricsForm = {
 };
 
 function MetricsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "metrics", DEFAULT_METRICS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "metrics", DEFAULT_METRICS_FORM);
   const updateItem = (idx: number, key: "value" | "label", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Metrics / Stats" onReset={reset} />
+      <SectionEditorHeader title="Metrics / Stats" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 16 }}>These numbers appear in the stats strip below the hero section.</p>
@@ -3197,13 +3468,13 @@ const DEFAULT_BENEFITS_FORM: BenefitsForm = {
 };
 
 function BenefitsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "benefits", DEFAULT_BENEFITS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "benefits", DEFAULT_BENEFITS_FORM);
   const updateItem = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Benefits Banner" onReset={reset} />
+      <SectionEditorHeader title="Benefits Banner" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         {form.items.map((item, i) => (
@@ -3233,11 +3504,11 @@ const DEFAULT_TROPICS_FORM: TropicsForm = {
 };
 
 function TropicsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "tropics", DEFAULT_TROPICS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "tropics", DEFAULT_TROPICS_FORM);
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Tropics Section" onReset={reset} />
+      <SectionEditorHeader title="Tropics Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -3301,7 +3572,7 @@ async function geocodePhLocation(location: string): Promise<[number, number] | n
 }
 
 function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
   const [geocoding, setGeocoding] = useState<Set<number>>(new Set());
   const [geoMsg, setGeoMsg] = useState("");
 
@@ -3335,7 +3606,7 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Client Journey" onReset={reset} />
+      <SectionEditorHeader title="Client Journey" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       {geoMsg && <div style={{ padding: "8px 0 4px", fontSize: 12, color: geoMsg.startsWith("✓") ? "#22c55e" : "#f87171" }}>{geoMsg}</div>}
       <div className="ad-card">
@@ -3413,13 +3684,13 @@ const DEFAULT_EXCELLENCE_FORM: ExcellenceForm = {
 };
 
 function ExcellenceEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "excellence", DEFAULT_EXCELLENCE_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "excellence", DEFAULT_EXCELLENCE_FORM);
   const updateItem = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Engineered Excellence" onReset={reset} />
+      <SectionEditorHeader title="Engineered Excellence" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         {form.items.map((item, i) => (
@@ -3453,13 +3724,13 @@ const DEFAULT_PROCESS_FORM: ProcessForm = {
 };
 
 function ProcessEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "process", DEFAULT_PROCESS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "process", DEFAULT_PROCESS_FORM);
   const updateStep = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, steps: f.steps.map((s, i) => i === idx ? { ...s, [key]: val } : s) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Process Steps" onReset={reset} />
+      <SectionEditorHeader title="Process Steps" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div style={{ marginBottom: 24 }}>
@@ -3490,12 +3761,12 @@ type CtaForm = { title: string; description: string; primaryCta: string; seconda
 const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote ↗", secondaryCta: "Talk to an Expert" };
 
 function CtaEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, reset } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
   const ch = (k: keyof CtaForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Call to Action" onReset={reset} />
+      <SectionEditorHeader title="Call to Action" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -3562,8 +3833,10 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
     finally { setSaving(false); }
   };
 
+  const [resetPending, setResetPending] = useState(false);
+
   const handleReset = async () => {
-    if (!confirm("Reset footer to default content? This cannot be undone.")) return;
+    setResetPending(false);
     try { await adminResetContent(apiKey, "footer"); setMsg("✓ Footer reset to default"); await load(); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
@@ -3572,9 +3845,16 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
   return (
     <div className="ad-footer-wrap">
+      <ConfirmDeleteModal
+        open={resetPending}
+        title='Reset "Footer" to default?'
+        description="All current footer content will be replaced with the default values. This cannot be undone."
+        onConfirm={() => void handleReset()}
+        onCancel={() => setResetPending(false)}
+      />
       <div className="ad-section-header" style={{ marginBottom: 16 }}>
         <div className="ad-section-title">Footer</div>
-        <button onClick={() => void handleReset()} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+        <button onClick={() => setResetPending(true)} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
       </div>
       <Toast msg={msg} />
       <div className="ad-card" style={{ marginBottom: 16 }}>
@@ -3633,6 +3913,16 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
+// ─── Sidebar icon helper ──────────────────────────────────────────────────────
+
+function NavIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function ASAdmin() {
@@ -3641,6 +3931,13 @@ export default function ASAdmin() {
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLight, setIsLight] = useState<boolean>(() => localStorage.getItem("azari-admin-theme") === "light");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Sync is-light class to body so portal-mounted modals (outside .as-admin) inherit CSS variables
+  useEffect(() => {
+    document.body.classList.toggle("is-light", isLight);
+    return () => { document.body.classList.remove("is-light"); };
+  }, [isLight]);
 
   const handleLogin = async (key: string) => {
     try {
@@ -3666,25 +3963,52 @@ export default function ASAdmin() {
     localStorage.setItem("azari-admin-theme", next ? "light" : "dark");
   };
 
-  const TABS: Array<{ id: Tab; label: string }> = [
-    { id: "overview",   label: "Overview" },
-    { id: "inquiries",  label: "Talk Inquiries" },
-    { id: "quotations", label: "Quotations" },
-    { id: "projects",    label: "Projects" },
-    { id: "inventory",  label: "Inventory" },
-    { id: "packages",    label: "Packages" },
-    { id: "package-inquiries", label: "Package Inquiries" },
-    { id: "sections",   label: "Visibility" },
-    { id: "hero",       label: "Hero" },
-    { id: "metrics",    label: "Metrics" },
-    { id: "benefits",   label: "Benefits" },
-    { id: "tropics",    label: "Tropics" },
-    { id: "journey",    label: "Journey" },
-    { id: "excellence", label: "Excellence" },
-    { id: "process",    label: "Process" },
-    { id: "cta",        label: "Call to Action" },
-    { id: "footer",     label: "Footer" },
+  const navigate = (id: Tab) => { setTab(id); setSidebarOpen(false); };
+
+  type NavItem = { id: Tab; label: string; icon: React.ReactNode };
+  type NavGroup = { label: string; items: NavItem[] };
+
+  const NAV_GROUPS: NavGroup[] = [
+    {
+      label: "Dashboard",
+      items: [
+        { id: "overview", label: "Overview", icon: <NavIcon><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></NavIcon> },
+      ],
+    },
+    {
+      label: "Operations",
+      items: [
+        { id: "inquiries",         label: "Talk Inquiries",    icon: <NavIcon><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></NavIcon> },
+        { id: "quotations",        label: "Quotations",        icon: <NavIcon><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></NavIcon> },
+        { id: "package-inquiries", label: "Package Inquiries", icon: <NavIcon><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></NavIcon> },
+      ],
+    },
+    {
+      label: "Products",
+      items: [
+        { id: "inventory", label: "Inventory", icon: <NavIcon><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
+        { id: "packages",  label: "Packages",  icon: <NavIcon><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
+        { id: "projects",  label: "Projects",  icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></NavIcon> },
+      ],
+    },
+    {
+      label: "Content",
+      items: [
+        { id: "sections",   label: "Visibility",    icon: <NavIcon><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></NavIcon> },
+        { id: "hero",       label: "Hero",          icon: <NavIcon><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></NavIcon> },
+        { id: "metrics",    label: "Metrics",       icon: <NavIcon><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></NavIcon> },
+        { id: "benefits",   label: "Benefits",      icon: <NavIcon><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></NavIcon> },
+        { id: "tropics",    label: "Tropics",       icon: <NavIcon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></NavIcon> },
+        { id: "journey",    label: "Journey",       icon: <NavIcon><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></NavIcon> },
+        { id: "excellence", label: "Excellence",    icon: <NavIcon><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></NavIcon> },
+        { id: "process",    label: "Process",       icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></NavIcon> },
+        { id: "cta",        label: "Call to Action", icon: <NavIcon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></NavIcon> },
+        { id: "footer",     label: "Footer",         icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></NavIcon> },
+      ],
+    },
   ];
+
+  const currentLabel = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === tab)?.label ?? "";
 
   if (!apiKey) {
     return (
@@ -3697,9 +4021,16 @@ export default function ASAdmin() {
   return (
     <div className={`as-admin${isLight ? " is-light" : ""}`}>
       <ASRateLimitBanner />
+
       <nav className="ad-topnav">
+        <button className="ad-hamburger" onClick={() => setSidebarOpen(s => !s)} aria-label="Toggle navigation">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
         <div className="ad-topnav-logo">azari<span>.solar</span></div>
         <span className="ad-topnav-badge">Admin</span>
+        <span className="ad-topnav-section">{currentLabel}</span>
         <div className="ad-topnav-spacer" />
         <div className="ad-topnav-actions">
           <button className={`ad-theme-toggle${isLight ? " is-light" : ""}`} onClick={toggleTheme} aria-label="Toggle theme" title={isLight ? "Switch to dark mode" : "Switch to light mode"} />
@@ -3707,32 +4038,49 @@ export default function ASAdmin() {
         </div>
       </nav>
 
-      <div className="ad-tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`ad-tab-btn${tab === t.id ? " is-active" : ""}`} onClick={() => setTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="ad-body">
+        {sidebarOpen && <div className="ad-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
-      <div className="ad-content">
-        {tab === "overview"   && <OverviewTab stats={stats} />}
-        {tab === "inquiries"  && <SubmissionsTable apiKey={apiKey} type="talk" />}
-        {tab === "quotations" && <SubmissionsTable apiKey={apiKey} type="quotations" />}
-        {tab === "projects"    && <ProjectsManager   apiKey={apiKey} />}
-        {tab === "inventory"  && <ComponentsManager apiKey={apiKey} onGoToPackages={() => setTab("packages")} />}
-        {tab === "packages"    && <PackagesManager   apiKey={apiKey} />}
-        {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
-        {tab === "sections"   && <SectionsManager apiKey={apiKey} />}
-        {tab === "hero"       && <HeroEditor apiKey={apiKey} />}
-        {tab === "metrics"    && <MetricsEditor apiKey={apiKey} />}
-        {tab === "benefits"   && <BenefitsEditor apiKey={apiKey} />}
-        {tab === "tropics"    && <TropicsEditor apiKey={apiKey} />}
-        {tab === "journey"    && <ClientJourneyEditor apiKey={apiKey} />}
-        {tab === "excellence" && <ExcellenceEditor apiKey={apiKey} />}
-        {tab === "process"    && <ProcessEditor apiKey={apiKey} />}
-        {tab === "cta"        && <CtaEditor apiKey={apiKey} />}
-        {tab === "footer"     && <FooterEditor apiKey={apiKey} />}
+        <nav className={`ad-sidebar${sidebarOpen ? " is-open" : ""}`} aria-label="Admin navigation">
+          <div className="ad-sidebar-inner">
+            {NAV_GROUPS.map((group, gi) => (
+              <div key={group.label} className="ad-sidebar-group">
+                {gi > 0 && <div className="ad-sidebar-divider" />}
+                <div className="ad-sidebar-group-label">{group.label}</div>
+                {group.items.map((item) => (
+                  <button
+                    key={item.id}
+                    className={`ad-sidebar-item${tab === item.id ? " is-active" : ""}`}
+                    onClick={() => navigate(item.id)}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </nav>
+
+        <main className="ad-main">
+          {tab === "overview"          && <OverviewTab stats={stats} />}
+          {tab === "inquiries"         && <SubmissionsTable apiKey={apiKey} type="talk" />}
+          {tab === "quotations"        && <SubmissionsTable apiKey={apiKey} type="quotations" />}
+          {tab === "projects"          && <ProjectsManager apiKey={apiKey} />}
+          {tab === "inventory"         && <ComponentsManager apiKey={apiKey} onGoToPackages={() => navigate("packages")} />}
+          {tab === "packages"          && <PackagesManager apiKey={apiKey} />}
+          {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
+          {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
+          {tab === "hero"              && <HeroEditor apiKey={apiKey} />}
+          {tab === "metrics"           && <MetricsEditor apiKey={apiKey} />}
+          {tab === "benefits"          && <BenefitsEditor apiKey={apiKey} />}
+          {tab === "tropics"           && <TropicsEditor apiKey={apiKey} />}
+          {tab === "journey"           && <ClientJourneyEditor apiKey={apiKey} />}
+          {tab === "excellence"        && <ExcellenceEditor apiKey={apiKey} />}
+          {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
+          {tab === "cta"               && <CtaEditor apiKey={apiKey} />}
+          {tab === "footer"            && <FooterEditor apiKey={apiKey} />}
+        </main>
       </div>
     </div>
   );
