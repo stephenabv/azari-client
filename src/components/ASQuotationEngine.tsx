@@ -617,7 +617,7 @@ export default function ASQuotationEngine() {
           <p>System Type</p>
         </div>
 
-        <div className="as-quote-mode-toggle">
+        <div className="as-quote-mode-toggle" data-active={systemType === "hybrid" ? 0 : 1}>
           <button
             type="button"
             className={systemType === "hybrid" ? "is-active" : ""}
@@ -928,7 +928,7 @@ export default function ASQuotationEngine() {
           <h1>Technical Quotation Engine</h1>
           <p>Configure your institutional-grade solar system.</p>
 
-          <div className="as-quote-mode-toggle as-bill-toggle">
+          <div className="as-quote-mode-toggle as-bill-toggle" data-active={hasBill ? 0 : 1}>
             <button
               type="button"
               className={hasBill ? "is-active" : ""}

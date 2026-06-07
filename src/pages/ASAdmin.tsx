@@ -2836,6 +2836,52 @@ function SectionEditorHeader({ title, onReset }: { title: string; onReset: () =>
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
+const HERO_SECTIONS = [
+  { label: "Calculator", value: "#calculator" },
+  { label: "Hero", value: "#hero" },
+  { label: "Metrics / Stats", value: "#metrics" },
+  { label: "Benefits", value: "#benefits" },
+  { label: "Excellence", value: "#excellence" },
+  { label: "Tropics", value: "#tropics" },
+  { label: "Process", value: "#process" },
+  { label: "Client Journey", value: "#client-journey" },
+  { label: "Call to Action", value: "#call-to-action" },
+];
+
+const HERO_PAGES = [
+  { label: "Home", value: "/" },
+  { label: "Projects", value: "/projects" },
+  { label: "Packages", value: "/packages" },
+  { label: "Quotation Engine", value: "/quotation-engine" },
+];
+
+function CtaDestinationPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const isSection = value.startsWith("#");
+  const typeOptions = [{ label: "Section (scroll)", value: "section" }, { label: "Page (navigate)", value: "page" }];
+  const handleTypeChange = (type: string) => {
+    onChange(type === "section" ? HERO_SECTIONS[0].value : HERO_PAGES[0].value);
+  };
+  return (
+    <div>
+      <label className="ad-label">{label}</label>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <select className="ad-input" value={isSection ? "section" : "page"} onChange={e => handleTypeChange(e.target.value)}>
+          {typeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {isSection ? (
+          <select className="ad-input" value={value} onChange={e => onChange(e.target.value)}>
+            {HERO_SECTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        ) : (
+          <select className="ad-input" value={value} onChange={e => onChange(e.target.value)}>
+            {HERO_PAGES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: string; subtext: string; primaryCta: string; secondaryCta: string; primaryCtaUrl: string; secondaryCtaUrl: string };
 const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects", primaryCtaUrl: "#calculator", secondaryCtaUrl: "/projects" };
 
@@ -2874,16 +2920,16 @@ function HeroEditor({ apiKey }: { apiKey: string }) {
             <label className="ad-label">Secondary Button Label</label>
             <input className="ad-input" value={form.secondaryCta} onChange={ch("secondaryCta")} placeholder="View Projects" />
           </div>
-          <div>
-            <label className="ad-label">Primary Button URL</label>
-            <input className="ad-input" value={form.primaryCtaUrl} onChange={ch("primaryCtaUrl")} placeholder="#calculator" />
-            <p className="ad-pkg-hint">Use <code>#id</code> to scroll to a section, or a path like <code>/quotation</code> to navigate.</p>
-          </div>
-          <div>
-            <label className="ad-label">Secondary Button URL</label>
-            <input className="ad-input" value={form.secondaryCtaUrl} onChange={ch("secondaryCtaUrl")} placeholder="/projects" />
-            <p className="ad-pkg-hint">Use <code>#id</code> to scroll to a section, or a path like <code>/projects</code> to navigate.</p>
-          </div>
+          <CtaDestinationPicker
+            label="Primary Button Destination"
+            value={form.primaryCtaUrl}
+            onChange={v => setForm(f => ({ ...f, primaryCtaUrl: v }))}
+          />
+          <CtaDestinationPicker
+            label="Secondary Button Destination"
+            value={form.secondaryCtaUrl}
+            onChange={v => setForm(f => ({ ...f, secondaryCtaUrl: v }))}
+          />
         </div>
         <div className="ad-form-actions">
           <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>

@@ -41,43 +41,43 @@ export default function ASDashboard() {
   return (
     <>
       {vis.hero && (
-        <section className="_asHero">
+        <section className="_asHero" id="hero">
           <ASHero />
         </section>
       )}
 
       {vis.metrics && (
-        <section className="_asMetrics">
+        <section className="_asMetrics" id="metrics">
           <ASMetrics />
         </section>
       )}
 
       {vis.benefits && (
-        <section className="_asBenefitsBanner">
+        <section className="_asBenefitsBanner" id="benefits">
           <ASBenefitsBanner />
         </section>
       )}
 
       {vis.excellence && (
-        <section className="_asEngineeredExcellence">
+        <section className="_asEngineeredExcellence" id="excellence">
           <ASEngineeredExcellence />
         </section>
       )}
 
       {vis.tropics && (
-        <section className="_asTropicsSection">
+        <section className="_asTropicsSection" id="tropics">
           <ASTropicsSection />
         </section>
       )}
 
       {vis.process && (
-        <section className="_asProcessSection">
+        <section className="_asProcessSection" id="process">
           <ASProcessSection />
         </section>
       )}
 
       {vis.clientJourney && (
-        <section className="_asClientJourney">
+        <section className="_asClientJourney" id="client-journey">
           <ASClientJourney />
         </section>
       )}
@@ -89,7 +89,7 @@ export default function ASDashboard() {
       )}
 
       {vis.callToAction && (
-        <section className="_asCallToAction">
+        <section className="_asCallToAction" id="call-to-action">
           <ASCallToAction />
         </section>
       )}
