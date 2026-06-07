@@ -925,12 +925,12 @@ function computePkgViolations(
   const invQty = invLine.quantity;
 
   const pvMax = isEditedInv
-    ? ((newForm.pvMaxPower ?? null) ?? newForm.loadCapacityKw)
-    : ((invLine.component.pvMaxPower ?? null) ?? invLine.component.loadCapacityKw);
+    ? (newForm.pvMaxPower ?? newForm.loadCapacityKw)
+    : (invLine.component.pvMaxPower ?? invLine.component.loadCapacityKw);
 
   const battMax = isEditedInv
-    ? ((newForm.batteryMaxCapacity ?? null) ?? newForm.loadCapacityKw)
-    : ((invLine.component.batteryMaxCapacity ?? null) ?? invLine.component.loadCapacityKw);
+    ? (newForm.batteryMaxCapacity ?? newForm.loadCapacityKw)
+    : (invLine.component.batteryMaxCapacity ?? invLine.component.loadCapacityKw);
 
   if (panelLine) {
     const isEditedPanel = panelLine.componentId === editedId;
