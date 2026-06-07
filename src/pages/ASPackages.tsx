@@ -73,19 +73,26 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   const ic = inverterLine?.component;
   const bc = batteryLine?.component;
   const pc = panelLine?.component;
+
+  // Admin-configured quantities are the floor — user can never go below them
+  const cfgI = inverterLine?.quantity ?? 1;
+  const cfgB = batteryLine?.quantity  ?? 0;
+  const cfgP = panelLine?.quantity    ?? 1;
+
   const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
     ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
-    : 1;
+    : cfgP;
   const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
     ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
-    : 1;
+    : cfgB;
+
   return {
-    iMin: ic?.parallelMin ?? 1,
-    iMax: ic?.parallelMax ?? 1,
-    bMin: bc ? inverterCount : 0,
-    bMax: bc ? batteryMaxPerInverter * inverterCount : 0,
-    pMin: pc ? inverterCount : 1,
-    pMax: panelMaxPerInverter * inverterCount,
+    iMin: cfgI,
+    iMax: Math.max(cfgI, ic?.parallelMax ?? cfgI),
+    bMin: cfgB,
+    bMax: Math.max(cfgB, bc ? batteryMaxPerInverter * inverterCount : 0),
+    pMin: cfgP,
+    pMax: Math.max(cfgP, panelMaxPerInverter * inverterCount),
   };
 }
 
@@ -130,12 +137,14 @@ function pesoFmt(v: number): string {
 
 function QuantityStepper({
   label,
+  sublabel,
   value,
   min,
   max,
   onBump,
 }: {
   label: string;
+  sublabel?: string;
   value: number;
   min: number;
   max: number;
@@ -143,7 +152,10 @@ function QuantityStepper({
 }) {
   return (
     <div className="as-pkg-qty-row">
-      <span className="as-pkg-qty-label">{label}</span>
+      <div className="as-pkg-qty-label">
+        <span className="as-pkg-qty-name">{label}</span>
+        {sublabel && <span className="as-pkg-qty-sub">{sublabel}</span>}
+      </div>
       <div className="as-pkg-qty-stepper">
         <button
           className="as-pkg-qty-btn"
@@ -312,7 +324,8 @@ function PackageCard({
 
       <div className="as-pkg-qty-table">
         <QuantityStepper
-          label="Inverters"
+          label={[inverterLine?.component.brand, inverterLine?.component.model].filter(Boolean).join(" ") || "Inverter"}
+          sublabel={inverterLine?.component.loadCapacityKw ? formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" }) : undefined}
           value={qty.inverter}
           min={bounds.iMin}
           max={bounds.iMax}
@@ -320,7 +333,8 @@ function PackageCard({
         />
         {isHybrid && (
           <QuantityStepper
-            label="Batteries"
+            label={[batteryLine?.component.brand, batteryLine?.component.model].filter(Boolean).join(" ") || "Battery"}
+            sublabel={batteryLine?.component.storageCapacityKwh ? formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" }) : undefined}
             value={qty.batteries}
             min={bounds.bMin}
             max={bounds.bMax}
@@ -328,7 +342,8 @@ function PackageCard({
           />
         )}
         <QuantityStepper
-          label="Solar Panels"
+          label={[panelLine?.component.brand, panelLine?.component.model].filter(Boolean).join(" ") || "Solar Panel"}
+          sublabel={panelLine?.component.productionCapacityKwp ? `${Math.round(panelLine.component.productionCapacityKwp * 1000)}W per panel` : undefined}
           value={qty.panels}
           min={bounds.pMin}
           max={bounds.pMax}
@@ -486,11 +501,23 @@ function PackageCard({
                     </div>
                     <div className="as-pkg-spec-others-list">
                       {otherPcs.map((pc) => {
-                        const count = effectiveQty(pc, pkg.components ?? [], qty);
+                        const comp = pc.component;
+                        const liveQty = effectiveQty(pc, pkg.components ?? [], qty);
+                        const capacityStr =
+                          comp.loadCapacityKw > 0
+                            ? formatCapacity(comp.loadCapacityKw, "power", { unit: "kW" })
+                            : comp.storageCapacityKwh > 0
+                            ? formatCapacity(comp.storageCapacityKwh, "energy", { unit: "kWh" })
+                            : comp.productionCapacityKwp > 0
+                            ? `${Math.round(comp.productionCapacityKwp * 1000)}W`
+                            : null;
                         return (
                           <div key={pc.componentId} className="as-pkg-spec-other-item">
-                            <span className="other-qty">{count}×</span>
-                            <span className="other-name">{pc.component.brand} {pc.component.name}</span>
+                            <span className="other-name">
+                              <span>{comp.brand} {comp.name}</span>
+                              {comp.model && <span className="other-model">{comp.model}</span>}
+                              {capacityStr && <span className="other-cap">{capacityStr}</span>}
+                            </span>
                           </div>
                         );
                       })}

@@ -267,16 +267,32 @@
 
 .as-pkg-qty-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
 .as-pkg-qty-label {
-  font-family: "Inter", sans-serif;
-  font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
+  min-width: 0;
+
+  .as-pkg-qty-name {
+    font-family: "Inter", sans-serif;
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .as-pkg-qty-sub {
+    font-family: "Inter", sans-serif;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.28);
+  }
 }
 
 .as-pkg-qty-stepper {
@@ -286,6 +302,7 @@
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .as-pkg-qty-btn {
@@ -691,7 +708,7 @@
 
 .as-pkg-spec-other-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 11px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
@@ -706,11 +723,26 @@
     color: rgba(255, 255, 255, 0.32);
     font-size: 12px;
     flex-shrink: 0;
+    padding-top: 1px;
   }
 
   .other-name {
-    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     min-width: 0;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .other-model {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.38);
+  }
+
+  .other-cap {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.50);
   }
 }
 
