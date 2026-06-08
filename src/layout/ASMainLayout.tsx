@@ -16,6 +16,7 @@ export default function ASMainLayout() {
   const location = useLocation();
 
   const isHeroPage = location.pathname === "/";
+  const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
 
   const [theme, setTheme] = useState<"light-theme" | "dark-theme">(() => {
     const savedTheme = localStorage.getItem("theme") as
@@ -57,7 +58,7 @@ export default function ASMainLayout() {
 
       <div className="layout-content">
         <div className="layout-page-body">
-          <div className={`page-container ${isHeroPage ? "no-offset" : ""}`}>
+          <div className={`page-container ${isHeroPage || isProjectDetail ? "no-offset" : ""}`}>
             <div className="route-page" key={location.pathname}>
               <Outlet context={{ theme }} />
             </div>

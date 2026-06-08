@@ -251,26 +251,65 @@ export async function adminUpdateQuotation(apiKey: string, id: string, data: Rec
 
 export type ProjectCategory = 'Residential' | 'Commercial' | 'Industrial';
 
+export interface ProjectStat {
+  value: string;
+  label: string;
+}
+
+export interface PerformanceMetric {
+  title: string;
+  description: string;
+}
+
+export interface TechBreakdownItem {
+  title: string;
+  subtitle?: string;
+  badge?: string;
+  imageUrl?: string;
+  featured?: boolean;
+}
+
+export interface ProjectTestimonial {
+  clientName: string;
+  clientRole: string;
+  quote: string;
+}
+
 export interface ApiProject {
   id: string;
   title: string;
+  subtitle?: string;
   category: ProjectCategory;
   system: string;
   savings: string;
   imageUrl: string;
+  videoUrl?: string;
   isRecent: boolean;
   sortOrder: number;
+  stats: ProjectStat[];
+  performanceMetrics: PerformanceMetric[];
+  technicalBreakdown: TechBreakdownItem[];
+  galleryImages: string[];
+  testimonial?: ProjectTestimonial | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ProjectInput {
   title: string;
+  subtitle?: string;
   category: ProjectCategory;
   system: string;
   savings: string;
+  videoUrl?: string;
   isRecent: boolean;
+  sortOrder?: number;
   imageFile?: File;
+  stats?: ProjectStat[];
+  performanceMetrics?: PerformanceMetric[];
+  technicalBreakdown?: TechBreakdownItem[];
+  galleryImages?: string[];
+  testimonial?: ProjectTestimonial | null;
 }
 
 export async function fetchProjects(): Promise<ApiProject[]> {
@@ -282,6 +321,15 @@ export async function fetchProjects(): Promise<ApiProject[]> {
   } catch {
     return [];
   }
+}
+
+export async function fetchProjectById(id: string): Promise<ApiProject | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/projects/${id}`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return null;
+    const json = await res.json() as { success: boolean; data: ApiProject };
+    return json.data ?? null;
+  } catch { return null; }
 }
 
 export async function adminGetProjects(apiKey: string) {
@@ -296,10 +344,18 @@ export async function adminGetProjects(apiKey: string) {
 function buildProjectFormData(data: ProjectInput): FormData {
   const fd = new FormData();
   fd.append('title', data.title);
+  if (data.subtitle !== undefined) fd.append('subtitle', data.subtitle);
   fd.append('category', data.category);
   fd.append('system', data.system);
   fd.append('savings', data.savings);
+  if (data.videoUrl !== undefined) fd.append('videoUrl', data.videoUrl);
   fd.append('isRecent', String(data.isRecent));
+  if (data.sortOrder !== undefined) fd.append('sortOrder', String(data.sortOrder));
+  fd.append('stats', JSON.stringify(data.stats ?? []));
+  fd.append('performanceMetrics', JSON.stringify(data.performanceMetrics ?? []));
+  fd.append('technicalBreakdown', JSON.stringify(data.technicalBreakdown ?? []));
+  fd.append('galleryImages', JSON.stringify(data.galleryImages ?? []));
+  fd.append('testimonial', data.testimonial ? JSON.stringify(data.testimonial) : '');
   if (data.imageFile) fd.append('image', data.imageFile);
   return fd;
 }

@@ -189,8 +189,7 @@
 }
 
 .as-project-card h3 {
-  margin: 0 0 24px;
-  max-width: 250px;
+  margin: 0 0 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -228,8 +227,12 @@
   font-family: "Outfit", sans-serif;
   font-size: 18px;
   font-weight: 700;
-  line-height: 120%;
+  line-height: 130%;
   color: #ffffff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .as-project-card-stats small {

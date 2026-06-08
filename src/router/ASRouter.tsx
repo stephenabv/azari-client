@@ -5,6 +5,7 @@ import ASAdmin from "../pages/ASAdmin";
 import ASPackages from "../pages/ASPackages";
 import ASQuotationEngine from "../components/ASQuotationEngine";
 import ASProjects from "../components/ASProjects";
+import ASProjectDetail from "../pages/ASProjectDetail";
 import ASNotFound from "../components/ASNotFound";
 
 const normalizeRoutePath = (value: string) => {
@@ -29,6 +30,10 @@ export const ASAppRoute = createBrowserRouter([
       {
         path: "/projects",
         element: <ASProjects />
+      },
+      {
+        path: "/projects/:id",
+        element: <ASProjectDetail />
       },
       {
         path: "/packages",

@@ -40,6 +40,10 @@ import {
   type PackageInquiry,
   type ProjectInput,
   type ProjectCategory as ApiProjectCategory,
+  type ProjectStat,
+  type PerformanceMetric,
+  type TechBreakdownItem,
+  type ProjectTestimonial,
   type ApiSolarPackage,
   type PackageInput,
   type ApiSolarComponent,
@@ -722,8 +726,48 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   );
 }
 
-type ProjectForm = { title: string; category: ApiProjectCategory; system: string; savings: string; isRecent: boolean };
-const EMPTY_PROJECT_FORM: ProjectForm = { title: "", category: "Residential", system: "", savings: "", isRecent: false };
+async function compressImageClient(file: File, maxW = 1200, maxH = 900, quality = 0.82): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        const ratio = Math.min(1, maxW / width, maxH / height);
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/webp', quality));
+      };
+      img.src = e.target!.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+type ProjectForm = {
+  title: string;
+  subtitle: string;
+  category: ApiProjectCategory;
+  system: string;
+  savings: string;
+  videoUrl: string;
+  isRecent: boolean;
+  sortOrder: number;
+  stats: ProjectStat[];
+  performanceMetrics: PerformanceMetric[];
+  technicalBreakdown: TechBreakdownItem[];
+  galleryImages: string[];
+  testimonial: ProjectTestimonial | null;
+};
+
+const EMPTY_PROJECT_FORM: ProjectForm = {
+  title: "", subtitle: "", category: "Residential",
+  system: "", savings: "", videoUrl: "", isRecent: false, sortOrder: 0,
+  stats: [], performanceMetrics: [], technicalBreakdown: [],
+  galleryImages: [], testimonial: null,
+};
 
 function categoryClass(c: string) {
   if (c === "Commercial") return "is-commercial";
@@ -744,6 +788,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [msg, setMsg] = useState("");
   const [previewProject, setPreviewProject] = useState<ApiProject | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [formSection, setFormSection] = useState<'basic' | 'detail' | 'gallery' | 'testimonial'>('basic');
 
   const load = async () => {
     setLoading(true);
@@ -753,16 +798,36 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openAdd = () => { setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null); setImagePreview(""); setMsg(""); setShowForm(true); };
+  const openAdd = () => {
+    setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null);
+    setImagePreview(""); setMsg(""); setFormSection('basic'); setShowForm(true);
+  };
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
-    setForm({ title: p.title, category: p.category, system: p.system, savings: p.savings, isRecent: p.isRecent });
-    setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setShowForm(true);
+    setForm({
+      title: p.title,
+      subtitle: p.subtitle ?? "",
+      category: p.category,
+      system: p.system,
+      savings: p.savings,
+      videoUrl: p.videoUrl ?? "",
+      isRecent: p.isRecent,
+      sortOrder: p.sortOrder ?? 0,
+      stats: (p.stats ?? []) as ProjectStat[],
+      performanceMetrics: (p.performanceMetrics ?? []) as PerformanceMetric[],
+      technicalBreakdown: (p.technicalBreakdown ?? []) as TechBreakdownItem[],
+      galleryImages: (p.galleryImages ?? []) as string[],
+      testimonial: (p.testimonial ?? null) as ProjectTestimonial | null,
+    });
+    setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setFormSection('basic'); setShowForm(true);
   };
   const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); };
 
   const handleImageSelect = (file: File | undefined) => {
     if (!file) return;
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    if (!allowed.has(file.type)) { setMsg("Error: Only JPEG, PNG, WebP or GIF images are allowed."); return; }
+    if (file.size > 10 * 1024 * 1024) { setMsg("Error: Image must be under 10 MB."); return; }
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target?.result as string);
@@ -776,7 +841,22 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     if (!editingId && !imageFile) { setMsg("Error: Please upload a project image."); return; }
     setSaving(true); setMsg("");
     try {
-      const payload: ProjectInput = { ...form, imageFile: imageFile ?? undefined };
+      const payload: ProjectInput = {
+        title: form.title,
+        subtitle: form.subtitle || undefined,
+        category: form.category,
+        system: form.system,
+        savings: form.savings,
+        videoUrl: form.videoUrl || undefined,
+        isRecent: form.isRecent,
+        sortOrder: form.sortOrder,
+        imageFile: imageFile ?? undefined,
+        stats: form.stats,
+        performanceMetrics: form.performanceMetrics,
+        technicalBreakdown: form.technicalBreakdown,
+        galleryImages: form.galleryImages,
+        testimonial: form.testimonial,
+      };
       if (editingId) { await adminUpdateProject(apiKey, editingId, payload); setMsg("✓ Project updated"); }
       else { await adminCreateProject(apiKey, payload); setMsg("✓ Project created"); }
       await load(); closeForm();
@@ -828,6 +908,12 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Estimated Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.savings}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Recent</div><div style={{ fontSize: 14, color: previewProject.isRecent ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.isRecent ? "Yes — shown as recent" : "No"}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Created</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{new Date(previewProject.createdAt).toLocaleDateString()}</div></div>
+            {previewProject.subtitle && <div className="ad-form-full"><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Subtitle</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.subtitle}</div></div>}
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Stats</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.stats ?? []).length} stat{(previewProject.stats ?? []).length !== 1 ? "s" : ""}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Metrics</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.performanceMetrics ?? []).length} metric{(previewProject.performanceMetrics ?? []).length !== 1 ? "s" : ""}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Breakdown Cards</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.technicalBreakdown ?? []).length} card{(previewProject.technicalBreakdown ?? []).length !== 1 ? "s" : ""}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Gallery</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.galleryImages ?? []).length} photo{(previewProject.galleryImages ?? []).length !== 1 ? "s" : ""}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Testimonial</div><div style={{ fontSize: 14, color: previewProject.testimonial ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.testimonial ? `"${(previewProject.testimonial as ProjectTestimonial).quote.slice(0, 60)}…"` : "None"}</div></div>
           </div>
         </AdminModal>
       )}
@@ -836,34 +922,267 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         open={showForm}
         onClose={closeForm}
         title={editingId ? "Edit Project" : "Add New Project"}
+        maxWidth={860}
       >
-        <div className="ad-form-grid">
-          <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
-          <div>
-            <label className="ad-label">Category</label>
-            <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
-              <option value="Residential">Residential</option>
-              <option value="Commercial">Commercial</option>
-              <option value="Industrial">Industrial</option>
-            </select>
-          </div>
-          <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
-          <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
-          <div className="ad-form-full">
-            <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
-            <div className="ad-image-row">
-              <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
-                <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
-                {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP, AVIF — max 8 MB</small></>}
+        {/* Tab navigation */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "1px solid var(--ad-border)", paddingBottom: 12 }}>
+          {(["basic", "detail", "gallery", "testimonial"] as const).map((section) => {
+            const labels = { basic: "Basic Info", detail: "Detail Content", gallery: "Gallery", testimonial: "Testimonial" };
+            return (
+              <button
+                key={section}
+                onClick={() => setFormSection(section)}
+                className={formSection === section ? "ad-btn ad-btn--sm" : "ad-btn ad-btn--ghost ad-btn--sm"}
+              >
+                {labels[section]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Basic Info tab */}
+        {formSection === "basic" && (
+          <div className="ad-form-grid">
+            <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
+            <div>
+              <label className="ad-label">Category</label>
+              <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
+                <option value="Residential">Residential</option>
+                <option value="Commercial">Commercial</option>
+                <option value="Industrial">Industrial</option>
+              </select>
+            </div>
+            <div className="ad-form-full"><label className="ad-label">Subtitle <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional tagline)</span></label><input className="ad-input" value={form.subtitle} onChange={(e) => setField("subtitle", e.target.value)} placeholder="e.g. A grid-tied system built for the province's harshest summers" /></div>
+            <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
+            <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
+            <div className="ad-form-full"><label className="ad-label">Video URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional YouTube or direct link)</span></label><input className="ad-input" value={form.videoUrl} onChange={(e) => setField("videoUrl", e.target.value)} placeholder="https://youtube.com/watch?v=..." /></div>
+            <div className="ad-form-full">
+              <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
+              <div className="ad-image-row">
+                <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
+                  <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
+                  {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP — max 10 MB</small></>}
+                </div>
+                {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
               </div>
-              {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
+              <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+              <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
+            </div>
+            <div>
+              <label className="ad-label">Sort Order</label>
+              <input className="ad-input" type="number" value={form.sortOrder} onChange={(e) => setField("sortOrder", parseInt(e.target.value) || 0)} placeholder="0" />
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
-            <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
-            <label htmlFor="isRecent" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Mark as Recent Project</label>
+        )}
+
+        {/* Detail Content tab */}
+        {formSection === "detail" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            {/* Stats builder */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Hero Stats</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {form.stats.map((stat, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input className="ad-input" style={{ flex: 1 }} value={stat.value} onChange={(e) => setField("stats", form.stats.map((s, j) => j === i ? { ...s, value: e.target.value } : s))} placeholder="Value (e.g. 3.2 MWp)" />
+                    <input className="ad-input" style={{ flex: 1 }} value={stat.label} onChange={(e) => setField("stats", form.stats.map((s, j) => j === i ? { ...s, label: e.target.value } : s))} placeholder="Label (e.g. System Capacity)" />
+                    <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("stats", form.stats.filter((_, j) => j !== i))}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("stats", [...form.stats, { value: "", label: "" }])}>+ Add Stat</button>
+            </div>
+
+            {/* Performance Metrics builder */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Performance Metrics</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {form.performanceMetrics.map((m, i) => (
+                  <div key={i} style={{ background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Metric {i + 1}</span>
+                      <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("performanceMetrics", form.performanceMetrics.filter((_, j) => j !== i))}>✕</button>
+                    </div>
+                    <input className="ad-input" style={{ marginBottom: 8 }} value={m.title} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Metric title" />
+                    <textarea className="ad-input" rows={2} value={m.description} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Description" style={{ resize: "vertical", width: "100%" }} />
+                  </div>
+                ))}
+              </div>
+              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("performanceMetrics", [...form.performanceMetrics, { title: "", description: "" }])}>+ Add Metric</button>
+            </div>
+
+            {/* Technical Breakdown builder */}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Technical Breakdown Cards</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {form.technicalBreakdown.map((item, i) => (
+                  <div key={i} style={{ background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Card {i + 1}</span>
+                      <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("technicalBreakdown", form.technicalBreakdown.filter((_, j) => j !== i))}>✕</button>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <input className="ad-input" value={item.title} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Title" />
+                      <input className="ad-input" value={item.subtitle ?? ""} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, subtitle: e.target.value } : x))} placeholder="Subtitle (optional)" />
+                      <input className="ad-input" value={item.badge ?? ""} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, badge: e.target.value } : x))} placeholder="Badge text (optional)" />
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                      <input type="checkbox" id={`bd-feat-${i}`} checked={item.featured ?? false} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, featured: e.target.checked } : x))} style={{ width: 15, height: 15, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
+                      <label htmlFor={`bd-feat-${i}`} style={{ fontSize: 13, color: "var(--ad-text)", cursor: "pointer" }}>Featured card (wider layout)</label>
+                    </div>
+                    {/* Card image */}
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <div
+                        className="ad-image-drop"
+                        style={{ flex: 1, minHeight: 52, padding: "10px 14px", fontSize: 12 }}
+                        onClick={() => document.getElementById(`bd-img-${i}`)?.click()}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const file = e.dataTransfer.files?.[0];
+                          if (!file) return;
+                          const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+                          if (!allowed.has(file.type)) return;
+                          compressImageClient(file).then((url) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: url } : x)));
+                        }}
+                      >
+                        <input
+                          id={`bd-img-${i}`}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          hidden
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            compressImageClient(file).then((url) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: url } : x)));
+                          }}
+                        />
+                        {item.imageUrl ? "Image set — click to replace" : "Click or drop card image (optional)"}
+                      </div>
+                      {item.imageUrl && (
+                        <>
+                          <img src={item.imageUrl} alt="Card preview" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6, border: "1px solid var(--ad-border)", flexShrink: 0 }} />
+                          <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: undefined } : x))}>Remove</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("technicalBreakdown", [...form.technicalBreakdown, { title: "", subtitle: "", badge: "", featured: false }])}>+ Add Card</button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Gallery tab */}
+        {formSection === "gallery" && (
+          <div>
+            {(() => {
+              const MAX = 20;
+              const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+              const atMax = form.galleryImages.length >= MAX;
+
+              const processFiles = (files: File[]) => {
+                const slots = MAX - form.galleryImages.length;
+                if (slots <= 0) return;
+                const valid = files
+                  .filter(f => ALLOWED.has(f.type) && f.size <= 10 * 1024 * 1024)
+                  .slice(0, slots);
+                if (valid.length === 0) return;
+                Promise.all(valid.map((f) => compressImageClient(f))).then((urls) => {
+                  setForm(f => ({ ...f, galleryImages: [...f.galleryImages, ...urls].slice(0, MAX) }));
+                });
+              };
+
+              return (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 4 }}>Installation Gallery Photos</div>
+                  <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 14 }}>
+                    {form.galleryImages.length} / {MAX} photos added
+                    {!atMax && <> &mdash; {MAX - form.galleryImages.length} remaining</>}.
+                    {" "}Images are compressed automatically.
+                  </div>
+                  <div
+                    className={`ad-image-drop${atMax ? " is-disabled" : ""}`}
+                    style={{ marginBottom: 16, minHeight: 72 }}
+                    onClick={() => { if (!atMax) document.getElementById("gallery-img-input")?.click(); }}
+                    onDragOver={(e) => { if (!atMax) e.preventDefault(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      processFiles(Array.from(e.dataTransfer.files ?? []));
+                    }}
+                  >
+                    <input
+                      id="gallery-img-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple
+                      hidden
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        e.target.value = "";
+                        processFiles(files);
+                      }}
+                    />
+                    {atMax
+                      ? <span>Maximum of {MAX} photos reached</span>
+                      : <><span>Click or drag &amp; drop to add multiple images</span><br /><small>JPEG, PNG, WebP — max 10 MB each — select up to {MAX - form.galleryImages.length} more</small></>
+                    }
+                  </div>
+                </>
+              );
+            })()}
+            {form.galleryImages.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
+                {form.galleryImages.map((src, i) => (
+                  <div key={i} style={{ position: "relative", aspectRatio: "4/3" }}>
+                    <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid var(--ad-border)" }} />
+                    <button
+                      onClick={() => setField("galleryImages", form.galleryImages.filter((_, j) => j !== i))}
+                      style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", color: "#fff", borderRadius: 4, width: 20, height: 20, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                      aria-label="Remove photo"
+                    >✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Testimonial tab */}
+        {formSection === "testimonial" && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <input
+                type="checkbox"
+                id="testimonial-toggle"
+                checked={form.testimonial !== null}
+                onChange={(e) => setField("testimonial", e.target.checked ? { clientName: "", clientRole: "", quote: "" } : null)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }}
+              />
+              <label htmlFor="testimonial-toggle" style={{ fontSize: 14, color: "var(--ad-text)", cursor: "pointer", fontWeight: 600 }}>Add a client testimonial</label>
+            </div>
+            {form.testimonial !== null && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label className="ad-label">Client Name</label>
+                  <input className="ad-input" value={form.testimonial.clientName} onChange={(e) => setField("testimonial", { ...form.testimonial!, clientName: e.target.value })} placeholder="e.g. Juan dela Cruz" />
+                </div>
+                <div>
+                  <label className="ad-label">Client Role</label>
+                  <input className="ad-input" value={form.testimonial.clientRole} onChange={(e) => setField("testimonial", { ...form.testimonial!, clientRole: e.target.value })} placeholder="e.g. Homeowner, Marikina City" />
+                </div>
+                <div>
+                  <label className="ad-label">Quote</label>
+                  <textarea className="ad-input" rows={4} value={form.testimonial.quote} onChange={(e) => setField("testimonial", { ...form.testimonial!, quote: e.target.value })} placeholder="Client testimonial text…" style={{ resize: "vertical", width: "100%" }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="ad-form-actions">
           <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
         </div>
@@ -3758,7 +4077,7 @@ function ProcessEditor({ apiKey }: { apiKey: string }) {
 // ─── Call to Action ───────────────────────────────────────────────────────────
 
 type CtaForm = { title: string; description: string; primaryCta: string; secondaryCta: string };
-const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote ↗", secondaryCta: "Talk to an Expert" };
+const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote", secondaryCta: "Talk to an Expert" };
 
 function CtaEditor({ apiKey }: { apiKey: string }) {
   const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
@@ -3772,7 +4091,7 @@ function CtaEditor({ apiKey }: { apiKey: string }) {
         <div className="ad-form-grid">
           <div className="ad-form-full"><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={ch("title")} placeholder="Ready to engineer your energy independence?" /></div>
           <div className="ad-form-full"><label className="ad-label">Description</label><input className="ad-input" value={form.description} onChange={ch("description")} placeholder="Take control of your energy bills…" /></div>
-          <div><label className="ad-label">Primary Button</label><input className="ad-input" value={form.primaryCta} onChange={ch("primaryCta")} placeholder="Get a free Quote ↗" /></div>
+          <div><label className="ad-label">Primary Button</label><input className="ad-input" value={form.primaryCta} onChange={ch("primaryCta")} placeholder="Get a free Quote" /></div>
           <div><label className="ad-label">Secondary Button</label><input className="ad-input" value={form.secondaryCta} onChange={ch("secondaryCta")} placeholder="Talk to an Expert" /></div>
         </div>
         <div className="ad-form-actions">

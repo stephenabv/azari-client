@@ -884,8 +884,14 @@ body.is-light {
   color: var(--ad-text2);
   transition: border-color 0.15s ease;
 
-  &:hover {
+  &:hover:not(.is-disabled) {
     border-color: rgba(252, 97, 90, 0.4);
+  }
+
+  &.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    border-style: solid;
   }
 
   span {
