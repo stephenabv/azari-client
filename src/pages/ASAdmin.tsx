@@ -2627,11 +2627,9 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     const componentDetails = components.map(c => allComponents.find(ac => ac.id === c.componentId)).filter(Boolean) as ApiSolarComponent[];
     const hasSolarPanel = componentDetails.some(c => c.category === 'Solar Panel');
     const hasInverter = componentDetails.some(c => c.category === 'Inverter');
-    const hasBattery = componentDetails.some(c => c.category === 'Battery');
 
     if (!hasSolarPanel) return "Package must include at least one Solar Panel";
     if (!hasInverter) return "Package must include at least one Inverter";
-    if (systemType === 'hybrid' && !hasBattery) return "Hybrid packages must include at least one Battery";
 
     // Compute actual specs from selected components
     const specs = computePackageSpecs(components, allComponents);
@@ -3892,95 +3890,193 @@ async function geocodePhLocation(location: string): Promise<[number, number] | n
 
 function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
   const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
-  const [geocoding, setGeocoding] = useState<Set<number>>(new Set());
+  const [geocoding, setGeocoding] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
+  const [modalMode, setModalMode] = useState<"add" | "edit" | "view" | null>(null);
+  const [draft, setDraft] = useState<JourneyEntry>({ id: "", name: "", location: "", testimonial: "", videoUrl: "", coords: [122.0, 12.0] });
+  const [deleteTarget, setDeleteTarget] = useState<JourneyEntry | null>(null);
 
-  const updateEntry = (idx: number, key: keyof JourneyEntry, val: string) =>
-    setForm((f) => ({ ...f, entries: f.entries.map((e, i) => i === idx ? { ...e, [key]: val } : e) }));
+  const emptyDraft = (): JourneyEntry => ({ id: crypto.randomUUID(), name: "", location: "", testimonial: "", videoUrl: "", coords: [122.0, 12.0] });
 
-  const addEntry = () =>
-    setForm((f) => ({
-      ...f,
-      entries: [...f.entries, { id: crypto.randomUUID(), name: "", location: "", testimonial: "", videoUrl: "", coords: [122.0, 12.0] }],
-    }));
+  const openAdd = () => { setDraft(emptyDraft()); setGeoMsg(""); setModalMode("add"); };
+  const openEdit = (entry: JourneyEntry) => { setDraft({ ...entry }); setGeoMsg(""); setModalMode("edit"); };
+  const openView = (entry: JourneyEntry) => { setDraft({ ...entry }); setGeoMsg(""); setModalMode("view"); };
+  const closeModal = () => { setModalMode(null); setGeoMsg(""); };
 
-  const removeEntry = (idx: number) =>
-    setForm((f) => ({ ...f, entries: f.entries.filter((_, i) => i !== idx) }));
-
-  const locate = async (idx: number) => {
-    const loc = form.entries[idx]?.location?.trim();
+  const locate = async () => {
+    const loc = draft.location?.trim();
     if (!loc) return;
-    setGeocoding((s) => new Set(s).add(idx));
+    setGeocoding(true);
     setGeoMsg("");
     const coords = await geocodePhLocation(loc);
     if (coords) {
-      setForm((f) => ({ ...f, entries: f.entries.map((e, i) => i === idx ? { ...e, coords } : e) }));
+      setDraft((d) => ({ ...d, coords }));
       setGeoMsg(`✓ Located: ${coords[1].toFixed(4)}°N, ${coords[0].toFixed(4)}°E`);
     } else {
       setGeoMsg("Location not found. Try a more specific place name.");
     }
-    setGeocoding((s) => { const n = new Set(s); n.delete(idx); return n; });
+    setGeocoding(false);
+  };
+
+  const handleModalSave = () => {
+    if (modalMode === "add") {
+      setForm((f) => ({ ...f, entries: [...f.entries, draft] }));
+    } else if (modalMode === "edit") {
+      setForm((f) => ({ ...f, entries: f.entries.map((e) => e.id === draft.id ? { ...draft } : e) }));
+    }
+    closeModal();
   };
 
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+
   return (
     <div>
       <SectionEditorHeader title="Client Journey" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
-      {geoMsg && <div style={{ padding: "8px 0 4px", fontSize: 12, color: geoMsg.startsWith("✓") ? "#22c55e" : "#f87171" }}>{geoMsg}</div>}
-      <div className="ad-card">
-        <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 20 }}>Each entry appears as a testimonial card and a location pin on the Philippines map.</p>
-        {form.entries.map((entry, i) => (
-          <div key={entry.id} style={{ marginBottom: i < form.entries.length - 1 ? 32 : 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <div style={{ fontWeight: 600, fontSize: 12, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Entry {i + 1}{entry.name ? ` — ${entry.name}` : ""}</div>
-              <button onClick={() => removeEntry(i)} className="ad-btn ad-btn--danger ad-btn--sm" style={{ fontSize: 11 }}>Remove</button>
-            </div>
-            <div className="ad-form-grid">
-              <div>
-                <label className="ad-label">Client / Business Name</label>
-                <input className="ad-input" value={entry.name} onChange={(e) => updateEntry(i, "name", e.target.value)} placeholder="Santos Family" />
-              </div>
-              <div>
-                <label className="ad-label">Location</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <LocationAutocompleteInput
-                    value={entry.location}
-                    onChange={(val) => updateEntry(i, "location", val)}
-                    placeholder="Quezon City, Metro Manila"
-                    inputClassName="ad-input"
-                    wrapperStyle={{ flex: 1, minWidth: 0 }}
-                  />
-                  <button
-                    className="ad-btn ad-btn--sm"
-                    onClick={() => void locate(i)}
-                    disabled={geocoding.has(i) || !entry.location.trim()}
-                    title="Auto-fill map pin from location name"
-                    style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-                  >
-                    {geocoding.has(i) ? "Locating…" : "Locate Pin"}
-                  </button>
-                </div>
-                {entry.coords[0] !== 0 && (
-                  <p className="ad-pkg-hint">Pin: {entry.coords[1].toFixed(4)}°N, {entry.coords[0].toFixed(4)}°E</p>
-                )}
-              </div>
-              <div className="ad-form-full">
-                <label className="ad-label">Testimonial</label>
-                <textarea className="ad-textarea" rows={3} value={entry.testimonial} onChange={(e) => updateEntry(i, "testimonial", e.target.value)} placeholder="What the client said about their experience…" />
-              </div>
-              <div className="ad-form-full">
-                <label className="ad-label">Video URL (optional)</label>
-                <input className="ad-input" value={entry.videoUrl} onChange={(e) => updateEntry(i, "videoUrl", e.target.value)} placeholder="https://youtube.com/watch?v=... or direct video URL" />
-                <p className="ad-pkg-hint">YouTube links are auto-converted to embeds. Leave blank to hide the Watch button.</p>
-              </div>
-            </div>
-            {i < form.entries.length - 1 && <hr style={{ margin: "24px 0 0", border: "none", borderTop: "1px solid var(--ad-border)" }} />}
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Remove "${deleteTarget?.name || "this entry"}"?`}
+        description="This client journey entry will be removed from the map and testimonials."
+        onConfirm={() => {
+          if (deleteTarget) setForm((f) => ({ ...f, entries: f.entries.filter((e) => e.id !== deleteTarget.id) }));
+          setDeleteTarget(null);
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <AdminModal
+        open={modalMode === "add" || modalMode === "edit"}
+        onClose={closeModal}
+        title={modalMode === "add" ? "Add Client Journey Entry" : `Edit — ${draft.name || "Entry"}`}
+        subtitle="Appears as a testimonial card and pin on the Philippines map."
+        maxWidth={560}
+      >
+        <div className="ad-form-grid">
+          <div>
+            <label className="ad-label">Client / Business Name</label>
+            <input className="ad-input" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Santos Family" />
           </div>
-        ))}
-        <div style={{ marginTop: 24 }}>
-          <button onClick={addEntry} className="ad-btn ad-btn--ghost">+ Add Entry</button>
+          <div>
+            <label className="ad-label">Location</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <LocationAutocompleteInput
+                value={draft.location}
+                onChange={(val) => setDraft((d) => ({ ...d, location: val }))}
+                placeholder="Quezon City, Metro Manila"
+                inputClassName="ad-input"
+                wrapperStyle={{ flex: 1, minWidth: 0 }}
+              />
+              <button
+                className="ad-btn ad-btn--sm"
+                onClick={() => void locate()}
+                disabled={geocoding || !draft.location.trim()}
+                title="Auto-fill map pin from location name"
+                style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+              >
+                {geocoding ? "Locating…" : "Locate Pin"}
+              </button>
+            </div>
+            {geoMsg && <p style={{ fontSize: 12, marginTop: 4, color: geoMsg.startsWith("✓") ? "#22c55e" : "#f87171", margin: "4px 0 0" }}>{geoMsg}</p>}
+            {draft.coords[0] !== 0 && (
+              <p className="ad-pkg-hint">Pin: {draft.coords[1].toFixed(4)}°N, {draft.coords[0].toFixed(4)}°E</p>
+            )}
+          </div>
+          <div className="ad-form-full">
+            <label className="ad-label">Testimonial</label>
+            <textarea className="ad-textarea" rows={4} value={draft.testimonial} onChange={(e) => setDraft((d) => ({ ...d, testimonial: e.target.value }))} placeholder="What the client said about their experience…" />
+          </div>
+          <div className="ad-form-full">
+            <label className="ad-label">Video URL (optional)</label>
+            <input className="ad-input" value={draft.videoUrl} onChange={(e) => setDraft((d) => ({ ...d, videoUrl: e.target.value }))} placeholder="https://youtube.com/watch?v=... or direct video URL" />
+            <p className="ad-pkg-hint">YouTube links are auto-converted to embeds. Leave blank to hide the Watch button.</p>
+          </div>
         </div>
+        <div className="ad-form-actions">
+          <button onClick={closeModal} className="ad-btn ad-btn--ghost">Cancel</button>
+          <button onClick={handleModalSave} className="ad-btn">{modalMode === "add" ? "Add Entry" : "Save Changes"}</button>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={modalMode === "view"}
+        onClose={closeModal}
+        title={draft.name || "Entry Details"}
+        subtitle={draft.location || undefined}
+        maxWidth={520}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Testimonial</div>
+            <div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6 }}>{draft.testimonial || <em style={{ color: "var(--ad-text3)" }}>No testimonial</em>}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Map Pin</div>
+            <div style={{ fontSize: 14, color: "var(--ad-text2)" }}>{draft.coords[1].toFixed(4)}°N, {draft.coords[0].toFixed(4)}°E</div>
+          </div>
+          {draft.videoUrl && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Video URL</div>
+              <div style={{ fontSize: 13, color: "var(--ad-text2)", wordBreak: "break-all" }}>{draft.videoUrl}</div>
+            </div>
+          )}
+        </div>
+        <div className="ad-form-actions" style={{ marginTop: 20 }}>
+          <button onClick={closeModal} className="ad-btn ad-btn--ghost">Close</button>
+          <button onClick={() => { setGeoMsg(""); setModalMode("edit"); }} className="ad-btn">Edit</button>
+        </div>
+      </AdminModal>
+
+      <div className="ad-card">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: "var(--ad-text2)", margin: 0 }}>Each entry appears as a testimonial card and a location pin on the Philippines map.</p>
+          <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Entry</button>
+        </div>
+
+        <div className="ad-table-wrap">
+          <table className="ad-table">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>#</th>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Testimonial</th>
+                <th style={{ width: 60, textAlign: "center" }}>Video</th>
+                <th style={{ width: 160 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {form.entries.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", color: "var(--ad-text3)", padding: "24px 0" }}>No entries yet. Click "+ Add Entry" to add one.</td>
+                </tr>
+              )}
+              {form.entries.map((entry, i) => (
+                <tr key={entry.id}>
+                  <td style={{ color: "var(--ad-text3)", textAlign: "center" }}>{i + 1}</td>
+                  <td style={{ fontWeight: 500 }}>{entry.name || <em style={{ color: "var(--ad-text3)" }}>Unnamed</em>}</td>
+                  <td style={{ color: "var(--ad-text2)" }}>{entry.location || "—"}</td>
+                  <td style={{ color: "var(--ad-text2)", maxWidth: 240 }}>
+                    <span style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {entry.testimonial ? (entry.testimonial.length > 80 ? entry.testimonial.slice(0, 80) + "…" : entry.testimonial) : "—"}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    {entry.videoUrl ? <span style={{ color: "#22c55e", fontSize: 13 }}>✓</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}
+                  </td>
+                  <td>
+                    <div className="ad-table-actions">
+                      <button onClick={() => openView(entry)} className="ad-btn ad-btn--ghost ad-btn--sm">View</button>
+                      <button onClick={() => openEdit(entry)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                      <button onClick={() => setDeleteTarget(entry)} className="ad-btn ad-btn--danger ad-btn--sm">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         <div className="ad-form-actions">
           <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
         </div>

@@ -85,14 +85,14 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   if (ic?.pvMaxPower != null && pc != null && pc.productionCapacityKwp > 0) {
     const totalPvMin = (ic.pvMinPower ?? 0) * inverterCount;
     const totalPvMax = ic.pvMaxPower * inverterCount;
-    pMin = Math.max(cfgP, totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : cfgP);
+    pMin = totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : 1;
     pMax = Math.floor(totalPvMax / pc.productionCapacityKwp);
   } else {
     // Legacy: cap at floor(inverter rated kW / panel kWp) per inverter
     const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
       ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
       : cfgP;
-    pMin = cfgP;
+    pMin = 1;
     pMax = Math.max(cfgP, panelMaxPerInverter * inverterCount);
   }
 
@@ -100,15 +100,15 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   let bMin: number, bMax: number;
   if (ic?.batteryMaxCapacity != null && bc != null && bc.storageCapacityKwh > 0) {
     const totalBattMax = ic.batteryMaxCapacity * inverterCount;
-    bMin = Math.max(cfgB, 1);
-    bMax = Math.floor(totalBattMax / bc.storageCapacityKwh);
+    bMin = 1;
+    bMax = Math.max(1, Math.floor(totalBattMax / bc.storageCapacityKwh));
   } else {
     // Legacy: floor(inverter rated kW / battery kWh) per inverter
     const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
       ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
       : cfgB;
-    bMin = cfgB;
-    bMax = Math.max(cfgB, bc ? batteryMaxPerInverter * inverterCount : 0);
+    bMin = bc ? 1 : 0;
+    bMax = Math.max(bc ? 1 : 0, bc ? batteryMaxPerInverter * inverterCount : 0);
   }
 
   return {
@@ -248,11 +248,23 @@ function PackageCard({
   const bumpInverter = (delta: number) => {
     setQty((prev) => {
       const newI = clamp(prev.inverter + delta, bounds.iMin, bounds.iMax);
+      if (newI === prev.inverter) return prev;
       const nb = computeBounds(pkg, newI);
+      // Scale batteries and panels proportionally using the admin-configured ratio —
+      // the recommended configuration scales linearly with inverter count.
+      const cfgI = inverterLine?.quantity ?? 1;
+      const cfgB = batteryLine?.quantity ?? 0;
+      const cfgP = panelLine?.quantity ?? 1;
+      const newB = batteryLine != null && cfgI > 0
+        ? clamp(Math.round(cfgB * newI / cfgI), nb.bMin, nb.bMax)
+        : clamp(prev.batteries, nb.bMin, nb.bMax);
+      const newP = panelLine != null && cfgI > 0
+        ? clamp(Math.round(cfgP * newI / cfgI), nb.pMin, nb.pMax)
+        : clamp(prev.panels, nb.pMin, nb.pMax);
       return {
         inverter:  newI,
-        batteries: clamp(prev.batteries, nb.bMin, nb.bMax),
-        panels:    clamp(prev.panels,    nb.pMin, nb.pMax),
+        batteries: newB,
+        panels:    newP,
       };
     });
   };
@@ -639,7 +651,7 @@ export default function ASPackages() {
       <div className="ASPackages page-container">
 
         <div className="as-packages-header">
-          <h1 className="as-packages-title">Our Housing Packages</h1>
+          <h1 className="as-packages-title">Our Residential Packages</h1>
           <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
