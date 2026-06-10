@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { geoMercator, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import type { GeometryCollection, Topology } from "topojson-specification";
 import iconSolar from "../assets/icons/icon-solar.svg";
 import iconHighlight from "../assets/icons/icon-highlight.svg";
+import iconPrev from "../assets/icons/icon-prev.svg";
+import iconNext from "../assets/icons/icon-next.svg";
+import iconWatchVideo from "../assets/icons/icon-watch-video.svg";
 import { useContent } from "../hooks/useContent";
 
 type JourneyEntry = {
@@ -104,21 +108,31 @@ function getVideoEmbedUrl(url: string): string | null {
 function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
   const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
   const embedUrl = getVideoEmbedUrl(url);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef  = useRef<HTMLVideoElement>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+  const handleClose = useCallback(() => {
+    // Stop playback before unmounting so audio doesn't linger
+    if (iframeRef.current) iframeRef.current.src = "";
+    if (videoRef.current)  videoRef.current.pause();
+    onClose();
   }, [onClose]);
 
-  return (
-    <div className="as-video-backdrop" onClick={onClose}>
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClose]);
+
+  return createPortal(
+    <div className="as-video-backdrop" onClick={handleClose}>
       <div className="as-video-container" onClick={(e) => e.stopPropagation()}>
-        <button className="as-video-close" onClick={onClose} aria-label="Close video">×</button>
+        <button className="as-video-close" onClick={handleClose} aria-label="Close video">×</button>
         {isDirectVideo ? (
-          <video src={url} autoPlay controls className="as-video-player" />
+          <video ref={videoRef} src={url} autoPlay controls className="as-video-player" />
         ) : embedUrl ? (
           <iframe
+            ref={iframeRef}
             src={embedUrl}
             className="as-video-frame"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -127,7 +141,8 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
           />
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -304,7 +319,7 @@ export default function ASClientJourney() {
                     onClick={() => { if (entry.videoUrl) setVideoUrl(entry.videoUrl); }}
                     style={entry.videoUrl ? undefined : { opacity: 0.4, cursor: "default" }}
                   >
-                    WATCH THE VIDEO
+                    <img src={iconWatchVideo} alt="Watch the video" draggable={false} />
                   </button>
                 </div>
 
@@ -327,29 +342,16 @@ export default function ASClientJourney() {
             disabled={activeIndex === 0}
             aria-label="Previous"
           >
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M7 1L1 7L7 13" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src={iconPrev} alt="" aria-hidden="true" draggable={false} />
           </button>
-          <div className="as-journey-dots">
-            {entries.map((_, i) => (
-              <button
-                key={i}
-                className={`as-journey-dot${i === activeIndex ? " is-active" : ""}`}
-                onClick={() => goTo(i)}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
-          </div>
+          <span className="as-journey-counter">{activeIndex + 1}/{entries.length}</span>
           <button
             className="as-journey-nav-btn"
             onClick={() => goTo(activeIndex + 1)}
             disabled={activeIndex === entries.length - 1}
             aria-label="Next"
           >
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 1L7 7L1 13" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src={iconNext} alt="" aria-hidden="true" draggable={false} />
           </button>
         </div>
       </div>

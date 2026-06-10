@@ -914,6 +914,10 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Breakdown Cards</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.technicalBreakdown ?? []).length} card{(previewProject.technicalBreakdown ?? []).length !== 1 ? "s" : ""}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Gallery</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.galleryImages ?? []).length} photo{(previewProject.galleryImages ?? []).length !== 1 ? "s" : ""}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Testimonial</div><div style={{ fontSize: 14, color: previewProject.testimonial ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.testimonial ? `"${(previewProject.testimonial as ProjectTestimonial).quote.slice(0, 60)}…"` : "None"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Video</div><div style={{ fontSize: 14, color: previewProject.videoUrl ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.videoUrl ? "✓ Attached" : "None"}</div></div>
+            {previewProject.videoUrl && (
+              <div className="ad-form-full"><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Video URL</div><div style={{ fontSize: 13, color: "var(--ad-text2)", wordBreak: "break-all" }}>{previewProject.videoUrl}</div></div>
+            )}
           </div>
         </AdminModal>
       )}
@@ -1197,7 +1201,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       ) : (
         <div className="ad-table-wrap">
           <table className="ad-table">
-            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th>Recent</th><th>Created</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th style={{ width: 60, textAlign: "center" }}>Video</th><th>Recent</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
               {projects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((p) => (
                 <tr key={p.id}>
@@ -1209,6 +1213,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   </td>
                   <td><span className={`ad-badge ${categoryClass(p.category)}`}>{p.category}</span></td>
                   <td>{p.system}</td><td>{p.savings}</td>
+                  <td style={{ textAlign: "center" }}>{p.videoUrl ? <span style={{ color: "#22c55e", fontSize: 13 }}>✓</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
                   <td>{p.isRecent ? <span className="ad-badge is-recent">Recent</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
                   <td style={{ fontSize: 12 }}>{new Date(p.createdAt).toLocaleDateString()}</td>
                   <td>
@@ -3889,7 +3894,7 @@ async function geocodePhLocation(location: string): Promise<[number, number] | n
 }
 
 function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  const { loading, saving, msg, form, setForm, save } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
   const [geocoding, setGeocoding] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
   const [modalMode, setModalMode] = useState<"add" | "edit" | "view" | null>(null);
@@ -3931,7 +3936,9 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
-      <SectionEditorHeader title="Client Journey" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <div className="ad-section-header" style={{ marginBottom: 16 }}>
+        <div className="ad-section-title">Client Journey</div>
+      </div>
       <Toast msg={msg} />
 
       <ConfirmDeleteModal

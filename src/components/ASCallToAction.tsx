@@ -76,7 +76,7 @@ export default function ASCallToAction() {
             onClick={() => navigate("/quotation-engine")}
           >
             {cta.primaryCta.replace(/\s*↗\s*$/, "")}
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true" style={{ marginLeft: 8, verticalAlign: "middle", flexShrink: 0 }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true" style={{ flexShrink: 0 }}>
               <line x1="5" y1="19" x2="19" y2="5" />
               <polyline points="5 5 19 5 19 19" />
             </svg>

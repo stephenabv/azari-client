@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
+import iconPlay from "../assets/icons/icon-play.svg";
 import {
   fetchProjectById,
   type ApiProject,
@@ -11,6 +12,115 @@ import {
 } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
 
+function getVideoEmbedUrl(url: string): string | null {
+  if (!url.trim()) return null;
+  const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
+  if (ytWatch) return `https://www.youtube.com/embed/${ytWatch[1]}?autoplay=1`;
+  const ytShort = url.match(/youtu\.be\/([\w-]+)/);
+  if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}?autoplay=1`;
+  return url;
+}
+
+function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
+  const embedUrl = getVideoEmbedUrl(url);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleClose = useCallback(() => {
+    if (iframeRef.current) iframeRef.current.src = "";
+    if (videoRef.current) videoRef.current.pause();
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleClose]);
+
+  return createPortal(
+    <div className="as-video-backdrop" onClick={handleClose}>
+      <div className="as-video-container" onClick={(e) => e.stopPropagation()}>
+        <button className="as-video-close" onClick={handleClose} aria-label="Close video">×</button>
+        {isDirectVideo ? (
+          <video ref={videoRef} src={url} autoPlay playsInline className="as-video-player" />
+        ) : embedUrl ? (
+          <iframe
+            ref={iframeRef}
+            src={embedUrl}
+            className="as-video-frame"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Project video"
+          />
+        ) : null}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function getYouTubeVideoId(url: string): string | null {
+  const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
+  if (ytWatch) return ytWatch[1];
+  const ytShort = url.match(/youtu\.be\/([\w-]+)/);
+  if (ytShort) return ytShort[1];
+  return null;
+}
+
+function HeroBgVideo({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
+  const ytId = isDirectVideo ? null : getYouTubeVideoId(url);
+
+  const handleTimeUpdate = useCallback(() => {
+    const v = videoRef.current;
+    if (v && v.currentTime >= 2) {
+      v.currentTime = 0;
+      v.play().catch(() => {});
+    }
+  }, []);
+
+  const handlePlay = useCallback(() => {
+    if (videoRef.current) videoRef.current.classList.add("is-playing");
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = null;
+      (["play", "pause", "seekbackward", "seekforward", "previoustrack", "nexttrack"] as MediaSessionAction[]).forEach(
+        (action) => { try { navigator.mediaSession.setActionHandler(action, null); } catch {} }
+      );
+    }
+  }, []);
+
+  if (ytId) {
+    const src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&end=2&iv_load_policy=3&playsinline=1`;
+    return (
+      <div className="as-pd-hero-yt-wrap">
+        <iframe src={src} allow="autoplay; encrypted-media" title="Background preview" tabIndex={-1} />
+      </div>
+    );
+  }
+
+  if (isDirectVideo) {
+    return (
+      <video
+        ref={videoRef}
+        className="as-pd-hero-bg-video"
+        src={url}
+        autoPlay
+        muted
+        playsInline
+        disablePictureInPicture
+        disableRemotePlayback
+        onPlay={handlePlay}
+        onTimeUpdate={handleTimeUpdate}
+      />
+    );
+  }
+
+  return null;
+}
+
 function categoryColor(cat: string): string {
   if (cat === "Commercial") return "#a78bfa";
   if (cat === "Industrial") return "#fbbf24";
@@ -18,14 +128,28 @@ function categoryColor(cat: string): string {
 }
 
 function HeroSection({ project }: { project: ApiProject }) {
+  const [videoOpen, setVideoOpen] = useState(false);
+
   return (
     <div className="as-pd-hero">
-      <img
-        src={project.imageUrl}
-        alt={project.title}
-        className="as-pd-hero-img"
-      />
+      {videoOpen && project.videoUrl && (
+        <VideoModal url={project.videoUrl} onClose={() => setVideoOpen(false)} />
+      )}
+      {project.videoUrl ? (
+        !videoOpen && <HeroBgVideo url={project.videoUrl} />
+      ) : (
+        <img src={project.imageUrl} alt={project.title} className="as-pd-hero-img" />
+      )}
       <div className="as-pd-hero-overlay" />
+      {project.videoUrl && (
+        <button
+          className="as-pd-hero-play"
+          onClick={() => setVideoOpen(true)}
+          aria-label="Watch the video"
+        >
+          <img src={iconPlay} alt="" draggable={false} />
+        </button>
+      )}
       <div className="as-pd-hero-content">
         <div className="as-pd-hero-left">
           <span
@@ -49,21 +173,6 @@ function HeroSection({ project }: { project: ApiProject }) {
             </div>
           )}
         </div>
-        {project.videoUrl && (
-          <a
-            href={project.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="as-pd-hero-play"
-          >
-            <span className="as-pd-hero-play-btn" aria-label="Play video">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
-            <span className="as-pd-hero-play-label">WATCH THE VIDEO</span>
-          </a>
-        )}
       </div>
     </div>
   );

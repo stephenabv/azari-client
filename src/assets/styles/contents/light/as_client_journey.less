@@ -22,43 +22,27 @@
   }
 
   .as-journey-nav-btn {
-    border-color: rgba(0, 0, 0, 0.15);
-    background: rgba(0, 0, 0, 0.04);
-    color: #0B0B0B;
-
-    svg path {
-      stroke: #0B0B0B;
+    img {
+      filter: invert(1);
     }
 
-    &:hover:not(:disabled) {
-      border-color: rgba(0, 0, 0, 0.30);
-      background: rgba(0, 0, 0, 0.08);
-    }
-
-    &:focus-visible {
-      border-color: rgba(252, 97, 90, 0.6);
-      box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.2);
+    &:focus-visible img {
+      box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.4);
     }
   }
 
   .as-journey-card-image {
     background: #f0f0f0;
+
+    &::after {
+      display: none;
+    }
   }
 
   .as-journey-img-placeholder {
     background: linear-gradient(135deg, #e8eaf0 0%, #d8dce8 55%, #dde0ea 100%);
   }
 
-  .as-journey-watch-btn {
-    background: rgba(255, 255, 255, 0.65);
-    border-color: rgba(0, 0, 0, 0.18);
-    color: #0B0B0B;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.85);
-      border-color: rgba(0, 0, 0, 0.30);
-    }
-  }
 
   .as-journey-dot {
     background: rgba(0, 0, 0, 0.18);

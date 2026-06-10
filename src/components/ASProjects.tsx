@@ -29,10 +29,20 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
+function getYouTubeThumbnail(url?: string): string | null {
+  if (!url) return null;
+  const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
+  if (ytWatch) return `https://img.youtube.com/vi/${ytWatch[1]}/hqdefault.jpg`;
+  const ytShort = url.match(/youtu\.be\/([\w-]+)/);
+  if (ytShort) return `https://img.youtube.com/vi/${ytShort[1]}/hqdefault.jpg`;
+  return null;
+}
+
 function apiToProject(p: ApiProject): Project {
   const filter: ProjectCategory[] = ["All Projects", `${p.category} Projects` as ProjectCategory];
   if (p.isRecent) filter.push("Recent Projects");
-  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: p.imageUrl, filter };
+  const thumbnail = getYouTubeThumbnail(p.videoUrl);
+  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
 }
 
 export default function ASProjects() {
