@@ -39,13 +39,13 @@ const SVG_W = 200;
 const SVG_H = 370;
 
 let _cachedPathD: string | null = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 let _cachedProj: any = null;
 
 function usePhilippinesMap() {
   const [state, setState] = useState<{
     pathD: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     proj: any;
   } | null>(
     _cachedPathD && _cachedProj
@@ -63,9 +63,9 @@ function usePhilippinesMap() {
           world,
           world.objects.countries as GeometryCollection
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const ph = (countries as any).features.find(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
           (f: any) => String(f.id) === "608"
         );
         if (!ph) return;
@@ -112,7 +112,7 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
   const videoRef  = useRef<HTMLVideoElement>(null);
 
   const handleClose = useCallback(() => {
-    // Stop playback before unmounting so audio doesn't linger
+
     if (iframeRef.current) iframeRef.current.src = "";
     if (videoRef.current)  videoRef.current.pause();
     onClose();

@@ -45,7 +45,7 @@ export default function ASRateLimitWall() {
 
         <p className="as-rl-logo">azari<span>.solar</span></p>
 
-        {/* Circular countdown ring */}
+        {}
         <div className="as-rl-ring-wrap">
           <svg
             className="as-rl-ring-svg"

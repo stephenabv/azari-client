@@ -408,7 +408,7 @@ body.is-light {
   font-size: 13px;
   box-sizing: border-box;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:focus {
     border-color: rgba(252, 97, 90, 0.5);
@@ -417,6 +417,20 @@ body.is-light {
   &::placeholder {
     color: var(--ad-text3);
   }
+
+  &.ad-input--error {
+    border-color: #ef4444;
+    &:focus { border-color: #ef4444; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15); }
+  }
+}
+
+.ad-field-error {
+  display: block;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 3px;
+  line-height: 1.3;
 }
 
 .ad-textarea {

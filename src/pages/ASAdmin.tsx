@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
@@ -43,6 +43,9 @@ import {
   type ProjectStat,
   type PerformanceMetric,
   type TechBreakdownItem,
+  type HeroBentoCard,
+  type StatBentoCard,
+  type FeatureBentoCard,
   type ProjectTestimonial,
   type ApiSolarPackage,
   type PackageInput,
@@ -50,13 +53,24 @@ import {
   type ComponentInput,
   type PackageComponentLine,
   type PackageUsageItem,
+  adminGetJourneySteps,
+  adminCreateJourneyStep,
+  adminUpdateJourneyStep,
+  adminDeleteJourneyStep,
+  adminReorderJourneySteps,
+  adminPatchJourneyStepStatus,
+  type ApiJourneyStep,
+  type ContentBlock,
+  type BulletItem,
+  type JourneyStepInput,
 } from "../services/ASContent";
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
+import { BentoCard } from "../components/ASBentoCard";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "sections"
-  | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "excellence" | "process" | "cta" | "footer";
+  | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
   hero: boolean; metrics: boolean; benefits: boolean; excellence: boolean;
@@ -133,6 +147,13 @@ function Toast({ msg }: { msg: string }) {
       {msg}
     </div>
   );
+}
+
+function scrollToFirstError(): void {
+  requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>('[data-field-error]');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 function ConfirmDeleteModal({ open, title, description, onConfirm, onCancel, confirming }: {
@@ -273,7 +294,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
 
   return (
     <div>
-      {/* Stat Cards */}
+      {}
       <div className="ad-stats-grid">
         {[
           { label: "Talk Inquiries", value: stats.totals.talkInquiries, cls: "is-accent" },
@@ -290,7 +311,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
         ))}
       </div>
 
-      {/* 30-Day Activity Chart */}
+      {}
       <div className="ad-card" style={{ marginTop: 24, padding: "20px" }}>
         <div className="ad-card-title">30-Day Activity</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginTop: 20 }}>
@@ -300,9 +321,9 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
         </div>
       </div>
 
-      {/* Breakdowns */}
+      {}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, marginTop: 24 }}>
-        {/* Talk by Type */}
+        {}
         <div className="ad-card">
           <div className="ad-card-title">Talk Inquiries by Type</div>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -321,7 +342,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
           </div>
         </div>
 
-        {/* Quotations by Mode */}
+        {}
         <div className="ad-card">
           <div className="ad-card-title">Quotations by Mode</div>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -340,7 +361,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
           </div>
         </div>
 
-        {/* Package Inquiry Funnel */}
+        {}
         <div className="ad-card">
           <div className="ad-card-title">Package Inquiry Funnel</div>
           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -363,7 +384,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
         </div>
       </div>
 
-      {/* Recent Activity */}
+      {}
       <div className="ad-card" style={{ marginTop: 24 }}>
         <div className="ad-card-title">Recent Activity (All Sources)</div>
         <div style={{ marginTop: 16 }}>
@@ -439,6 +460,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [editSaving, setEditSaving] = useState(false);
   const [editMsg, setEditMsg] = useState("");
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const clearEditErr = (f: string) => setEditErrors(p => { const c = { ...p }; delete c[f]; return c; });
   const [previewRow, setPreviewRow] = useState<Record<string, unknown> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const limit = 20;
@@ -458,7 +481,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, [offset, statusFilter, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, [offset, statusFilter, debouncedSearch]);
 
   const handleStatusChange = async (id: string, status: string) => {
     setUpdating(id);
@@ -522,6 +545,14 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
 
   const handleEditSave = async () => {
     if (!editingRow) return;
+    const errs: Record<string, string> = {};
+    const nameKey = type === "talk" ? "name" : "fullName";
+    if (!editForm[nameKey]?.trim()) errs[nameKey] = "Name is required.";
+    const email = editForm.email?.trim() ?? "";
+    if (!email) errs.email = "Email is required.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = "Enter a valid email address.";
+    if (Object.keys(errs).length > 0) { setEditErrors(errs); scrollToFirstError(); return; }
+    setEditErrors({});
     setEditSaving(true); setEditMsg("");
     try {
       const fn = type === "talk" ? adminUpdateTalkInquiry : adminUpdateQuotation;
@@ -564,14 +595,22 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
 
       <AdminModal
         open={!!editingRow}
-        onClose={() => { setEditingRow(null); setEditMsg(""); }}
+        onClose={() => { setEditingRow(null); setEditMsg(""); setEditErrors({}); }}
         title={`Edit ${type === "talk" ? "Talk Inquiry" : "Quotation Request"}`}
       >
         <div className="ad-form-grid">
           {type === "talk" ? (
             <>
-              <div><label className="ad-label">Name</label><input className="ad-input" value={editForm.name ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} /></div>
-              <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+              <div>
+                <label className="ad-label">Name *</label>
+                <input className={`ad-input${editErrors.name ? ' ad-input--error' : ''}`} value={editForm.name ?? ""} onChange={(e) => { setEditForm((f) => ({ ...f, name: e.target.value })); clearEditErr('name'); }} />
+                {editErrors.name && <span className="ad-field-error" data-field-error>{editErrors.name}</span>}
+              </div>
+              <div>
+                <label className="ad-label">Email *</label>
+                <input className={`ad-input${editErrors.email ? ' ad-input--error' : ''}`} value={editForm.email ?? ""} onChange={(e) => { setEditForm((f) => ({ ...f, email: e.target.value })); clearEditErr('email'); }} />
+                {editErrors.email && <span className="ad-field-error" data-field-error>{editErrors.email}</span>}
+              </div>
               <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
               <div>
                 <label className="ad-label">Inquiry Type</label>
@@ -587,8 +626,16 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
             </>
           ) : (
             <>
-              <div><label className="ad-label">Full Name</label><input className="ad-input" value={editForm.fullName ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} /></div>
-              <div><label className="ad-label">Email</label><input className="ad-input" value={editForm.email ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} /></div>
+              <div>
+                <label className="ad-label">Full Name *</label>
+                <input className={`ad-input${editErrors.fullName ? ' ad-input--error' : ''}`} value={editForm.fullName ?? ""} onChange={(e) => { setEditForm((f) => ({ ...f, fullName: e.target.value })); clearEditErr('fullName'); }} />
+                {editErrors.fullName && <span className="ad-field-error" data-field-error>{editErrors.fullName}</span>}
+              </div>
+              <div>
+                <label className="ad-label">Email *</label>
+                <input className={`ad-input${editErrors.email ? ' ad-input--error' : ''}`} value={editForm.email ?? ""} onChange={(e) => { setEditForm((f) => ({ ...f, email: e.target.value })); clearEditErr('email'); }} />
+                {editErrors.email && <span className="ad-field-error" data-field-error>{editErrors.email}</span>}
+              </div>
               <div><label className="ad-label">Phone</label><input className="ad-input" value={editForm.phone ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} /></div>
               <div><label className="ad-label">Location</label><input className="ad-input" value={editForm.location ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} /></div>
               <div className="ad-form-full"><label className="ad-label">Property Classification</label><input className="ad-input" value={editForm.propertyClassification ?? ""} onChange={(e) => setEditForm((f) => ({ ...f, propertyClassification: e.target.value }))} /></div>
@@ -750,6 +797,7 @@ type ProjectForm = {
   title: string;
   subtitle: string;
   category: ApiProjectCategory;
+  categoryColor: string;
   system: string;
   savings: string;
   videoUrl: string;
@@ -760,20 +808,269 @@ type ProjectForm = {
   technicalBreakdown: TechBreakdownItem[];
   galleryImages: string[];
   testimonial: ProjectTestimonial | null;
+  systemCardSubtext: string;
+  savingsCardSubtext: string;
+  electricalSystem: string;
+  loadKw: string;
+  productionKwp: string;
+  storageKwh: string;
 };
 
+interface BreakdownPreset {
+  readonly id: string;
+  readonly slotLabel: string;
+  readonly colSpan: 4 | 8;
+  readonly cardType: TechBreakdownItem['cardType'];
+}
+
+const BREAKDOWN_PRESETS: readonly BreakdownPreset[] = [
+  { id: 'hero',      slotLabel: 'Hero Card',        colSpan: 8, cardType: 'hero'    },
+  { id: 'stat',      slotLabel: 'Stat Card',         colSpan: 4, cardType: 'stat'    },
+  { id: 'feature-1', slotLabel: 'Feature Card 1',   colSpan: 4, cardType: 'feature' },
+  { id: 'feature-2', slotLabel: 'Feature Card 2',   colSpan: 4, cardType: 'feature' },
+  { id: 'feature-3', slotLabel: 'Feature Card 3',   colSpan: 4, cardType: 'feature' },
+] as const;
+
+function emptyPresetItem(preset: BreakdownPreset): TechBreakdownItem {
+  if (preset.cardType === 'hero')    return { cardType: 'hero',    title: '',  accent: '#c84020' } satisfies HeroBentoCard;
+  if (preset.cardType === 'stat')    return { cardType: 'stat',    statValue: 0, statUnit: '%', statLabel: '', ringColor: '#22c55e' } satisfies StatBentoCard;
+  return { cardType: 'feature', title: '' } satisfies FeatureBentoCard;
+}
+
+function normalizeToPresets(items: TechBreakdownItem[]): TechBreakdownItem[] {
+  return BREAKDOWN_PRESETS.map((preset, i): TechBreakdownItem => {
+    const raw = items[i] as (TechBreakdownItem & Record<string, unknown>) | undefined;
+    if (!raw) return emptyPresetItem(preset);
+    if (preset.cardType === 'hero') {
+      return {
+        cardType: 'hero',
+        title:     String(raw.title ?? (raw as Record<string, unknown>).title ?? ''),
+        badge:     raw.badge as string | undefined,
+        tag:       raw.tag as string | undefined,
+        imageUrl:  raw.imageUrl as string | undefined,
+        accent:    raw.accent as string | undefined ?? '#c84020',
+      } satisfies HeroBentoCard;
+    }
+    if (preset.cardType === 'stat') {
+      const legacyValue = (raw as Record<string, unknown>).metricValue as number | undefined;
+      return {
+        cardType:   'stat',
+        statValue:  (raw.statValue as number) ?? legacyValue ?? 0,
+        statUnit:   (raw.statUnit as string) ?? '%',
+        statLabel:  (raw.statLabel as string) ?? String((raw as Record<string, unknown>).title ?? ''),
+        ringColor:  (raw.ringColor as string) ?? (raw as Record<string, unknown>).metricColor as string | undefined ?? '#22c55e',
+        tag:        raw.tag as string | undefined,
+        imageUrl:   undefined,
+      } satisfies StatBentoCard;
+    }
+    return {
+      cardType:    'feature',
+      title:       String(raw.title ?? ''),
+      description: (raw.description as string) ?? (raw as Record<string, unknown>).subtitle as string | undefined,
+      tag:         raw.tag as string | undefined,
+      imageUrl:    raw.imageUrl as string | undefined,
+    } satisfies FeatureBentoCard;
+  });
+}
+
+function ColorInput({ value, onChange, defaultHex }: {
+  value?: string;
+  onChange: (hex: string) => void;
+  defaultHex: string;
+}) {
+  const hex = value ?? defaultHex;
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <input
+        type="color"
+        value={hex}
+        onChange={e => onChange(e.target.value)}
+        style={{ width: 36, height: 36, padding: 2, borderRadius: 6, border: "1px solid var(--ad-border)", cursor: "pointer", flexShrink: 0, background: "none" }}
+      />
+      <input
+        className="ad-input"
+        value={hex}
+        onChange={e => onChange(e.target.value)}
+        placeholder={defaultHex}
+        style={{ flex: 1 }}
+      />
+    </div>
+  );
+}
+
+function BentoImageUpload({ slotIndex, imageUrl, onUpload, onRemove }: {
+  slotIndex: number;
+  imageUrl?: string;
+  onUpload: (url: string) => void;
+  onRemove: () => void;
+}) {
+  const id = `bd-img-${slotIndex}`;
+  const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  const handle = (file: File) => { if (ALLOWED.has(file.type)) compressImageClient(file).then(onUpload); };
+  return (
+    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      <div
+        className="ad-image-drop"
+        style={{ flex: 1, minHeight: 52, padding: "10px 14px", fontSize: 12 }}
+        onClick={() => document.getElementById(id)?.click()}
+        onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handle(f); }}
+      >
+        <input id={id} type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
+          onChange={e => { const f = e.target.files?.[0]; if (f) handle(f); }} />
+        {imageUrl ? "Image set — click to replace" : "Click or drop card image (optional)"}
+      </div>
+      {imageUrl && (
+        <>
+          <img src={imageUrl} alt="Preview" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6, border: "1px solid var(--ad-border)", flexShrink: 0 }} />
+          <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onRemove}>Remove</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function HeroCardFields({ item, onPatch, slotIndex }: {
+  item: HeroBentoCard;
+  onPatch: (p: Partial<HeroBentoCard>) => void;
+  slotIndex: number;
+}) {
+  return (
+    <>
+      <input className="ad-input" style={{ marginBottom: 8 }} value={item.title} onChange={e => onPatch({ title: e.target.value })} placeholder="Title" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <input className="ad-input" value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="Tag pill (e.g. INVERTER + BATTERY)" />
+        <input className="ad-input" value={item.badge ?? ""} onChange={e => onPatch({ badge: e.target.value || undefined })} placeholder="Badge (e.g. NEW)" />
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Gradient accent colour</label>
+        <ColorInput value={item.accent} onChange={hex => onPatch({ accent: hex })} defaultHex="#c84020" />
+      </div>
+      <BentoImageUpload slotIndex={slotIndex} imageUrl={item.imageUrl} onUpload={url => onPatch({ imageUrl: url })} onRemove={() => onPatch({ imageUrl: undefined })} />
+    </>
+  );
+}
+
+function StatCardFields({ item, onPatch }: {
+  item: StatBentoCard;
+  onPatch: (p: Partial<StatBentoCard>) => void;
+}) {
+  return (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 88px", gap: 8, marginBottom: 8 }}>
+        <div>
+          <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Value</label>
+          <input
+            className="ad-input"
+            type="number"
+            min={0}
+            value={item.statValue || ''}
+            onChange={e => onPatch({ statValue: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) })}
+            placeholder="e.g. 99"
+          />
+        </div>
+        <div>
+          <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Unit</label>
+          <input className="ad-input" value={item.statUnit} readOnly style={{ opacity: 0.45, cursor: "default", userSelect: "none" }} tabIndex={-1} />
+        </div>
+      </div>
+      <input className="ad-input" style={{ marginBottom: 8 }} value={item.statLabel} onChange={e => onPatch({ statLabel: e.target.value })} placeholder="Label below ring (e.g. System efficiency)" />
+      <div style={{ marginBottom: 8 }}>
+        <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Ring colour</label>
+        <ColorInput value={item.ringColor} onChange={hex => onPatch({ ringColor: hex })} defaultHex="#22c55e" />
+      </div>
+      <div>
+        <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Tag pill (optional)</label>
+        <input className="ad-input" value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="e.g. EFFICIENCY" />
+      </div>
+    </>
+  );
+}
+
+function FeatureCardFields({ item, onPatch, slotIndex }: {
+  item: FeatureBentoCard;
+  onPatch: (p: Partial<FeatureBentoCard>) => void;
+  slotIndex: number;
+}) {
+  return (
+    <>
+      <input className="ad-input" style={{ marginBottom: 8 }} value={item.title} onChange={e => onPatch({ title: e.target.value })} placeholder="Title" />
+      <textarea className="ad-input" rows={2} style={{ marginBottom: 8, resize: "vertical", width: "100%" }} value={item.description ?? ""} onChange={e => onPatch({ description: e.target.value || undefined })} placeholder="Description (optional)" />
+      <input className="ad-input" style={{ marginBottom: 8 }} value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="Tag pill (e.g. SOLAR PANEL)" />
+      <BentoImageUpload slotIndex={slotIndex} imageUrl={item.imageUrl} onUpload={url => onPatch({ imageUrl: url })} onRemove={() => onPatch({ imageUrl: undefined })} />
+    </>
+  );
+}
+
 const EMPTY_PROJECT_FORM: ProjectForm = {
-  title: "", subtitle: "", category: "Residential",
+  title: "", subtitle: "", category: "Residential", categoryColor: "",
   system: "", savings: "", videoUrl: "", isRecent: false, sortOrder: 0,
-  stats: [], performanceMetrics: [], technicalBreakdown: [],
+  stats: [], performanceMetrics: [], technicalBreakdown: normalizeToPresets([]),
   galleryImages: [], testimonial: null,
+  systemCardSubtext: "", savingsCardSubtext: "",
+  electricalSystem: "Single-Phase", loadKw: "", productionKwp: "", storageKwh: "",
 };
+
+// function parseSystemCapacity(system: string): string {
+//   return system.replace(/\s+(Hybrid|On[-\s]Grid|Off[-\s]Grid|Grid[-\s]Tie(?:d)?).*$/i, '').trim();
+// }
+
+function buildSystemString(productionKwp: string, storageKwh: string, electricalSystem: string): string {
+  const kwp = productionKwp.trim();
+  if (!kwp) return "";
+  const storage = parseFloat(storageKwh) > 0;
+  const type = storage ? 'Hybrid' : 'On-Grid';
+  const storageSuffix = storage ? ` (${storageKwh} kWh Storage)` : '';
+  const phaseSuffix = electricalSystem === 'Three-Phase' ? ' · 3-Phase' : '';
+  return `${kwp} kWp ${type}${storageSuffix}${phaseSuffix}`;
+}
 
 function categoryClass(c: string) {
   if (c === "Commercial") return "is-commercial";
   if (c === "Industrial") return "is-industrial";
   return "is-residential";
 }
+
+type FormSection = 'basic' | 'detail' | 'performance' | 'breakdown' | 'gallery' | 'testimonial';
+
+interface IAdminSection {
+  readonly id: FormSection;
+  readonly label: string;
+  isComplete(form: ProjectForm): boolean;
+}
+
+const SECTION_REGISTRY: IAdminSection[] = [
+  {
+    id: 'basic',
+    label: 'Basic Info',
+    isComplete: (f) => !!f.title.trim() && !!f.productionKwp.trim() && !!f.savings.trim(),
+  },
+  {
+    id: 'detail',
+    label: 'Detail Content',
+    isComplete: () => true,
+  },
+  {
+    id: 'performance',
+    label: 'Performance & Resilience',
+    isComplete: () => true,
+  },
+  {
+    id: 'breakdown',
+    label: 'Technical Breakdown',
+    isComplete: () => true,
+  },
+  {
+    id: 'gallery',
+    label: 'Gallery',
+    isComplete: (f) => f.galleryImages.length > 0,
+  },
+  {
+    id: 'testimonial',
+    label: 'Testimonial',
+    isComplete: () => true,
+  },
+];
 
 function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [projects, setProjects] = useState<ApiProject[]>([]);
@@ -786,9 +1083,16 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewProject, setPreviewProject] = useState<ApiProject | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
-  const [formSection, setFormSection] = useState<'basic' | 'detail' | 'gallery' | 'testimonial'>('basic');
+  const [formSection, setFormSection] = useState<FormSection>('basic');
+  const [systemInputMode, setSystemInputMode] = useState<'manual' | 'package'>('manual');
+  const [pkgList, setPkgList] = useState<ApiSolarPackage[]>([]);
+  const [pkgListLoading, setPkgListLoading] = useState(false);
+  const [selectedPkgId, setSelectedPkgId] = useState('');
+  const [showBreakdownPreview, setShowBreakdownPreview] = useState(false);
+  const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
 
   const load = async () => {
     setLoading(true);
@@ -796,11 +1100,17 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (!showForm || pkgList.length > 0 || pkgListLoading) return;
+    setPkgListLoading(true);
+    adminGetPackages(apiKey).then((res) => setPkgList(res.data ?? [])).finally(() => setPkgListLoading(false));
+  }, [showForm]);
 
   const openAdd = () => {
     setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null);
-    setImagePreview(""); setMsg(""); setFormSection('basic'); setShowForm(true);
+    setImagePreview(""); setMsg(""); setFormSection('basic'); setSystemInputMode('manual'); setSelectedPkgId(''); setShowForm(true);
   };
   const openEdit = (p: ApiProject) => {
     setEditingId(p.id);
@@ -815,13 +1125,20 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       sortOrder: p.sortOrder ?? 0,
       stats: (p.stats ?? []) as ProjectStat[],
       performanceMetrics: (p.performanceMetrics ?? []) as PerformanceMetric[],
-      technicalBreakdown: (p.technicalBreakdown ?? []) as TechBreakdownItem[],
+      technicalBreakdown: normalizeToPresets((p.technicalBreakdown ?? []) as TechBreakdownItem[]),
+      categoryColor: p.categoryColor ?? "",
       galleryImages: (p.galleryImages ?? []) as string[],
       testimonial: (p.testimonial ?? null) as ProjectTestimonial | null,
+      systemCardSubtext: p.systemCardSubtext ?? "",
+      savingsCardSubtext: p.savingsCardSubtext ?? "",
+      electricalSystem: p.electricalSystem ?? ((p.system?.includes('3-Phase') || p.system?.includes('Three Phase') || p.system?.includes('Three-Phase')) ? 'Three-Phase' : 'Single-Phase'),
+      productionKwp: p.productionKwp != null ? String(p.productionKwp) : (p.system?.match(/^([\d.]+)/)?.[1] ?? ""),
+      loadKw: p.loadKw != null ? String(p.loadKw) : "",
+      storageKwh: p.storageKwh != null ? String(p.storageKwh) : (p.system?.match(/\(([\d.]+)\s*kWh/i)?.[1] ?? ""),
     });
-    setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setFormSection('basic'); setShowForm(true);
+    setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setFormSection('basic'); setSystemInputMode('manual'); setSelectedPkgId(''); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); setErrors({}); };
 
   const handleImageSelect = (file: File | undefined) => {
     if (!file) return;
@@ -836,16 +1153,40 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 
   const setField = <K extends keyof ProjectForm>(key: K, value: ProjectForm[K]) => setForm((f) => ({ ...f, [key]: value }));
 
+  const handlePkgSelect = (id: string) => {
+    setSelectedPkgId(id);
+    const pkg = pkgList.find((p) => p.id === id);
+    if (!pkg) return;
+    const es = pkg.phase === 'three' ? 'Three-Phase' : 'Single-Phase';
+    setForm((f) => ({
+      ...f,
+      electricalSystem: es,
+      productionKwp: String(pkg.solarKwp),
+      loadKw: String(pkg.inverterKw),
+      storageKwh: String(pkg.storageKwh),
+      system: buildSystemString(String(pkg.solarKwp), String(pkg.storageKwh), es),
+    }));
+    const { savings } = computeMonthlySavings(pkg.solarKwp);
+    setField('savings', `₱${(savings * 120).toLocaleString('en-PH')}`);
+  };
+
   const handleSave = async () => {
-    if (!form.title.trim() || !form.system.trim() || !form.savings.trim()) { setMsg("Error: Title, System, and Savings are required."); return; }
-    if (!editingId && !imageFile) { setMsg("Error: Please upload a project image."); return; }
+    const errs: Record<string, string> = {};
+    if (!form.title.trim()) errs.title = "Title is required.";
+    if (!form.productionKwp.trim()) errs.productionKwp = "Production capacity is required.";
+    if (!form.savings.trim()) errs.savings = "Estimated savings is required.";
+    if (!editingId && !imageFile) errs.image = "A project image is required.";
+    if (Object.keys(errs).length > 0) { setErrors(errs); setFormSection("basic"); scrollToFirstError(); return; }
+    setErrors({});
     setSaving(true); setMsg("");
     try {
+      const autoSystem = buildSystemString(form.productionKwp, form.storageKwh, form.electricalSystem);
       const payload: ProjectInput = {
         title: form.title,
         subtitle: form.subtitle || undefined,
         category: form.category,
-        system: form.system,
+        categoryColor: form.categoryColor || undefined,
+        system: autoSystem,
         savings: form.savings,
         videoUrl: form.videoUrl || undefined,
         isRecent: form.isRecent,
@@ -856,6 +1197,12 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         technicalBreakdown: form.technicalBreakdown,
         galleryImages: form.galleryImages,
         testimonial: form.testimonial,
+        systemCardSubtext: form.systemCardSubtext || undefined,
+        savingsCardSubtext: form.savingsCardSubtext || undefined,
+        electricalSystem: form.electricalSystem,
+        loadKw: form.loadKw ? parseFloat(form.loadKw) : undefined,
+        productionKwp: form.productionKwp ? parseFloat(form.productionKwp) : undefined,
+        storageKwh: form.storageKwh ? parseFloat(form.storageKwh) : undefined,
       };
       if (editingId) { await adminUpdateProject(apiKey, editingId, payload); setMsg("✓ Project updated"); }
       else { await adminCreateProject(apiKey, payload); setMsg("✓ Project created"); }
@@ -904,12 +1251,16 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Title</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontWeight: 600 }}>{previewProject.title}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Category</div><div style={{ fontSize: 14 }}><span className={`ad-badge ${categoryClass(previewProject.category)}`}>{previewProject.category}</span></div></div>
-            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.system}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Electrical System</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.electricalSystem ?? "—"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Production</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.productionKwp != null ? `${previewProject.productionKwp} kWp` : "—"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Load</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.loadKw != null ? `${previewProject.loadKw} kW` : "—"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Storage</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.storageKwh != null && previewProject.storageKwh > 0 ? `${previewProject.storageKwh} kWh` : "None"}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Estimated Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.savings}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Recent</div><div style={{ fontSize: 14, color: previewProject.isRecent ? "#22c55e" : "var(--ad-text3)" }}>{previewProject.isRecent ? "Yes — shown as recent" : "No"}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Created</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{new Date(previewProject.createdAt).toLocaleDateString()}</div></div>
             {previewProject.subtitle && <div className="ad-form-full"><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Subtitle</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewProject.subtitle}</div></div>}
-            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Stats</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.stats ?? []).length} stat{(previewProject.stats ?? []).length !== 1 ? "s" : ""}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Capacity Label</div><div style={{ fontSize: 14, color: previewProject.systemCardSubtext ? "var(--ad-text)" : "var(--ad-text3)" }}>{previewProject.systemCardSubtext || "—"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Savings Label</div><div style={{ fontSize: 14, color: previewProject.savingsCardSubtext ? "var(--ad-text)" : "var(--ad-text3)" }}>{previewProject.savingsCardSubtext || "—"}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Metrics</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.performanceMetrics ?? []).length} metric{(previewProject.performanceMetrics ?? []).length !== 1 ? "s" : ""}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Breakdown Cards</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.technicalBreakdown ?? []).length} card{(previewProject.technicalBreakdown ?? []).length !== 1 ? "s" : ""}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Gallery</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewProject.galleryImages ?? []).length} photo{(previewProject.galleryImages ?? []).length !== 1 ? "s" : ""}</div></div>
@@ -928,26 +1279,39 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         title={editingId ? "Edit Project" : "Add New Project"}
         maxWidth={860}
       >
-        {/* Tab navigation */}
+        {}
         <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "1px solid var(--ad-border)", paddingBottom: 12 }}>
-          {(["basic", "detail", "gallery", "testimonial"] as const).map((section) => {
-            const labels = { basic: "Basic Info", detail: "Detail Content", gallery: "Gallery", testimonial: "Testimonial" };
+          {SECTION_REGISTRY.map((section) => {
+            const incomplete = !section.isComplete(form);
             return (
               <button
-                key={section}
-                onClick={() => setFormSection(section)}
-                className={formSection === section ? "ad-btn ad-btn--sm" : "ad-btn ad-btn--ghost ad-btn--sm"}
+                key={section.id}
+                onClick={() => setFormSection(section.id)}
+                className={formSection === section.id ? "ad-btn ad-btn--sm" : "ad-btn ad-btn--ghost ad-btn--sm"}
+                style={{ position: "relative" }}
+                title={incomplete ? "Required fields missing" : undefined}
               >
-                {labels[section]}
+                {section.label}
+                {incomplete && (
+                  <span style={{
+                    position: "absolute", top: 3, right: 3,
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: "var(--ad-accent)", pointerEvents: "none",
+                  }} />
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Basic Info tab */}
+        {}
         {formSection === "basic" && (
           <div className="ad-form-grid">
-            <div><label className="ad-label">Title</label><input className="ad-input" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Client name or project title" /></div>
+            <div>
+              <label className="ad-label">Title *</label>
+              <input className={`ad-input${errors.title ? ' ad-input--error' : ''}`} value={form.title} onChange={(e) => { setField("title", e.target.value); clearErr('title'); }} placeholder="Client name or project title" />
+              {errors.title && <span className="ad-field-error" data-field-error>{errors.title}</span>}
+            </div>
             <div>
               <label className="ad-label">Category</label>
               <select className="ad-select" value={form.category} onChange={(e) => setField("category", e.target.value as ApiProjectCategory)}>
@@ -956,19 +1320,91 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                 <option value="Industrial">Industrial</option>
               </select>
             </div>
+            <div>
+              <label className="ad-label">Category Badge Color <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span></label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="color"
+                  value={form.categoryColor || "#ffffff"}
+                  onChange={(e) => setField("categoryColor", e.target.value)}
+                  style={{ width: 38, height: 38, padding: 2, borderRadius: 6, border: "1px solid var(--ad-border)", background: "none", cursor: "pointer", flexShrink: 0 }}
+                />
+                <input
+                  className="ad-input"
+                  value={form.categoryColor}
+                  onChange={(e) => setField("categoryColor", e.target.value)}
+                  placeholder="#ffffff (leave blank for white)"
+                  style={{ fontFamily: "monospace" }}
+                />
+              </div>
+            </div>
             <div className="ad-form-full"><label className="ad-label">Subtitle <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional tagline)</span></label><input className="ad-input" value={form.subtitle} onChange={(e) => setField("subtitle", e.target.value)} placeholder="e.g. A grid-tied system built for the province's harshest summers" /></div>
-            <div><label className="ad-label">System</label><input className="ad-input" value={form.system} onChange={(e) => setField("system", e.target.value)} placeholder="e.g. 5.2 kWp On-Grid" /></div>
-            <div><label className="ad-label">Estimated Savings (10-Year)</label><input className="ad-input" value={form.savings} onChange={(e) => setField("savings", e.target.value)} placeholder="e.g. ₱312,000" /></div>
+            {}
+            <div className="ad-form-full" style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 16, marginTop: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <label className="ad-label" style={{ margin: 0 }}>System Details</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" onClick={() => { setSystemInputMode('manual'); setSelectedPkgId(''); }} className={systemInputMode === 'manual' ? 'ad-btn ad-btn--sm' : 'ad-btn ad-btn--ghost ad-btn--sm'}>Enter Manually</button>
+                  <button type="button" onClick={() => setSystemInputMode('package')} className={systemInputMode === 'package' ? 'ad-btn ad-btn--sm' : 'ad-btn ad-btn--ghost ad-btn--sm'}>Fill from Package</button>
+                </div>
+              </div>
+              {systemInputMode === 'package' && (
+                <div>
+                  {pkgListLoading ? (
+                    <div style={{ fontSize: 13, color: "var(--ad-text3)", padding: "6px 0" }}>Loading packages…</div>
+                  ) : pkgList.length === 0 ? (
+                    <div style={{ fontSize: 13, color: "var(--ad-text3)", padding: "6px 0" }}>No packages found. Create packages first.</div>
+                  ) : (
+                    <select className="ad-select" value={selectedPkgId} onChange={(e) => handlePkgSelect(e.target.value)} style={{ width: "100%", marginBottom: 8 }}>
+                      <option value="">— Select a package —</option>
+                      {pkgList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} · {p.solarKwp} kWp{p.storageKwh > 0 ? ` Hybrid (${p.storageKwh} kWh)` : ' On-Grid'}{p.phase === 'three' ? ' · 3-Phase' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {selectedPkgId && <p className="ad-pkg-hint">Auto-filled from selected package — edit the fields below if needed.</p>}
+                </div>
+              )}
+            </div>
+            {}
+            <div>
+              <label className="ad-label">Electrical System</label>
+              <select className="ad-select" value={form.electricalSystem} onChange={(e) => setField("electricalSystem", e.target.value)}>
+                <option value="Single-Phase">Single-Phase</option>
+                <option value="Three-Phase">Three-Phase</option>
+              </select>
+            </div>
+            <div>
+              <label className="ad-label">Load Capacity <span style={{ fontWeight: 400, opacity: 0.6 }}>(kW)</span></label>
+              <input className="ad-input" type="number" min={0} step={0.1} value={form.loadKw} onChange={(e) => setField("loadKw", e.target.value)} placeholder="e.g. 5" />
+            </div>
+            <div>
+              <label className="ad-label">Production Capacity <span style={{ fontWeight: 400, opacity: 0.6 }}>(kWp) *</span></label>
+              <input className={`ad-input${errors.productionKwp ? ' ad-input--error' : ''}`} type="number" min={0} step={0.1} value={form.productionKwp} onChange={(e) => { setField("productionKwp", e.target.value); clearErr('productionKwp'); }} placeholder="e.g. 5.2" />
+              {errors.productionKwp && <span className="ad-field-error" data-field-error>{errors.productionKwp}</span>}
+            </div>
+            <div>
+              <label className="ad-label">Storage Capacity <span style={{ fontWeight: 400, opacity: 0.6 }}>(kWh — 0 for no storage)</span></label>
+              <input className="ad-input" type="number" min={0} step={0.1} value={form.storageKwh} onChange={(e) => setField("storageKwh", e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label className="ad-label">Estimated Savings (10-Year) *</label>
+              <input className={`ad-input${errors.savings ? ' ad-input--error' : ''}`} value={form.savings} onChange={(e) => { setField("savings", e.target.value); clearErr('savings'); }} placeholder="e.g. ₱312,000" />
+              {errors.savings && <span className="ad-field-error" data-field-error>{errors.savings}</span>}
+            </div>
             <div className="ad-form-full"><label className="ad-label">Video URL <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional YouTube or direct link)</span></label><input className="ad-input" value={form.videoUrl} onChange={(e) => setField("videoUrl", e.target.value)} placeholder="https://youtube.com/watch?v=..." /></div>
             <div className="ad-form-full">
-              <label className="ad-label">Project Image {editingId && <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span>}</label>
-              <div className="ad-image-row">
-                <div className="ad-image-drop" style={{ flex: 1 }} onClick={() => document.getElementById("proj-img-input")?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); }}>
-                  <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => handleImageSelect(e.target.files?.[0])} />
+              <label className="ad-label">Project Image {editingId ? <span style={{ fontWeight: 400, opacity: 0.6 }}>(leave empty to keep current)</span> : <span style={{ color: '#ef4444' }}> *</span>}</label>
+              <div className={`ad-image-row${errors.image ? ' ad-image-row--error' : ''}`}>
+                <div className="ad-image-drop" style={{ flex: 1, borderColor: errors.image ? '#ef4444' : undefined }} onClick={() => { document.getElementById("proj-img-input")?.click(); clearErr('image'); }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleImageSelect(e.dataTransfer.files?.[0]); clearErr('image'); }}>
+                  <input id="proj-img-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden onChange={(e) => { handleImageSelect(e.target.files?.[0]); clearErr('image'); }} />
                   {imageFile ? <span>{imageFile.name} ({(imageFile.size / 1024).toFixed(0)} KB)</span> : <>Click or drag &amp; drop an image<br /><small>JPEG, PNG, WebP — max 10 MB</small></>}
                 </div>
                 {imagePreview && <img src={imagePreview} alt="Preview" className="ad-image-preview" />}
               </div>
+              {errors.image && <span className="ad-field-error" data-field-error>{errors.image}</span>}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 22 }}>
               <input type="checkbox" id="isRecent" checked={form.isRecent} onChange={(e) => setField("isRecent", e.target.checked)} style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
@@ -981,112 +1417,144 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
           </div>
         )}
 
-        {/* Detail Content tab */}
+        {}
         {formSection === "detail" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-            {/* Stats builder */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Hero Stats</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {form.stats.map((stat, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input className="ad-input" style={{ flex: 1 }} value={stat.value} onChange={(e) => setField("stats", form.stats.map((s, j) => j === i ? { ...s, value: e.target.value } : s))} placeholder="Value (e.g. 3.2 MWp)" />
-                    <input className="ad-input" style={{ flex: 1 }} value={stat.label} onChange={(e) => setField("stats", form.stats.map((s, j) => j === i ? { ...s, label: e.target.value } : s))} placeholder="Label (e.g. System Capacity)" />
-                    <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("stats", form.stats.filter((_, j) => j !== i))}>✕</button>
-                  </div>
-                ))}
-              </div>
-              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("stats", [...form.stats, { value: "", label: "" }])}>+ Add Stat</button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 8 }}>
+              Values are pulled from Basic Info automatically — only add a description for each card.
             </div>
-
-            {/* Performance Metrics builder */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Performance Metrics</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {form.performanceMetrics.map((m, i) => (
-                  <div key={i} style={{ background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Metric {i + 1}</span>
-                      <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("performanceMetrics", form.performanceMetrics.filter((_, j) => j !== i))}>✕</button>
-                    </div>
-                    <input className="ad-input" style={{ marginBottom: 8 }} value={m.title} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Metric title" />
-                    <textarea className="ad-input" rows={2} value={m.description} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Description" style={{ resize: "vertical", width: "100%" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              {}
+              <div style={{ border: "1px solid var(--ad-border)", borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ background: "#111111", padding: "20px 22px 16px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>System Capacity</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: form.productionKwp ? "#ffffff" : "rgba(255,255,255,0.2)", fontFamily: "var(--font-display, monospace)", lineHeight: 1 }}>
+                    {form.productionKwp ? `${form.productionKwp} kWp` : "—"}
                   </div>
-                ))}
+                </div>
+                <div style={{ padding: "12px 14px", background: "var(--ad-input-bg)" }}>
+                  <label className="ad-label" style={{ fontSize: 11, marginBottom: 5 }}>Description / Subtext</label>
+                  <input
+                    className="ad-input"
+                    value={form.systemCardSubtext}
+                    onChange={(e) => setField("systemCardSubtext", e.target.value)}
+                    placeholder="e.g. High-performance residential solar system"
+                  />
+                </div>
               </div>
-              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("performanceMetrics", [...form.performanceMetrics, { title: "", description: "" }])}>+ Add Metric</button>
-            </div>
 
-            {/* Technical Breakdown builder */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 12 }}>Technical Breakdown Cards</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {form.technicalBreakdown.map((item, i) => (
-                  <div key={i} style={{ background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Card {i + 1}</span>
-                      <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("technicalBreakdown", form.technicalBreakdown.filter((_, j) => j !== i))}>✕</button>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                      <input className="ad-input" value={item.title} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Title" />
-                      <input className="ad-input" value={item.subtitle ?? ""} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, subtitle: e.target.value } : x))} placeholder="Subtitle (optional)" />
-                      <input className="ad-input" value={item.badge ?? ""} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, badge: e.target.value } : x))} placeholder="Badge text (optional)" />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <input type="checkbox" id={`bd-feat-${i}`} checked={item.featured ?? false} onChange={(e) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, featured: e.target.checked } : x))} style={{ width: 15, height: 15, cursor: "pointer", accentColor: "var(--ad-accent)" }} />
-                      <label htmlFor={`bd-feat-${i}`} style={{ fontSize: 13, color: "var(--ad-text)", cursor: "pointer" }}>Featured card (wider layout)</label>
-                    </div>
-                    {/* Card image */}
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div
-                        className="ad-image-drop"
-                        style={{ flex: 1, minHeight: 52, padding: "10px 14px", fontSize: 12 }}
-                        onClick={() => document.getElementById(`bd-img-${i}`)?.click()}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const file = e.dataTransfer.files?.[0];
-                          if (!file) return;
-                          const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
-                          if (!allowed.has(file.type)) return;
-                          compressImageClient(file).then((url) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: url } : x)));
-                        }}
-                      >
-                        <input
-                          id={`bd-img-${i}`}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,image/gif"
-                          hidden
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            compressImageClient(file).then((url) => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: url } : x)));
-                          }}
-                        />
-                        {item.imageUrl ? "Image set — click to replace" : "Click or drop card image (optional)"}
-                      </div>
-                      {item.imageUrl && (
-                        <>
-                          <img src={item.imageUrl} alt="Card preview" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 6, border: "1px solid var(--ad-border)", flexShrink: 0 }} />
-                          <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setField("technicalBreakdown", form.technicalBreakdown.map((x, j) => j === i ? { ...x, imageUrl: undefined } : x))}>Remove</button>
-                        </>
-                      )}
-                    </div>
+              {}
+              <div style={{ border: "1px solid var(--ad-border)", borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ background: "#111111", padding: "20px 22px 16px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Estimated Savings</div>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: form.savings ? "#ffffff" : "rgba(255,255,255,0.2)", fontFamily: "var(--font-display, monospace)", lineHeight: 1 }}>
+                    {form.savings || "—"}
                   </div>
-                ))}
+                </div>
+                <div style={{ padding: "12px 14px", background: "var(--ad-input-bg)" }}>
+                  <label className="ad-label" style={{ fontSize: 11, marginBottom: 5 }}>Description / Subtext</label>
+                  <input
+                    className="ad-input"
+                    value={form.savingsCardSubtext}
+                    onChange={(e) => setField("savingsCardSubtext", e.target.value)}
+                    placeholder="e.g. 10-year projected savings on electricity bills"
+                  />
+                </div>
               </div>
-              <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 8 }} onClick={() => setField("technicalBreakdown", [...form.technicalBreakdown, { title: "", subtitle: "", badge: "", featured: false }])}>+ Add Card</button>
             </div>
           </div>
         )}
 
-        {/* Gallery tab */}
+        {}
+        {formSection === "performance" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 4 }}>
+              Each item appears as a column in the Performance &amp; Resilience Summary section — title + description only.
+            </div>
+            {form.performanceMetrics.map((m, i) => (
+              <div key={i} style={{ background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>Item {i + 1}</span>
+                  <button className="ad-btn ad-btn--danger ad-btn--sm" onClick={() => setField("performanceMetrics", form.performanceMetrics.filter((_, j) => j !== i))}>✕</button>
+                </div>
+                <input className="ad-input" style={{ marginBottom: 8 }} value={m.title} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, title: e.target.value } : x))} placeholder="Title (e.g. Operational Security)" />
+                <textarea className="ad-input" rows={2} value={m.description} onChange={(e) => setField("performanceMetrics", form.performanceMetrics.map((x, j) => j === i ? { ...x, description: e.target.value } : x))} placeholder="Description" style={{ resize: "vertical", width: "100%" }} />
+              </div>
+            ))}
+            <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginTop: 4 }} onClick={() => setField("performanceMetrics", [...form.performanceMetrics, { title: "", description: "" }])}>+ Add Item</button>
+          </div>
+        )}
+
+        {}
+        {formSection === "breakdown" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>
+                {BREAKDOWN_PRESETS.length} fixed slots — row 1: Hero (8-col) + Stat (4-col) · row 2: three Feature cards (4-col each).
+              </div>
+              <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setShowBreakdownPreview(v => !v)}>
+                {showBreakdownPreview ? "Hide Preview" : "Show Preview"}
+              </button>
+            </div>
+
+            {BREAKDOWN_PRESETS.map((preset, i) => {
+              const raw = form.technicalBreakdown[i] ?? emptyPresetItem(preset);
+              const patchItem = (patch: Partial<TechBreakdownItem>) =>
+                setField("technicalBreakdown", form.technicalBreakdown.map((x, j) =>
+                  j === i ? { ...x, ...patch } as TechBreakdownItem : x
+                ));
+
+              const typeStyle =
+                preset.cardType === 'hero'    ? { bg: "rgba(200,64,32,0.12)",  fg: "#fc7a4a", label: "Hero · col-8" }  :
+                preset.cardType === 'stat'    ? { bg: "rgba(34,197,94,0.12)",  fg: "#22c55e", label: "Stat · col-4" }  :
+                                                { bg: "rgba(251,191,36,0.12)", fg: "#fbbf24", label: "Feature · col-4" };
+
+              const renderFields = () => {
+                if (preset.cardType === 'hero' && raw.cardType === 'hero') {
+                  return <HeroCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />;
+                }
+                if (preset.cardType === 'stat' && raw.cardType === 'stat') {
+                  return <StatCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} />;
+                }
+                if (raw.cardType === 'feature') {
+                  return <FeatureCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />;
+                }
+                return null;
+              };
+
+              return (
+                <div key={preset.id} style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)" }}>{preset.slotLabel}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 7px", borderRadius: 4, background: typeStyle.bg, color: typeStyle.fg }}>{typeStyle.label}</span>
+                  </div>
+                  {renderFields()}
+                </div>
+              );
+            })}
+
+            {showBreakdownPreview && (
+              <div style={{ marginTop: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: "var(--ad-text3)", textTransform: "uppercase", marginBottom: 12 }}>Preview</div>
+                <div className="as-pd-breakdown-bento">
+                  {form.technicalBreakdown.map((item, i) => (
+                    <BentoCard key={i} item={item} staticMetric />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {}
         {formSection === "gallery" && (
           <div>
             {(() => {
               const MAX = 20;
               const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
               const atMax = form.galleryImages.length >= MAX;
+              const savedCount = form.galleryImages.filter(s => !s.startsWith('data:')).length;
+              const newCount = form.galleryImages.length - savedCount;
 
               const processFiles = (files: File[]) => {
                 const slots = MAX - form.galleryImages.length;
@@ -1095,8 +1563,12 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   .filter(f => ALLOWED.has(f.type) && f.size <= 10 * 1024 * 1024)
                   .slice(0, slots);
                 if (valid.length === 0) return;
-                Promise.all(valid.map((f) => compressImageClient(f))).then((urls) => {
-                  setForm(f => ({ ...f, galleryImages: [...f.galleryImages, ...urls].slice(0, MAX) }));
+                Promise.all(valid.map((f) => compressImageClient(f))).then((compressed) => {
+                  setForm(f => {
+                    const existing = new Set(f.galleryImages);
+                    const deduped = compressed.filter(url => !existing.has(url));
+                    return { ...f, galleryImages: [...f.galleryImages, ...deduped].slice(0, MAX) };
+                  });
                 });
               };
 
@@ -1104,7 +1576,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                 <>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ad-text)", marginBottom: 4 }}>Installation Gallery Photos</div>
                   <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 14 }}>
-                    {form.galleryImages.length} / {MAX} photos added
+                    {form.galleryImages.length} / {MAX} photos
+                    {savedCount > 0 && <> &mdash; <span style={{ color: "var(--ad-accent)" }}>{savedCount} saved</span>{newCount > 0 && <>, {newCount} new</>}</>}
                     {!atMax && <> &mdash; {MAX - form.galleryImages.length} remaining</>}.
                     {" "}Images are compressed automatically.
                   </div>
@@ -1140,22 +1613,28 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
             })()}
             {form.galleryImages.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
-                {form.galleryImages.map((src, i) => (
-                  <div key={i} style={{ position: "relative", aspectRatio: "4/3" }}>
-                    <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: "1px solid var(--ad-border)" }} />
-                    <button
-                      onClick={() => setField("galleryImages", form.galleryImages.filter((_, j) => j !== i))}
-                      style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", color: "#fff", borderRadius: 4, width: 20, height: 20, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
-                      aria-label="Remove photo"
-                    >✕</button>
-                  </div>
-                ))}
+                {form.galleryImages.map((src, i) => {
+                  const isSaved = !src.startsWith('data:');
+                  return (
+                    <div key={i} style={{ position: "relative", aspectRatio: "4/3" }}>
+                      <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: `1px solid ${isSaved ? "var(--ad-accent)" : "var(--ad-border)"}` }} />
+                      <div style={{ position: "absolute", top: 2, left: 2, background: isSaved ? "var(--ad-accent)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 3, fontSize: 9, fontWeight: 700, padding: "1px 5px", letterSpacing: "0.04em", pointerEvents: "none" }}>
+                        {isSaved ? "SAVED" : "NEW"}
+                      </div>
+                      <button
+                        onClick={() => setField("galleryImages", form.galleryImages.filter((_, j) => j !== i))}
+                        style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", color: "#fff", borderRadius: 4, width: 20, height: 20, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                        aria-label="Remove photo"
+                      >✕</button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* Testimonial tab */}
+        {}
         {formSection === "testimonial" && (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
@@ -1263,7 +1742,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
       } finally { setLoading(false); }
     };
     void load();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSave = async () => {
     setSaving(true); setMsg("");
@@ -1352,7 +1831,6 @@ function autoName(kwp: number, kw: number, kwh: number) {
   return parts.length > 0 ? parts.join(" · ") : "Package";
 }
 
-// PC Builder - Component Selector
 type SelectedComponent = { componentId: string; quantity: number };
 
 function computePackageSpecs(selected: SelectedComponent[], components: ApiSolarComponent[]): { solarKwp: number; inverterKw: number; storageKwh: number } {
@@ -1360,15 +1838,13 @@ function computePackageSpecs(selected: SelectedComponent[], components: ApiSolar
   selected.forEach(sel => {
     const comp = components.find(c => c.id === sel.componentId);
     if (!comp) return;
-    // Only add to totals if the component has a non-zero spec value
+
     if (comp.productionCapacityKwp > 0) solarKwp += comp.productionCapacityKwp * sel.quantity;
     if (comp.loadCapacityKw > 0) inverterKw += comp.loadCapacityKw * sel.quantity;
     if (comp.storageCapacityKwh > 0) storageKwh += comp.storageCapacityKwh * sel.quantity;
   });
   return { solarKwp: Math.round(solarKwp * 100) / 100, inverterKw: Math.round(inverterKw * 10) / 10, storageKwh: Math.round(storageKwh * 100) / 100 };
 }
-
-// ─── ComponentsManager ────────────────────────────────────────────────────────
 
 type ViolatedPackage = {
   id: string; name: string; isActive: boolean; violations: string[];
@@ -1462,23 +1938,24 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState<string | null>(null);
   const [msg, setMsg]               = useState("");
-  const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
-  const [componentPage, setComponentPage] = useState<Record<string, number>>({}); // Page per category
-  // Edit-confirmation state — set when editing a component that's used in packages
+  const [errors, setErrors]         = useState<Record<string, string>>({});
+  const [catSearches, setCatSearches] = useState<Record<string, string>>({});
+  const [componentPage, setComponentPage] = useState<Record<string, number>>({});
+
   const [editConfirm, setEditConfirm] = useState<ViolatedPackage[] | null>(null);
-  // Post-save cleanup state — shown after auto-removing violating components from packages
+
   const [postSaveCleanup, setPostSaveCleanup] = useState<CleanedResult[] | null>(null);
   const [previewComponent, setPreviewComponent] = useState<ApiSolarComponent | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
 
   const load = async () => {
     setLoading(true);
     try { const r = await adminGetComponents(apiKey); setComponents(r.data); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
 
-  // Auto-clear messages after a timeout
   useEffect(() => {
     if (!msg) return;
     const isSuccess = msg.startsWith("✓");
@@ -1493,11 +1970,9 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   const openEdit = (c: ApiSolarComponent) => {
     setEditingId(c.id);
     const spec = CATEGORY_SPEC[c.category];
-    // Reopen in the unit it was saved with; fall back to the category default for
-    // pre-existing components that have no persisted unit (constraint 4).
+
     const unit = (c.capacityUnit && spec?.offer.includes(c.capacityUnit)) ? c.capacityUnit : (spec?.default ?? null);
-    // Normalize fields that may be stale or inconsistent in older records.
-    // pricingEnabled is coerced false when unitPrice is missing to avoid blocking save.
+
     const hasPricing = c.pricingEnabled && c.unitPrice != null;
     setForm({
       name: c.name, brand: c.brand, model: c.model, category: c.category,
@@ -1518,26 +1993,24 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
     });
     setMsg(""); setEditConfirm(null); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); setEditConfirm(null); setPostSaveCleanup(null); };
+  const closeForm = () => { setShowForm(false); setCatSearches({}); setMsg(""); setErrors({}); setEditConfirm(null); setPostSaveCleanup(null); };
 
   const handleSave = async (bypassConfirm = false) => {
-    if (!form.name.trim() || !form.brand.trim() || !form.model.trim()) {
-      setMsg("Please enter component name, brand, and model"); return;
-    }
-    if (form.category === 'Solar Panel' && (!form.productionCapacityKwp || form.productionCapacityKwp <= 0)) {
-      setMsg("Please enter Production Capacity (must be greater than 0 kWp)"); return;
-    }
-    if (form.category === 'Inverter' && (!form.loadCapacityKw || form.loadCapacityKw <= 0)) {
-      setMsg("Please enter Load Capacity (must be greater than 0 kW)"); return;
-    }
-    if (form.category === 'Battery' && (!form.storageCapacityKwh || form.storageCapacityKwh <= 0)) {
-      setMsg("Please enter Storage Capacity (must be greater than 0 kWh)"); return;
-    }
-    if (form.pricingEnabled && (form.unitPrice == null || form.unitPrice <= 0)) {
-      setMsg("Please enter a unit price when pricing is enabled"); return;
-    }
+    const errs: Record<string, string> = {};
+    if (!form.name.trim())  errs.name  = "Name is required.";
+    if (!form.brand.trim()) errs.brand = "Brand is required.";
+    if (!form.model.trim()) errs.model = "Model is required.";
+    if (form.category === 'Solar Panel' && (!form.productionCapacityKwp || form.productionCapacityKwp <= 0))
+      errs.capacity = "Production capacity must be greater than 0 kWp.";
+    if (form.category === 'Inverter' && (!form.loadCapacityKw || form.loadCapacityKw <= 0))
+      errs.capacity = "Load capacity must be greater than 0 kW.";
+    if (form.category === 'Battery' && (!form.storageCapacityKwh || form.storageCapacityKwh <= 0))
+      errs.capacity = "Storage capacity must be greater than 0 kWh.";
+    if (form.pricingEnabled && (form.unitPrice == null || form.unitPrice <= 0))
+      errs.unitPrice = "Unit price must be greater than 0 when pricing is enabled.";
+    if (Object.keys(errs).length > 0) { setErrors(errs); scrollToFirstError(); return; }
+    setErrors({});
 
-    // For edits: check if the component is used in packages before proceeding
     if (editingId && !bypassConfirm) {
       setSaving(true);
       try {
@@ -1563,9 +2036,9 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
             components: pkg.components,
           }));
           setEditConfirm(withViolations);
-          return; // Hold — wait for user confirmation in the UI
+          return;
         }
-      } catch { /* if check fails, proceed with save */ }
+      } catch { }
       finally { setSaving(false); }
     }
 
@@ -1584,7 +2057,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
         await adminUpdateComponent(apiKey, editingId, payload);
 
         if (violatedPackages.length > 0) {
-          // Auto-remove the out-of-bounds component lines from each affected package
+
           const cleanResults: CleanedResult[] = [];
           for (const pkg of violatedPackages) {
             const toRemove = new Set<string>();
@@ -1637,7 +2110,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   };
 
   const handleDelete = async (id: string, name: string) => {
-    // usage check — if component is in packages, block deletion with setMsg
+
     const usage = await adminGetComponentUsage(apiKey, id).catch(() => ({ data: [] }));
     if (usage.data.length > 0) {
       const packageList = usage.data.map((p: { name: string }) => `"${p.name}"`).join(", ");
@@ -1716,20 +2189,20 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
 
       {showForm && (
         <>
-          {/* Modal Overlay */}
+          {}
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
             background: "rgba(0, 0, 0, 0.5)", zIndex: 999,
             display: "flex", alignItems: "flex-start", justifyContent: "center",
             padding: "16px", overflow: "auto", paddingTop: "max(16px, 10vh)"
           }} onClick={closeForm}>
-            {/* Modal Container - Responsive */}
+            {}
             <div style={{
               background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
               width: "100%", maxWidth: "min(90vw, 650px)", maxHeight: "85vh",
               overflow: "auto", zIndex: 1000, display: "flex", flexDirection: "column"
             }} onClick={(e) => e.stopPropagation()}>
-              {/* Modal Header - Sticky */}
+              {}
               <div style={{
                 padding: "16px 20px", borderBottom: "1px solid var(--ad-border)",
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
@@ -1756,7 +2229,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                 </button>
               </div>
 
-              {/* Modal Body - Scrollable */}
+              {}
               <div style={{
                 padding: "clamp(12px, 4vw, 20px)", overflow: "auto", flex: 1, display: "flex", flexDirection: "column"
               }}>
@@ -1789,17 +2262,26 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                   display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
                   gap: "clamp(12px, 3vw, 16px)"
                 }}>
-                  <div><label className="ad-label">Name</label>
-                    <input className="ad-input" value={form.name} onChange={e => setF("name", e.target.value)} placeholder="410W Monocrystalline Panel" /></div>
-                  <div><label className="ad-label">Brand</label>
-                    <input className="ad-input" value={form.brand} onChange={e => setF("brand", e.target.value)} placeholder="Canadian Solar" /></div>
-                  <div><label className="ad-label">Model</label>
-                    <input className="ad-input" value={form.model} onChange={e => setF("model", e.target.value)} placeholder="CS6R-410MS" /></div>
+                  <div>
+                    <label className="ad-label">Name *</label>
+                    <input className={`ad-input${errors.name ? ' ad-input--error' : ''}`} value={form.name} onChange={e => { setF("name", e.target.value); clearErr('name'); }} placeholder="410W Monocrystalline Panel" />
+                    {errors.name && <span className="ad-field-error" data-field-error>{errors.name}</span>}
+                  </div>
+                  <div>
+                    <label className="ad-label">Brand *</label>
+                    <input className={`ad-input${errors.brand ? ' ad-input--error' : ''}`} value={form.brand} onChange={e => { setF("brand", e.target.value); clearErr('brand'); }} placeholder="Canadian Solar" />
+                    {errors.brand && <span className="ad-field-error" data-field-error>{errors.brand}</span>}
+                  </div>
+                  <div>
+                    <label className="ad-label">Model *</label>
+                    <input className={`ad-input${errors.model ? ' ad-input--error' : ''}`} value={form.model} onChange={e => { setF("model", e.target.value); clearErr('model'); }} placeholder="CS6R-410MS" />
+                    {errors.model && <span className="ad-field-error" data-field-error>{errors.model}</span>}
+                  </div>
                   <div><label className="ad-label">Category</label>
                     <select className="ad-select" value={form.category} onChange={e => {
                       const cat = e.target.value;
                       const spec = CATEGORY_SPEC[cat];
-                      // Keep the chosen unit only if the new category offers it; otherwise its default (or null for spec-less categories).
+
                       setForm(f => ({ ...f, category: cat, capacityUnit: spec ? ((f.capacityUnit && spec.offer.includes(f.capacityUnit)) ? f.capacityUnit : spec.default) : null }));
                     }}>
                       {COMPONENT_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -1814,17 +2296,19 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                     <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
                       <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>Component Specifications <span style={{ color: "#fc615a" }}>*</span></div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "clamp(8px, 2vw, 12px)" }}>
-                        <div><label className="ad-label">{catSpec.label} <span style={{ color: "#fc615a" }}>*</span></label>
+                        <div>
+                          <label className="ad-label">{catSpec.label} <span style={{ color: "#fc615a" }}>*</span></label>
                           <div style={{ display: "flex", gap: 8 }}>
-                            <input type="number" className="ad-input" style={{ flex: 1 }}
+                            <input type="number" className={`ad-input${errors.capacity ? ' ad-input--error' : ''}`} style={{ flex: 1 }}
                               value={canonicalVal ? String(fromCanonical(canonicalVal, catSpec.dimension, code)) : ""}
                               step={step} min="0"
-                              onChange={e => setF(catSpec.field, e.target.value === "" ? 0 : toCanonical(Number(e.target.value), catSpec.dimension, code))}
+                              onChange={e => { setF(catSpec.field, e.target.value === "" ? 0 : toCanonical(Number(e.target.value), catSpec.dimension, code)); clearErr('capacity'); }}
                               placeholder={String(fromCanonical(catSpec.example, catSpec.dimension, code))} required />
                             <select className="ad-select" style={{ width: 90, flexShrink: 0 }} value={code} onChange={e => setF("capacityUnit", e.target.value)}>
                               {catSpec.offer.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
                           </div>
+                          {errors.capacity && <span className="ad-field-error" data-field-error>{errors.capacity}</span>}
                           <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4 }}>{catSpec.helper} · stored as {canonicalVal ? `${canonicalVal} ${catSpec.canonicalLabel}` : catSpec.canonicalLabel}</small>
                         </div>
                       </div>
@@ -1847,10 +2331,13 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                     </label>
                   </div>
                   {form.pricingEnabled && (
-                    <div style={{ gridColumn: "1 / -1" }}><label className="ad-label">Unit Price (₱) <span style={{ color: "#fc615a" }}>*</span></label>
-                      <input type="number" className="ad-input" value={form.unitPrice ?? ""} min={0}
-                        onChange={e => setF("unitPrice", e.target.value ? Number(e.target.value) : undefined)}
-                        placeholder="0.00" /></div>
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <label className="ad-label">Unit Price (₱) <span style={{ color: "#fc615a" }}>*</span></label>
+                      <input type="number" className={`ad-input${errors.unitPrice ? ' ad-input--error' : ''}`} value={form.unitPrice ?? ""} min={0}
+                        onChange={e => { setF("unitPrice", e.target.value ? Number(e.target.value) : undefined); clearErr('unitPrice'); }}
+                        placeholder="0.00" />
+                      {errors.unitPrice && <span className="ad-field-error" data-field-error>{errors.unitPrice}</span>}
+                    </div>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: "clamp(12px, 2vw, 16px)", gridColumn: "1 / -1" }}>
                     <input type="checkbox" id="comp-active" checked={form.isActive}
@@ -1859,7 +2346,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                     <label htmlFor="comp-active" style={{ color: "var(--ad-text)", fontSize: 13, cursor: "pointer" }}>Active</label>
                   </div>
 
-                  {/* Ratio bounds — shown for core component types */}
+                  {}
                   {(form.category === "Inverter" || form.category === "Battery" || form.category === "Solar Panel") && (
                     <div style={{ gridColumn: "1 / -1", borderTop: "1px solid var(--ad-border)", paddingTop: "clamp(12px, 2vw, 16px)", marginTop: 4 }}>
                       <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Quantity Range</div>
@@ -1873,7 +2360,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                           <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 6, display: "block" }}>
                             How many of this inverter the customer can add to the package. Min is always 1.
                           </small>
-                          {/* PV input range — drives panel quantity window */}
+                          {}
                           <div style={{ marginTop: 14, borderTop: "1px solid var(--ad-border)", paddingTop: 12 }}>
                             <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
                               PV Input Range <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>(optional — enables physics-based panel bounds)</span>
@@ -1898,7 +2385,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                               From the inverter datasheet: "Max. DC Input Power" / "Max. PV Array Power". When set, panel count is derived from <strong>floor(pvMax × Q ÷ panelWp)</strong> instead of rated output.
                             </small>
                           </div>
-                          {/* Battery max capacity — drives battery quantity window */}
+                          {}
                           <div style={{ marginTop: 14, borderTop: "1px solid var(--ad-border)", paddingTop: 12 }}>
                             <div style={{ fontSize: "clamp(11px, 2vw, 12px)", fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
                               Battery Support <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: "normal" }}>(optional)</span>
@@ -1925,7 +2412,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                     </div>
                   )}
 
-                  {/* Data sheet URL — only for core component types */}
+                  {}
                   {!ACCESSORY_CATEGORIES.includes(form.category) && (
                     <div style={{ gridColumn: "1 / -1" }}>
                       <label className="ad-label">Product Data Sheet <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — paste a link to the PDF)</span></label>
@@ -1934,7 +2421,7 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
                     </div>
                   )}
                 </div>
-                {/* Edit confirmation — shown when the component is in use and user clicked Update */}
+                {}
                 {editConfirm && (() => {
                   const violating    = editConfirm.filter(p => p.violations.length > 0);
                   const nonViolating = editConfirm.filter(p => p.violations.length === 0);
@@ -2162,10 +2649,6 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   );
 }
 
-// ─── PackagesManager ──────────────────────────────────────────────────────────
-
-// ─── PackageInquiriesManager ──────────────────────────────────────────────────
-
 function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [inquiries, setInquiries] = useState<PackageInquiry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2319,7 +2802,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
         </div>
       ) : (
         <>
-          {/* ── Desktop table ── */}
+          {}
           <div className="ad-inq-table-wrap">
             <table className="ad-table" style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -2366,7 +2849,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
             </table>
           </div>
 
-          {/* ── Mobile cards ── */}
+          {}
           <div className="ad-inq-cards">
             {filtered.map(inq => (
               <div key={inq.id} className="ad-inq-card">
@@ -2395,12 +2878,12 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
         </>
       )}
 
-      {/* ── Detail modal ── */}
+      {}
       {selectedInquiry && createPortal(
         <div className="ad-inq-modal-overlay" onClick={() => setSelectedInquiry(null)}>
           <div className="ad-inq-modal" onClick={e => e.stopPropagation()}>
 
-            {/* Header */}
+            {}
             <div className="ad-inq-modal-header">
               <div>
                 <div className="ad-inq-modal-title">Inquiry Details</div>
@@ -2409,7 +2892,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               <button className="ad-inq-modal-close" onClick={() => setSelectedInquiry(null)}>×</button>
             </div>
 
-            {/* Status — always visible at top */}
+            {}
             <div className="ad-inq-modal-section">
               <div className="ad-inq-modal-sec-label">Status</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2418,7 +2901,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               </div>
             </div>
 
-            {/* Contact */}
+            {}
             <div className="ad-inq-modal-section">
               <div className="ad-inq-modal-sec-label">Contact Information</div>
               <div className="ad-inq-modal-grid">
@@ -2436,7 +2919,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               </div>
             </div>
 
-            {/* System specs */}
+            {}
             <div className="ad-inq-modal-section">
               <div className="ad-inq-modal-sec-label">System Specifications</div>
               <div className="ad-inq-modal-grid">
@@ -2467,7 +2950,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               </div>
             </div>
 
-            {/* Components */}
+            {}
             {(() => {
               const comps = selectedInquiry.packageDetails.components;
               if (!comps || comps.length === 0) return null;
@@ -2495,7 +2978,7 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               );
             })()}
 
-            {/* Actions */}
+            {}
             <div className="ad-inq-modal-actions">
               <button
                 className="ad-btn ad-btn--danger"
@@ -2526,9 +3009,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [toggling, setToggling]       = useState<string | null>(null);
   const [deleting, setDeleting]       = useState<string | null>(null);
   const [msg, setMsg]                 = useState("");
+  const [formError, setFormError]     = useState("");
   const [previewPackage, setPreviewPackage] = useState<ApiSolarPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiSolarPackage | null>(null);
-  const [catSearches, setCatSearches] = useState<Record<string, string>>({}); // Search per category
+  const [catSearches, setCatSearches] = useState<Record<string, string>>({});
   const [systemType, setSystemType]   = useState<'hybrid' | 'grid-tied'>('hybrid');
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
   const [pkgImagePreview, setPkgImagePreview] = useState<string>("");
@@ -2552,9 +3036,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
 
-  // Auto-sync package specs + monthly savings when components change
   useEffect(() => {
     if ((form.components ?? []).length > 0) {
       const specs = computePackageSpecs(form.components ?? [], allComponents);
@@ -2563,7 +3046,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     }
   }, [form.components, allComponents]);
 
-  // Auto-clear messages after a timeout
   useEffect(() => {
     if (!msg) return;
     const isSuccess = msg.startsWith("✓");
@@ -2600,7 +3082,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   };
   const closeForm = () => {
     setShowForm(false); setEditingId(null); setNameEdited(false);
-    setCatSearches({}); setMsg(""); setSystemType('hybrid');
+    setCatSearches({}); setMsg(""); setFormError(""); setSystemType('hybrid');
     setPkgImageFile(null); setPkgImagePreview("");
   };
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
@@ -2627,7 +3109,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     if (!form.name.trim()) return "Please enter a package name";
     if ((form.components ?? []).length === 0) return "Please select at least one component from your inventory";
 
-    // Check for required component types and compute specs
     const components = form.components ?? [];
     const componentDetails = components.map(c => allComponents.find(ac => ac.id === c.componentId)).filter(Boolean) as ApiSolarComponent[];
     const hasSolarPanel = componentDetails.some(c => c.category === 'Solar Panel');
@@ -2636,7 +3117,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     if (!hasSolarPanel) return "Package must include at least one Solar Panel";
     if (!hasInverter) return "Package must include at least one Inverter";
 
-    // Compute actual specs from selected components
     const specs = computePackageSpecs(components, allComponents);
     if (specs.solarKwp <= 0) return "Total Production Capacity must be greater than 0 kWp (add Solar Panels)";
     if (specs.inverterKw <= 0) return "Total Load Capacity must be greater than 0 kW (add Inverters)";
@@ -2644,7 +3124,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
     if (form.billRangeMax < form.billRangeMin) return "Maximum monthly bill must be greater than or equal to minimum";
 
-    // Enforce inverter-driven limits for panels and batteries
     const inverterEntry = components.find(c => allComponents.find(a => a.id === c.componentId)?.category === 'Inverter');
     if (inverterEntry) {
       const inverterComp = allComponents.find(c => c.id === inverterEntry.componentId);
@@ -2655,7 +3134,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             const panelComp = allComponents.find(c => c.id === entry.componentId);
             return sum + entry.quantity * (panelComp?.productionCapacityKwp ?? 0);
           }, 0);
-          // Use pvMaxPower when set; fall back to rated output
+
           const pvCapPerUnit = inverterComp.pvMaxPower ?? inverterComp.loadCapacityKw;
           const maxKwp = pvCapPerUnit * inverterEntry.quantity;
           if (totalPanelKwp > maxKwp + 0.001) {
@@ -2668,14 +3147,14 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           if (batteryComp && batteryComp.storageCapacityKwh > 0) {
             const battCapPerUnit = inverterComp.batteryMaxCapacity ?? inverterComp.loadCapacityKw;
             const rawMax = Math.floor(battCapPerUnit * inverterEntry.quantity / batteryComp.storageCapacityKwh);
-            // Fallback mode (no batteryMaxCapacity): always allow at least 1 battery, matching public card behaviour
+
             const maxBatteries = inverterComp.batteryMaxCapacity != null ? rawMax : Math.max(1, rawMax);
             if (batteryEntry.quantity > maxBatteries) {
               return `Battery count (${batteryEntry.quantity}) exceeds inverter limit — max ${maxBatteries} batteries (${(battCapPerUnit * inverterEntry.quantity).toFixed(1)} kWh total) for ${inverterEntry.quantity}× inverter`;
             }
           }
         }
-        // Inverter count must not exceed parallelMax
+
         const maxInverters = inverterComp.parallelMax ?? 4;
         if (inverterEntry.quantity > maxInverters) {
           return `Inverter count (${inverterEntry.quantity}) exceeds the maximum parallel units allowed for this model (${maxInverters})`;
@@ -2688,7 +3167,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const handleSave = async () => {
     const err = validateForm();
-    if (err) { setMsg(err); return; }
+    if (err) { setFormError(err); scrollToFirstError(); return; }
+    setFormError("");
     setSaving(true); setMsg("");
     try {
       let pkgId: string;
@@ -2740,7 +3220,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     catch (e) { setMsg("Failed to delete package. Please try again"); }
     finally { setDeleting(null); setDeleteTarget(null); }
   };
-
 
   const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
   const activeCount = packages.filter((p) => p.isActive).length;
@@ -2860,20 +3339,20 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
       {showForm && (
         <>
-          {/* Modal Overlay */}
+          {}
           <div style={{
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
             background: "rgba(0, 0, 0, 0.5)", zIndex: 999,
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: 16, overflow: "auto"
           }} onClick={closeForm}>
-            {/* Modal Container */}
+            {}
             <div style={{
               background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
               maxWidth: 1140, width: "100%", maxHeight: "90vh", overflow: "auto", zIndex: 1000,
               display: "flex", flexDirection: "column"
             }} onClick={(e) => e.stopPropagation()}>
-              {/* Modal Header */}
+              {}
               <div style={{
                 padding: "18px 20px", borderBottom: "2px solid var(--ad-border)",
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
@@ -2902,11 +3381,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                 </button>
               </div>
 
-              {/* Modal Body */}
+              {}
               <div style={{ padding: 20, overflow: "auto", flex: 1 }}>
                 <div className="ad-pkg-builder-layout">
 
-                  {/* ── LEFT: Phase selector + Component search ── */}
+                  {}
                   <div className="ad-pkg-builder-left">
                     <div className="ad-pkg-form-phase">
                       <div className="ad-label">System Type</div>
@@ -2961,7 +3440,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                         };
                         const emoji = categoryEmojis[category] ?? '📦';
 
-                        // Solar Panel, Inverter, Battery are single-SKU — lock the slot once one is chosen
                         const isSingleSku = category === 'Inverter' || category === 'Solar Panel' || category === 'Battery';
                         const isLocked = isSingleSku && addedInCat.length > 0;
                         const lockedComp = isLocked ? allComponents.find(c => c.id === addedInCat[0].componentId) : null;
@@ -2978,7 +3456,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                             </div>
 
                             {isLocked ? (
-                              /* Single-SKU slot is filled — show locked state */
+
                               <div style={{
                                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
                                 padding: "9px 12px", borderRadius: 6, fontSize: 12,
@@ -2993,7 +3471,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                 </div>
                               </div>
                             ) : (
-                              /* Search input + dropdown */
+
                               <div style={{ position: "relative" }}>
                                 <input
                                   type="search"
@@ -3058,10 +3536,12 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                     </div>
                   </div>
 
-                  {/* ── RIGHT: Summary, specs, settings ── */}
+                  {}
                   <div className="ad-pkg-builder-right">
 
-                    {/* Selected Components */}
+                    {formError && <div className="ad-field-error" data-field-error style={{ marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8 }}>{formError}</div>}
+
+                    {}
                     {(form.components ?? []).length === 0 ? (
                       <div className="ad-pkg-summary-empty">
                         <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
@@ -3089,7 +3569,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                               if (!invComp) return null;
                               if (isSolarPanel) {
                                 if ((comp.productionCapacityKwp ?? 0) <= 0) return null;
-                                // Use pvMaxPower when set (physics-based); fall back to rated output
+
                                 const pvCapPerUnit = invComp.pvMaxPower ?? invComp.loadCapacityKw;
                                 const totalCapacityKwp = pvCapPerUnit * invLine.quantity;
                                 const usedByOtherPanels = (form.components ?? []).reduce((sum, otherLine, otherIdx) => {
@@ -3104,10 +3584,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                               if ((comp.storageCapacityKwh ?? 0) <= 0) return null;
                               const battCapPerUnit = invComp.batteryMaxCapacity ?? invComp.loadCapacityKw;
                               const rawBattMax = Math.floor(battCapPerUnit * invLine.quantity / (comp.storageCapacityKwh ?? 1));
-                              // Fallback mode: always allow at least 1, matching public card behaviour
+
                               return invComp.batteryMaxCapacity != null ? rawBattMax : Math.max(1, rawBattMax);
                             })() : null;
-                            // DC:AC 1.2 suggested panel count, clamped between battery charge floor and hardware max
+
                             const suggestedPanels: number | null = isSolarPanel ? (() => {
                               const invLine2 = (form.components ?? []).find(l2 => allComponents.find(c2 => c2.id === l2.componentId)?.category === 'Inverter');
                               if (!invLine2) return null;
@@ -3139,7 +3619,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
                             return (
                               <div key={idx} className={`ad-pkg-component-card${isDerived ? " is-derived" : ""}`}>
-                                {/* Component name + category badge */}
+                                {}
                                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)", lineHeight: 1.3 }}>{comp.name}</div>
@@ -3157,7 +3637,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                   </div>
                                 </div>
 
-                                {/* Accessory: scale-with controls */}
+                                {}
                                 {isAccessory && (
                                   <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 7 }}>
                                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text2)" }}>Quantity mode</div>
@@ -3216,7 +3696,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                   </div>
                                 )}
 
-                                {/* Qty stepper (non-derived) */}
+                                {}
                                 {!isDerived && (
                                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -3264,7 +3744,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       </div>
                     )}
 
-                    {/* Computed Specs */}
+                    {}
                     {allComponents.length > 0 && (form.components ?? []).length > 0 && (() => {
                       const specs = computePackageSpecs(form.components ?? [], allComponents);
                       const autoName_ = autoName(specs.solarKwp, specs.inverterKw, specs.storageKwh);
@@ -3293,7 +3773,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       );
                     })()}
 
-                    {/* Price */}
+                    {}
                     {(form.components ?? []).length > 0 && (() => {
                       const lines = form.components ?? [];
                       const allPriced = lines.every(l => { const c = allComponents.find(c => c.id === l.componentId); return !c?.pricingEnabled || c?.unitPrice != null; });
@@ -3311,7 +3791,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       );
                     })()}
 
-                    {/* Monthly Savings */}
+                    {}
                     {(form.components ?? []).length > 0 && (
                       <div style={{ background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "12px 14px" }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Est. Monthly Savings</div>
@@ -3320,7 +3800,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       </div>
                     )}
 
-                    {/* Main Features */}
+                    {}
                     <div>
                       <label className="ad-label">Card Features <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional · one per line)</span></label>
                       <textarea
@@ -3334,7 +3814,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       <small style={{ fontSize: 11, color: "var(--ad-text3)", marginTop: 4, display: "block" }}>Leave blank to auto-generate from components.</small>
                     </div>
 
-                    {/* Package Image */}
+                    {}
                     <div>
                       <label className="ad-label">Package Image <span style={{ fontWeight: 400, color: "var(--ad-text3)" }}>(optional — max 10 MB)</span></label>
                       <div className="ad-image-row">
@@ -3365,7 +3845,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       </div>
                     </div>
 
-                    {/* Toggles */}
+                    {}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
                         <input type="checkbox" checked={form.isActive} onChange={(e) => setField("isActive", e.target.checked)} style={{ width: 16, height: 16, accentColor: "var(--ad-accent)", cursor: "pointer", flexShrink: 0 }} />
@@ -3377,7 +3857,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       </label>
                     </div>
 
-                    {/* Actions */}
+                    {}
                     <div className="ad-form-actions" style={{ paddingTop: 4 }}>
                       <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
                       <button onClick={closeForm} className="ad-btn ad-btn--ghost">Cancel</button>
@@ -3390,13 +3870,13 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           </div>
         </>
       )}
-      {/* Backdrop closes filter panel on outside click */}
+      {}
       {showFilters && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowFilters(false)} />}
 
-      {/* Search + filter bar — shown only when packages exist */}
+      {}
       {!loading && packages.length > 0 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          {/* Search input */}
+          {}
           <div style={{ position: "relative", flex: "1 1 240px", minWidth: 180 }}>
             <input
               type="text"
@@ -3414,7 +3894,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             )}
           </div>
 
-          {/* Filter button + dropdown */}
+          {}
           <div style={{ position: "relative", zIndex: 100 }}>
             <button
               className={`ad-btn ad-btn--sm${activeFilterCount === 0 ? " ad-btn--ghost" : ""}`}
@@ -3433,7 +3913,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             {showFilters && (
               <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", minWidth: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.25)" }}>
 
-                {/* Phase */}
+                {}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Phase</div>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -3445,7 +3925,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   </div>
                 </div>
 
-                {/* System type */}
+                {}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>System Type</div>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -3457,7 +3937,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   </div>
                 </div>
 
-                {/* Visibility */}
+                {}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Visibility</div>
                   <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -3469,7 +3949,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   </div>
                 </div>
 
-                {/* Price tier — bill range rough buckets */}
+                {}
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Bill Range</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
@@ -3481,7 +3961,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   </div>
                 </div>
 
-                {/* Recommended */}
+                {}
                 <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 12, marginBottom: activeFilterCount > 0 ? 12 : 0 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
                     <input type="checkbox" checked={filterRecommended} onChange={(e) => setFilterRecommended(e.target.checked)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />
@@ -3496,7 +3976,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             )}
           </div>
 
-          {/* Result count */}
+          {}
           {isFiltering && (
             <span style={{ fontSize: 12, color: "var(--ad-text3)", whiteSpace: "nowrap" }}>
               {filteredPackages.length} of {packages.length} package{packages.length !== 1 ? "s" : ""}
@@ -3560,8 +4040,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Shared section editor hook ───────────────────────────────────────────────
-
 function useSectionEditor<T extends object>(apiKey: string, contentKey: string, defaults: T) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -3580,7 +4058,7 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tick]);
 
   const save = async (data: T) => {
     setSaving(true); setMsg("");
@@ -3626,8 +4104,6 @@ function SectionEditorHeader({ title, onReset, resetPending, onConfirmReset, onC
     </>
   );
 }
-
-// ─── Hero ─────────────────────────────────────────────────────────────────────
 
 const HERO_SECTIONS = [
   { label: "Calculator", value: "#calculator" },
@@ -3732,8 +4208,6 @@ function HeroEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Metrics ──────────────────────────────────────────────────────────────────
-
 type MetricItem = { value: string; label: string; order: number };
 type MetricsForm = { items: MetricItem[] };
 const DEFAULT_METRICS_FORM: MetricsForm = {
@@ -3776,8 +4250,6 @@ function MetricsEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Benefits ─────────────────────────────────────────────────────────────────
-
 type BenefitItem = { title: string; description: string; order: number };
 type BenefitsForm = { items: BenefitItem[] };
 const DEFAULT_BENEFITS_FORM: BenefitsForm = {
@@ -3815,8 +4287,6 @@ function BenefitsEditor({ apiKey }: { apiKey: string }) {
     </div>
   );
 }
-
-// ─── Tropics ──────────────────────────────────────────────────────────────────
 
 type TropicsForm = { header: string; subtext: string; performanceRating: number };
 const DEFAULT_TROPICS_FORM: TropicsForm = {
@@ -3868,8 +4338,6 @@ function TropicsEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Client Journey ───────────────────────────────────────────────────────────
-
 type JourneyEntry = { id: string; name: string; location: string; testimonial: string; videoUrl: string; coords: [number, number] };
 type ClientJourneyForm = { entries: JourneyEntry[] };
 const DEFAULT_JOURNEY_FORM: ClientJourneyForm = {
@@ -3894,7 +4362,7 @@ async function geocodePhLocation(location: string): Promise<[number, number] | n
 }
 
 function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  const { loading, msg, form, setForm, save } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
   const [geocoding, setGeocoding] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
   const [modalMode, setModalMode] = useState<"add" | "edit" | "view" | null>(null);
@@ -3924,11 +4392,12 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
   };
 
   const handleModalSave = () => {
-    if (modalMode === "add") {
-      setForm((f) => ({ ...f, entries: [...f.entries, draft] }));
-    } else if (modalMode === "edit") {
-      setForm((f) => ({ ...f, entries: f.entries.map((e) => e.id === draft.id ? { ...draft } : e) }));
-    }
+    const newEntries = modalMode === "add"
+      ? [...form.entries, draft]
+      : form.entries.map((e) => e.id === draft.id ? { ...draft } : e);
+    const newForm = { ...form, entries: newEntries };
+    setForm(newForm);
+    void save(newForm);
     closeModal();
   };
 
@@ -3946,7 +4415,11 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
         title={`Remove "${deleteTarget?.name || "this entry"}"?`}
         description="This client journey entry will be removed from the map and testimonials."
         onConfirm={() => {
-          if (deleteTarget) setForm((f) => ({ ...f, entries: f.entries.filter((e) => e.id !== deleteTarget.id) }));
+          if (deleteTarget) {
+            const newForm = { ...form, entries: form.entries.filter((e) => e.id !== deleteTarget.id) };
+            setForm(newForm);
+            void save(newForm);
+          }
           setDeleteTarget(null);
         }}
         onCancel={() => setDeleteTarget(null)}
@@ -4084,15 +4557,10 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
           </table>
         </div>
 
-        <div className="ad-form-actions">
-          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
-        </div>
       </div>
     </div>
   );
 }
-
-// ─── Engineered Excellence ────────────────────────────────────────────────────
 
 type ExcellenceItem = { number: string; title: string; description: string };
 type ExcellenceForm = { items: ExcellenceItem[] };
@@ -4131,8 +4599,6 @@ function ExcellenceEditor({ apiKey }: { apiKey: string }) {
     </div>
   );
 }
-
-// ─── Process ──────────────────────────────────────────────────────────────────
 
 type ProcessStep = { number: string; title: string; description: string };
 type ProcessForm = { stepsDelay: number; steps: ProcessStep[] };
@@ -4177,8 +4643,6 @@ function ProcessEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Call to Action ───────────────────────────────────────────────────────────
-
 type CtaForm = { title: string; description: string; primaryCta: string; secondaryCta: string };
 const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote", secondaryCta: "Talk to an Expert" };
 
@@ -4204,8 +4668,6 @@ function CtaEditor({ apiKey }: { apiKey: string }) {
     </div>
   );
 }
-
-// ─── Footer ───────────────────────────────────────────────────────────────────
 
 type FooterLink = { name: string; url: string };
 type FooterContent = { phone: string; email: string; socials: Record<string, FooterLink>; footer_text: { credits: string; privacy_policy: FooterLink; terms_conditions: FooterLink } };
@@ -4240,7 +4702,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
 
   const buildPayload = (): FooterContent => ({
     phone, email,
@@ -4335,7 +4797,623 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-// ─── Sidebar icon helper ──────────────────────────────────────────────────────
+const BLOCK_TYPE_LABELS: Record<ContentBlock['type'], string> = {
+  heading:          'Heading',
+  paragraph:        'Paragraph (rich text)',
+  bullet_list:      'Bullet List',
+  link_group:       'Link Group',
+  button:           'Button',
+  image:            'Image',
+  partner_grid:     'Partner Grid',
+  contact_channels: 'Contact Channels',
+  divider:          'Divider',
+};
+
+const BLOCK_TYPES = Object.keys(BLOCK_TYPE_LABELS) as ContentBlock['type'][];
+
+const EMPTY_STEP: JourneyStepInput = {
+  order: 0, title: '', iconKey: '', accentColor: '', subheading: '',
+  iconUrl: null, iconUrlHighlighted: null,
+  status: 'draft', blocks: [],
+};
+
+function makeEmptyBlock(type: ContentBlock['type'], order: number): ContentBlock {
+  switch (type) {
+    case 'heading':          return { type, order, text: '', level: 2 };
+    case 'paragraph':        return { type, order, html: '' };
+    case 'bullet_list':      return { type, order, items: [{ text: '' }] };
+    case 'link_group':       return { type, order, links: [{ label: '', url: '', external: false, style: 'text' }] };
+    case 'button':           return { type, order, label: '', url: '', external: false };
+    case 'image':            return { type, order, src: '', alt: '', caption: '' };
+    case 'partner_grid':     return { type, order, items: [{ name: '', logoUrl: '', downloadUrl: '', external: false }] };
+    case 'contact_channels': return { type, order, channels: [{ kind: 'email', value: '', url: '' }] };
+    case 'divider':          return { type, order };
+  }
+}
+
+function HeadingBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'heading' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  return (
+    <div className="ad-field-row">
+      <div className="ad-field" style={{ flex: 2 }}>
+        <label className="ad-label">Text</label>
+        <input className="ad-input" value={block.text} onChange={e => onPatch({ text: e.target.value })} placeholder="Heading text" />
+      </div>
+      <div className="ad-field" style={{ flex: 0.5 }}>
+        <label className="ad-label">Level</label>
+        <select className="ad-input" value={block.level} onChange={e => onPatch({ level: Number(e.target.value) as 1|2|3|4 })}>
+          {[1,2,3,4].map(l => <option key={l} value={l}>H{l}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function ParagraphBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'paragraph' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const wrapSelection = (open: string, close: string) => {
+    const el = ref.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e, value } = el;
+    const wrapped = value.slice(0, s) + open + value.slice(s, e) + close + value.slice(e);
+    onPatch({ html: wrapped });
+    setTimeout(() => { el.setSelectionRange(s + open.length, e + open.length); el.focus(); }, 0);
+  };
+
+  return (
+    <div className="ad-field">
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => wrapSelection('<strong>', '</strong>')} title="Bold">B</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => wrapSelection('<em>', '</em>')} title="Italic" style={{ fontStyle: 'italic' }}>I</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => wrapSelection('<a href="" target="_blank" rel="noopener noreferrer">', '</a>')} title="Link">🔗</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => wrapSelection('<span class="highlight">', '</span>')} title="Highlight">✦</button>
+      </div>
+      <textarea
+        ref={ref}
+        className="ad-input"
+        style={{ minHeight: 90, fontFamily: 'monospace', fontSize: 12 }}
+        value={block.html}
+        onChange={e => onPatch({ html: e.target.value })}
+        placeholder="<strong>Bold</strong>, <a href='...' target='_blank' rel='noopener noreferrer'>Link</a>, plain text…"
+      />
+      <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--ad-text3)' }}>HTML is sanitized server-side. Only b/strong/em/i/u/a/span/br allowed.</p>
+    </div>
+  );
+}
+
+function BulletItemRow({ item, onChange, onRemove, depth = 0 }: {
+  item: BulletItem;
+  onChange: (v: BulletItem) => void;
+  onRemove: () => void;
+  depth?: number;
+}) {
+  return (
+    <div style={{ paddingLeft: depth * 20 }}>
+      <div className="ad-field-row" style={{ alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+        <input className="ad-input" style={{ flex: 2 }} value={item.text} onChange={e => onChange({ ...item, text: e.target.value })} placeholder="Bullet text" />
+        <input className="ad-input" style={{ flex: 1 }} value={item.boldLead ?? ''} onChange={e => onChange({ ...item, boldLead: e.target.value })} placeholder="Bold lead (optional)" />
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onRemove} title="Remove">✕</button>
+      </div>
+      {(item.children ?? []).map((child, ci) => (
+        <BulletItemRow
+          key={ci}
+          item={child}
+          depth={depth + 1}
+          onChange={v => {
+            const nc = [...(item.children ?? [])];
+            nc[ci] = v;
+            onChange({ ...item, children: nc });
+          }}
+          onRemove={() => {
+            const nc = (item.children ?? []).filter((_, i) => i !== ci);
+            onChange({ ...item, children: nc });
+          }}
+        />
+      ))}
+      <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ marginLeft: 4, marginBottom: 6 }}
+        onClick={() => onChange({ ...item, children: [...(item.children ?? []), { text: '' }] })}>
+        + Sub-bullet
+      </button>
+    </div>
+  );
+}
+
+function BulletListBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'bullet_list' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  const setItems = (items: BulletItem[]) => onPatch({ items });
+  return (
+    <div className="ad-field">
+      {block.items.map((item, i) => (
+        <BulletItemRow
+          key={i}
+          item={item}
+          onChange={v => { const ni = [...block.items]; ni[i] = v; setItems(ni); }}
+          onRemove={() => setItems(block.items.filter((_, j) => j !== i))}
+        />
+      ))}
+      <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setItems([...block.items, { text: '' }])}>+ Add Bullet</button>
+    </div>
+  );
+}
+
+function LinkGroupBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'link_group' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  const setLinks = (links: typeof block.links) => onPatch({ links });
+  return (
+    <div className="ad-field">
+      {block.links.map((link, i) => (
+        <div key={i} className="ad-field-row" style={{ marginBottom: 6 }}>
+          <input className="ad-input" style={{ flex: 2 }} value={link.label} onChange={e => { const nl = [...block.links]; nl[i] = { ...nl[i], label: e.target.value }; setLinks(nl); }} placeholder="Label" />
+          <input className="ad-input" style={{ flex: 3 }} value={link.url} onChange={e => { const nl = [...block.links]; nl[i] = { ...nl[i], url: e.target.value }; setLinks(nl); }} placeholder="URL" />
+          <select className="ad-input" style={{ flex: 1 }} value={link.style} onChange={e => { const nl = [...block.links]; nl[i] = { ...nl[i], style: e.target.value as 'text' | 'button' }; setLinks(nl); }}>
+            <option value="text">Text</option>
+            <option value="button">Button</option>
+          </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--ad-text2)', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={link.external} onChange={e => { const nl = [...block.links]; nl[i] = { ...nl[i], external: e.target.checked }; setLinks(nl); }} />
+            External
+          </label>
+          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setLinks(block.links.filter((_, j) => j !== i))}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setLinks([...block.links, { label: '', url: '', external: false, style: 'text' }])}>+ Add Link</button>
+    </div>
+  );
+}
+
+function ButtonBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'button' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  return (
+    <div className="ad-field-row">
+      <input className="ad-input" style={{ flex: 2 }} value={block.label} onChange={e => onPatch({ label: e.target.value })} placeholder="Button label" />
+      <input className="ad-input" style={{ flex: 3 }} value={block.url} onChange={e => onPatch({ url: e.target.value })} placeholder="URL (e.g. /quotation-engine)" />
+      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--ad-text2)', whiteSpace: 'nowrap' }}>
+        <input type="checkbox" checked={block.external} onChange={e => onPatch({ external: e.target.checked })} />
+        External
+      </label>
+    </div>
+  );
+}
+
+function ImageBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'image' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  return (
+    <div className="ad-field">
+      <div className="ad-field-row" style={{ marginBottom: 8 }}>
+        <div className="ad-field" style={{ flex: 3 }}>
+          <label className="ad-label">Image URL or Base64</label>
+          <input className="ad-input" value={block.src} onChange={e => onPatch({ src: e.target.value })} placeholder="https://... or data:image/..." />
+        </div>
+        <div className="ad-field" style={{ flex: 2 }}>
+          <label className="ad-label">Alt text</label>
+          <input className="ad-input" value={block.alt} onChange={e => onPatch({ alt: e.target.value })} placeholder="Describe the image" />
+        </div>
+      </div>
+      <div className="ad-field">
+        <label className="ad-label">Caption (optional)</label>
+        <input className="ad-input" value={block.caption ?? ''} onChange={e => onPatch({ caption: e.target.value })} placeholder="Caption shown below image" />
+      </div>
+    </div>
+  );
+}
+
+function PartnerGridBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'partner_grid' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  const setItems = (items: typeof block.items) => onPatch({ items });
+  return (
+    <div className="ad-field">
+      {block.items.map((item, i) => (
+        <div key={i} className="ad-field-row" style={{ marginBottom: 6, alignItems: 'flex-start' }}>
+          <input className="ad-input" style={{ flex: 2 }} value={item.name} onChange={e => { const ni = [...block.items]; ni[i] = { ...ni[i], name: e.target.value }; setItems(ni); }} placeholder="Partner name" />
+          <input className="ad-input" style={{ flex: 2 }} value={item.logoUrl ?? ''} onChange={e => { const ni = [...block.items]; ni[i] = { ...ni[i], logoUrl: e.target.value }; setItems(ni); }} placeholder="Logo URL" />
+          <input className="ad-input" style={{ flex: 2 }} value={item.downloadUrl ?? ''} onChange={e => { const ni = [...block.items]; ni[i] = { ...ni[i], downloadUrl: e.target.value }; setItems(ni); }} placeholder="Download URL (PDF)" />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--ad-text2)', whiteSpace: 'nowrap' }}>
+            <input type="checkbox" checked={item.external} onChange={e => { const ni = [...block.items]; ni[i] = { ...ni[i], external: e.target.checked }; setItems(ni); }} />
+            External
+          </label>
+          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setItems(block.items.filter((_, j) => j !== i))}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setItems([...block.items, { name: '', logoUrl: '', downloadUrl: '', external: false }])}>+ Add Partner</button>
+    </div>
+  );
+}
+
+const CHANNEL_KINDS = ['whatsapp', 'viber', 'facebook', 'instagram', 'email', 'phone'] as const;
+
+function ContactBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { type: 'contact_channels' }>; onPatch: (p: Partial<typeof block>) => void }) {
+  const setChannels = (channels: typeof block.channels) => onPatch({ channels });
+  return (
+    <div className="ad-field">
+      {block.channels.map((ch, i) => (
+        <div key={i} className="ad-field-row" style={{ marginBottom: 6 }}>
+          <select className="ad-input" style={{ flex: 1 }} value={ch.kind} onChange={e => { const nc = [...block.channels]; nc[i] = { ...nc[i], kind: e.target.value as typeof ch.kind }; setChannels(nc); }}>
+            {CHANNEL_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <input className="ad-input" style={{ flex: 2 }} value={ch.value} onChange={e => { const nc = [...block.channels]; nc[i] = { ...nc[i], value: e.target.value }; setChannels(nc); }} placeholder="Display value" />
+          <input className="ad-input" style={{ flex: 2 }} value={ch.url} onChange={e => { const nc = [...block.channels]; nc[i] = { ...nc[i], url: e.target.value }; setChannels(nc); }} placeholder="URL (https://wa.me/..., mailto:...)" />
+          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setChannels(block.channels.filter((_, j) => j !== i))}>✕</button>
+        </div>
+      ))}
+      <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setChannels([...block.channels, { kind: 'email', value: '', url: '' }])}>+ Add Channel</button>
+    </div>
+  );
+}
+
+function BlockForm({ block, onPatch, onRemove, onMoveUp, onMoveDown }: {
+  block: ContentBlock;
+  onPatch: (p: Partial<ContentBlock>) => void;
+  onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <div className="ad-card" style={{ marginBottom: 10 }}>
+      <div className="ad-field-row" style={{ alignItems: 'center', marginBottom: expanded ? 12 : 0 }}>
+        <strong style={{ flex: 1, fontSize: 13 }}>{BLOCK_TYPE_LABELS[block.type]}</strong>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onMoveUp} title="Move up">↑</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onMoveDown} title="Move down">↓</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setExpanded(e => !e)}>{expanded ? 'Collapse' : 'Expand'}</button>
+        <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ color: '#fc615a' }} onClick={onRemove}>Remove</button>
+      </div>
+      {expanded && (
+        block.type === 'heading'          ? <HeadingBlockForm     block={block as Extract<ContentBlock, { type: 'heading' }>}          onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'heading' }>>) => void} /> :
+        block.type === 'paragraph'        ? <ParagraphBlockForm   block={block as Extract<ContentBlock, { type: 'paragraph' }>}        onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'paragraph' }>>) => void} /> :
+        block.type === 'bullet_list'      ? <BulletListBlockForm  block={block as Extract<ContentBlock, { type: 'bullet_list' }>}      onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'bullet_list' }>>) => void} /> :
+        block.type === 'link_group'       ? <LinkGroupBlockForm   block={block as Extract<ContentBlock, { type: 'link_group' }>}       onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'link_group' }>>) => void} /> :
+        block.type === 'button'           ? <ButtonBlockForm      block={block as Extract<ContentBlock, { type: 'button' }>}           onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'button' }>>) => void} /> :
+        block.type === 'image'            ? <ImageBlockForm       block={block as Extract<ContentBlock, { type: 'image' }>}            onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'image' }>>) => void} /> :
+        block.type === 'partner_grid'     ? <PartnerGridBlockForm block={block as Extract<ContentBlock, { type: 'partner_grid' }>}     onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'partner_grid' }>>) => void} /> :
+        block.type === 'contact_channels' ? <ContactBlockForm     block={block as Extract<ContentBlock, { type: 'contact_channels' }>} onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'contact_channels' }>>) => void} /> :
+        block.type === 'divider'          ? <p style={{ color: 'var(--ad-text3)', fontSize: 12 }}>Horizontal divider — no settings.</p> :
+        null
+      )}
+    </div>
+  );
+}
+
+function StepEditor({ step, onSave, onCancel, saving }: {
+  step: JourneyStepInput;
+  onSave: (data: JourneyStepInput) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [form, setForm] = useState<JourneyStepInput>({ ...step, blocks: [...step.blocks] });
+  const [addBlockType, setAddBlockType] = useState<ContentBlock['type']>('paragraph');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
+  const [svgDraft, setSvgDraft] = useState('');
+  const [svgDraftHighlighted, setSvgDraftHighlighted] = useState('');
+
+  const patchField = (k: keyof JourneyStepInput, v: unknown) =>
+    setForm(f => ({ ...f, [k]: v }));
+
+  const reorder = (blocks: ContentBlock[]) => blocks.map((b, i) => ({ ...b, order: i }));
+
+  const patchBlock = (i: number, patch: Partial<ContentBlock>) =>
+    setForm(f => ({ ...f, blocks: reorder(f.blocks.map((b, j) => j === i ? { ...b, ...patch } as ContentBlock : b)) }));
+
+  const removeBlock = (i: number) =>
+    setForm(f => ({ ...f, blocks: reorder(f.blocks.filter((_, j) => j !== i)) }));
+
+  const moveBlock = (i: number, dir: -1 | 1) =>
+    setForm(f => {
+      const arr = [...f.blocks];
+      const target = i + dir;
+      if (target < 0 || target >= arr.length) return f;
+      [arr[i], arr[target]] = [arr[target], arr[i]];
+      return { ...f, blocks: reorder(arr) };
+    });
+
+  const addBlock = () =>
+    setForm(f => ({ ...f, blocks: reorder([...f.blocks, makeEmptyBlock(addBlockType, f.blocks.length)]) }));
+
+  return (
+    <div>
+      <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
+          <label className="ad-label">Title *</label>
+          <input className={`ad-input${errors.title ? ' ad-input--error' : ''}`} value={form.title} onChange={e => { patchField('title', e.target.value); clearErr('title'); }} placeholder="e.g. Customer Service" />
+          {errors.title && <span className="ad-field-error" data-field-error>{errors.title}</span>}
+        </div>
+        {}
+        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 170 }}>
+          <label className="ad-label">Icon — Normal *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {form.iconUrl && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={form.iconUrl} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
+                <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrl', null); patchField('iconKey', null); clearErr('iconUrl'); }}>Remove</button>
+              </div>
+            )}
+            <label className={`ad-btn ad-btn--ghost${errors.iconUrl ? ' ad-btn--error' : ''}`} style={{ fontSize: 12, padding: '5px 12px', cursor: 'pointer', textAlign: 'center' }}>
+              Upload Image / SVG File
+              <input type="file" accept="image/*,.svg" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { patchField('iconUrl', reader.result as string); patchField('iconKey', null); clearErr('iconUrl'); };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }} />
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <textarea className="ad-input" style={{ flex: 1, minHeight: 54, fontSize: 11, fontFamily: 'monospace', resize: 'vertical' }} placeholder="Or paste SVG code…" value={svgDraft} onChange={e => setSvgDraft(e.target.value)} />
+              <button type="button" className="ad-btn" style={{ fontSize: 12, padding: '5px 10px', alignSelf: 'flex-end' }} disabled={!svgDraft.trim()} onClick={() => {
+                try { const b64 = btoa(unescape(encodeURIComponent(svgDraft.trim()))); patchField('iconUrl', `data:image/svg+xml;base64,${b64}`); patchField('iconKey', null); setSvgDraft(''); clearErr('iconUrl'); } catch { }
+              }}>Apply</button>
+            </div>
+            {errors.iconUrl && <span className="ad-field-error" data-field-error>{errors.iconUrl}</span>}
+          </div>
+        </div>
+        {}
+        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 170 }}>
+          <label className="ad-label">Icon — Highlighted *</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {form.iconUrlHighlighted && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={form.iconUrlHighlighted} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
+                <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlHighlighted', null); clearErr('iconUrlHighlighted'); }}>Remove</button>
+              </div>
+            )}
+            <label className={`ad-btn ad-btn--ghost${errors.iconUrlHighlighted ? ' ad-btn--error' : ''}`} style={{ fontSize: 12, padding: '5px 12px', cursor: 'pointer', textAlign: 'center' }}>
+              Upload Image / SVG File
+              <input type="file" accept="image/*,.svg" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { patchField('iconUrlHighlighted', reader.result as string); clearErr('iconUrlHighlighted'); };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }} />
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <textarea className="ad-input" style={{ flex: 1, minHeight: 54, fontSize: 11, fontFamily: 'monospace', resize: 'vertical' }} placeholder="Or paste SVG code…" value={svgDraftHighlighted} onChange={e => setSvgDraftHighlighted(e.target.value)} />
+              <button type="button" className="ad-btn" style={{ fontSize: 12, padding: '5px 10px', alignSelf: 'flex-end' }} disabled={!svgDraftHighlighted.trim()} onClick={() => {
+                try { const b64 = btoa(unescape(encodeURIComponent(svgDraftHighlighted.trim()))); patchField('iconUrlHighlighted', `data:image/svg+xml;base64,${b64}`); setSvgDraftHighlighted(''); clearErr('iconUrlHighlighted'); } catch { }
+              }}>Apply</button>
+            </div>
+            {errors.iconUrlHighlighted && <span className="ad-field-error" data-field-error>{errors.iconUrlHighlighted}</span>}
+          </div>
+        </div>
+        <div className="ad-field" style={{ flex: '1 1 130px', minWidth: 100 }}>
+          <label className="ad-label">Status</label>
+          <select className="ad-input" value={form.status} onChange={e => patchField('status', e.target.value as 'draft' | 'published')}>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="ad-field" style={{ flex: '1 1 260px' }}>
+          <label className="ad-label">Subheading (shown above blocks when open)</label>
+          <input className="ad-input" value={form.subheading ?? ''} onChange={e => patchField('subheading', e.target.value)} placeholder="e.g. Your Consultation Starts Here" />
+        </div>
+        <div className="ad-field" style={{ flex: '0 0 140px' }}>
+          <label className="ad-label">Accent color</label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input type="color" value={form.accentColor ?? '#fc615a'} onChange={e => patchField('accentColor', e.target.value)} style={{ width: 36, height: 36, padding: 2, border: '1px solid var(--ad-border)', borderRadius: 6, background: 'none', cursor: 'pointer', flexShrink: 0 }} />
+            <input className="ad-input" value={form.accentColor ?? ''} onChange={e => patchField('accentColor', e.target.value)} placeholder="#fc615a" style={{ flex: 1 }} />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <strong style={{ fontSize: 13 }}>Content Blocks ({form.blocks.length})</strong>
+          <div className="ad-field-row" style={{ gap: 8 }}>
+            <select className="ad-input ad-input--sm" value={addBlockType} onChange={e => setAddBlockType(e.target.value as ContentBlock['type'])}>
+              {BLOCK_TYPES.map(t => <option key={t} value={t}>{BLOCK_TYPE_LABELS[t]}</option>)}
+            </select>
+            <button type="button" className="ad-btn" onClick={addBlock}>+ Add Block</button>
+          </div>
+        </div>
+
+        {form.blocks.length === 0 && (
+          <p style={{ color: 'var(--ad-text3)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No blocks yet. Add one above.</p>
+        )}
+
+        {form.blocks.map((block, i) => (
+          <BlockForm
+            key={i}
+            block={block}
+            onPatch={patch => patchBlock(i, patch)}
+            onRemove={() => removeBlock(i)}
+            onMoveUp={() => moveBlock(i, -1)}
+            onMoveDown={() => moveBlock(i, 1)}
+          />
+        ))}
+      </div>
+
+      <div className="ad-field-row" style={{ gap: 10 }}>
+        <button type="button" className="ad-btn" disabled={saving} onClick={() => {
+          const errs: Record<string, string> = {};
+          if (!form.title.trim()) errs.title = "Title is required.";
+          if (!form.iconUrl) errs.iconUrl = "Normal icon is required.";
+          if (!form.iconUrlHighlighted) errs.iconUrlHighlighted = "Highlighted icon is required.";
+          if (Object.keys(errs).length > 0) { setErrors(errs); scrollToFirstError(); return; }
+          setErrors({});
+
+          const payload: JourneyStepInput = {
+            ...form,
+            iconKey:     form.iconKey?.trim()     || undefined,
+            accentColor: form.accentColor?.trim() || undefined,
+            subheading:  form.subheading?.trim()  || undefined,
+          };
+          onSave(payload);
+        }}>
+          {saving ? 'Saving…' : 'Save Step'}
+        </button>
+        <button type="button" className="ad-btn ad-btn--ghost" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function JourneyStepsManager({ apiKey }: { apiKey: string }) {
+  const [steps, setSteps]       = useState<ApiJourneyStep[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [editStep, setEditStep] = useState<ApiJourneyStep | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving]     = useState(false);
+  const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await adminGetJourneySteps(apiKey);
+      setSteps(res.data);
+    } catch { showToast('Failed to load steps', false); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const handleSave = async (data: JourneyStepInput) => {
+    setSaving(true);
+    try {
+      if (editStep) {
+        await adminUpdateJourneyStep(apiKey, editStep.id, data);
+        showToast('Step updated.');
+      } else {
+        await adminCreateJourneyStep(apiKey, data);
+        showToast('Step created.');
+      }
+      setEditStep(null);
+      setCreating(false);
+      await load();
+    } catch (err) {
+      showToast((err as Error).message ?? 'Save failed', false);
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await adminDeleteJourneyStep(apiKey, id);
+      showToast('Step deleted.');
+      await load();
+    } catch { showToast('Delete failed', false); }
+    finally { setConfirmDelete(null); }
+  };
+
+  const handleToggleStatus = async (step: ApiJourneyStep) => {
+    const next = step.status === 'published' ? 'draft' : 'published';
+    try {
+      await adminPatchJourneyStepStatus(apiKey, step.id, next);
+      showToast(`Step ${next === 'published' ? 'published' : 'unpublished'}.`);
+      await load();
+    } catch { showToast('Status update failed', false); }
+  };
+
+  const handleMoveStep = async (id: string, dir: -1 | 1) => {
+    const i = steps.findIndex(s => s.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= steps.length) return;
+    const next = [...steps];
+    [next[i], next[j]] = [next[j], next[i]];
+    const reordered = next.map((s, idx) => ({ id: s.id, order: idx }));
+    try {
+      await adminReorderJourneySteps(apiKey, reordered);
+      setSteps(next.map((s, idx) => ({ ...s, order: idx })));
+    } catch { showToast('Reorder failed', false); }
+  };
+
+  if (editStep || creating) {
+    return (
+      <div className="ad-section">
+        {toast && createPortal(<div className={`ad-toast${toast.ok ? '' : ' ad-toast--error'}`}>{toast.msg}</div>, document.body)}
+        <div className="ad-section-header">
+          <h2 className="ad-section-title">{editStep ? `Edit: ${editStep.title}` : 'New Journey Step'}</h2>
+        </div>
+        <StepEditor
+          step={editStep ? { ...editStep } : { ...EMPTY_STEP, order: steps.length }}
+          onSave={handleSave}
+          onCancel={() => { setEditStep(null); setCreating(false); }}
+          saving={saving}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="ad-section">
+      <div className="ad-section-header">
+        <h2 className="ad-section-title">Client Journey Steps</h2>
+        <button className="ad-btn" onClick={() => setCreating(true)}>+ New Step</button>
+      </div>
+
+      {toast && createPortal(<div className={`ad-toast${toast.ok ? '' : ' ad-toast--error'}`}>{toast.msg}</div>, document.body)}
+      {confirmDelete && createPortal(
+        <div className="ad-modal-backdrop" onClick={() => setConfirmDelete(null)}>
+          <div className="ad-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="ad-modal-title">Delete step?</h3>
+            <p style={{ color: 'var(--ad-text2)', marginBottom: 20 }}>This cannot be undone.</p>
+            <div className="ad-modal-actions">
+              <button className="ad-btn ad-btn--danger" onClick={() => void handleDelete(confirmDelete)}>Delete</button>
+              <button className="ad-btn ad-btn--ghost" onClick={() => setConfirmDelete(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {loading ? (
+        <p style={{ color: 'var(--ad-text3)', padding: '32px 0', textAlign: 'center' }}>Loading…</p>
+      ) : steps.length === 0 ? (
+        <p style={{ color: 'var(--ad-text3)', padding: '32px 0', textAlign: 'center' }}>No steps yet. Click "+ New Step" to add one.</p>
+      ) : (
+        <div className="ad-table-wrap">
+          <table className="ad-table">
+            <thead>
+              <tr>
+                <th style={{ width: 60 }}>Order</th>
+                <th>Title</th>
+                <th style={{ width: 80 }}>Blocks</th>
+                <th style={{ width: 100 }}>Status</th>
+                <th style={{ width: 180 }}>Last Updated</th>
+                <th style={{ width: 200 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {steps.map((step, i) => (
+                <tr key={step.id}>
+                  <td style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => void handleMoveStep(step.id, -1)} disabled={i === 0}>↑</button>
+                      <span style={{ fontSize: 12, color: 'var(--ad-text3)' }}>{String(i + 1).padStart(2, '0')}</span>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => void handleMoveStep(step.id, 1)} disabled={i === steps.length - 1}>↓</button>
+                    </div>
+                  </td>
+                  <td>
+                    <strong style={{ display: 'block', fontSize: 14 }}>{step.title}</strong>
+                    {step.subheading && <span style={{ fontSize: 12, color: 'var(--ad-text3)' }}>{step.subheading}</span>}
+                  </td>
+                  <td style={{ textAlign: 'center', color: 'var(--ad-text3)' }}>{step.blocks.length}</td>
+                  <td>
+                    <span className={`ad-badge${step.status === 'published' ? ' ad-badge--green' : ' ad-badge--gray'}`}>{step.status}</span>
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--ad-text3)' }}>{new Date(step.updatedAt).toLocaleString()}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button className="ad-btn ad-btn--sm" onClick={() => setEditStep(step)}>Edit</button>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => void handleToggleStatus(step)}>
+                        {step.status === 'published' ? 'Unpublish' : 'Publish'}
+                      </button>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ color: '#fc615a' }} onClick={() => setConfirmDelete(step.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NavIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -4345,8 +5423,6 @@ function NavIcon({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
 export default function ASAdmin() {
   const [apiKey, setApiKey] = useState<string>(() => sessionStorage.getItem("azari_admin_key") ?? "");
   const [authError, setAuthError] = useState("");
@@ -4355,7 +5431,6 @@ export default function ASAdmin() {
   const [isLight, setIsLight] = useState<boolean>(() => localStorage.getItem("azari-admin-theme") === "light");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Sync is-light class to body so portal-mounted modals (outside .as-admin) inherit CSS variables
   useEffect(() => {
     document.body.classList.toggle("is-light", isLight);
     return () => { document.body.classList.remove("is-light"); };
@@ -4375,7 +5450,7 @@ export default function ASAdmin() {
         .then((res) => setStats((res as { data: Stats }).data))
         .catch(() => { sessionStorage.removeItem("azari_admin_key"); setApiKey(""); });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = () => { sessionStorage.removeItem("azari_admin_key"); setApiKey(""); setStats(null); };
 
@@ -4421,7 +5496,8 @@ export default function ASAdmin() {
         { id: "metrics",    label: "Metrics",       icon: <NavIcon><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></NavIcon> },
         { id: "benefits",   label: "Benefits",      icon: <NavIcon><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></NavIcon> },
         { id: "tropics",    label: "Tropics",       icon: <NavIcon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></NavIcon> },
-        { id: "journey",    label: "Journey",       icon: <NavIcon><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></NavIcon> },
+        { id: "journey",       label: "Journey",       icon: <NavIcon><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></NavIcon> },
+        { id: "journey-steps", label: "Journey Steps", icon: <NavIcon><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></NavIcon> },
         { id: "excellence", label: "Excellence",    icon: <NavIcon><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></NavIcon> },
         { id: "process",    label: "Process",       icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></NavIcon> },
         { id: "cta",        label: "Call to Action", icon: <NavIcon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></NavIcon> },
@@ -4498,6 +5574,7 @@ export default function ASAdmin() {
           {tab === "benefits"          && <BenefitsEditor apiKey={apiKey} />}
           {tab === "tropics"           && <TropicsEditor apiKey={apiKey} />}
           {tab === "journey"           && <ClientJourneyEditor apiKey={apiKey} />}
+          {tab === "journey-steps"    && <JourneyStepsManager apiKey={apiKey} />}
           {tab === "excellence"        && <ExcellenceEditor apiKey={apiKey} />}
           {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
           {tab === "cta"               && <CtaEditor apiKey={apiKey} />}

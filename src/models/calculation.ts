@@ -20,7 +20,6 @@ export const SOLAR_CONSTANTS = {
 
   zeroBillStorageRatio: 3,
 
-  //A.R.A. revision
   loadUsageFactor: 0.7,
 };
 
@@ -98,9 +97,7 @@ export function computeDailyLoadMetrics(appliances: ApplianceLoadInput[]): {
   let nwec = 0;
   let totalDailyUsageWh = 0;
   for (const a of appliances) {
-    //A.R.A. revision
-    // duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
-    // nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
+
     duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
     nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
     totalDailyUsageWh += a.usage;
@@ -239,7 +236,7 @@ export function calculateMonthlySavingsHybrid(dpt: number, duec = 0): EngineResu
 }
 
 export function calculateMonthlySavingsGridTied(dpt: number, duec = 0): EngineResult {
-  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.peakSunHours); //make a function for this if you feel like doing it
+  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.peakSunHours);
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh: 0, systemType: "grid-tied" };
 }

@@ -4,13 +4,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import iconPlay from "../assets/icons/icon-play.svg";
 import {
   fetchProjectById,
+  type ASProjectDetailsModel,
   type ApiProject,
-  type ProjectStat,
   type PerformanceMetric,
   type TechBreakdownItem,
   type ProjectTestimonial,
 } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
+import { BentoCard } from "../components/ASBentoCard";
 
 function getVideoEmbedUrl(url: string): string | null {
   if (!url.trim()) return null;
@@ -61,134 +62,269 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
   );
 }
 
-function getYouTubeVideoId(url: string): string | null {
-  const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
-  if (ytWatch) return ytWatch[1];
-  const ytShort = url.match(/youtu\.be\/([\w-]+)/);
-  if (ytShort) return ytShort[1];
+const YT_ID_PATTERNS: RegExp[] = [
+  /youtube\.com\/watch\?.*v=([\w-]+)/,
+  /youtu\.be\/([\w-]+)/,
+  /youtube\.com\/embed\/([\w-]+)/,
+];
+
+export function getYouTubeId(url?: string): string | null {
+  if (!url) return null;
+  for (const re of YT_ID_PATTERNS) {
+    const match = url.match(re);
+    if (match) return match[1];
+  }
   return null;
 }
 
-function HeroBgVideo({ url }: { url: string }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
-  const ytId = isDirectVideo ? null : getYouTubeVideoId(url);
+type YtThumbQuality = "maxres" | "hq";
 
-  const handleTimeUpdate = useCallback(() => {
-    const v = videoRef.current;
-    if (v && v.currentTime >= 2) {
-      v.currentTime = 0;
-      v.play().catch(() => {});
-    }
-  }, []);
-
-  const handlePlay = useCallback(() => {
-    if (videoRef.current) videoRef.current.classList.add("is-playing");
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.metadata = null;
-      (["play", "pause", "seekbackward", "seekforward", "previoustrack", "nexttrack"] as MediaSessionAction[]).forEach(
-        (action) => { try { navigator.mediaSession.setActionHandler(action, null); } catch {} }
-      );
-    }
-  }, []);
-
-  if (ytId) {
-    const src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1&end=2&iv_load_policy=3&playsinline=1`;
-    return (
-      <div className="as-pd-hero-yt-wrap">
-        <iframe src={src} allow="autoplay; encrypted-media" title="Background preview" tabIndex={-1} />
-      </div>
-    );
-  }
-
-  if (isDirectVideo) {
-    return (
-      <video
-        ref={videoRef}
-        className="as-pd-hero-bg-video"
-        src={url}
-        autoPlay
-        muted
-        playsInline
-        disablePictureInPicture
-        disableRemotePlayback
-        onPlay={handlePlay}
-        onTimeUpdate={handleTimeUpdate}
-      />
-    );
-  }
-
-  return null;
+export function getYouTubeThumbnail(
+  url: string | undefined,
+  quality: YtThumbQuality = "maxres",
+): string | null {
+  const id = getYouTubeId(url);
+  if (!id) return null;
+  const file = quality === "maxres" ? "maxresdefault.jpg" : "hqdefault.jpg";
+  return `https://img.youtube.com/vi/${id}/${file}`;
 }
 
-function categoryColor(cat: string): string {
-  if (cat === "Commercial") return "#a78bfa";
-  if (cat === "Industrial") return "#fbbf24";
-  return "#38bdf8";
+type HeroChip = { value: string; label: string };
+
+function buildHeroChips(project: ApiProject): HeroChip[] {
+  const chips: HeroChip[] = [];
+
+  if (project.loadKw != null && project.loadKw > 0) {
+    chips.push({ value: `${project.loadKw}kW`, label: 'Load Capacity' });
+  }
+
+  const storageVal = project.storageKwh != null && project.storageKwh > 0
+    ? project.storageKwh
+    : (() => {
+      const m = project.system?.match(/\(([\d.]+)\s*kWh/i);
+      return m ? parseFloat(m[1]) : 0;
+    })();
+  if (storageVal > 0) {
+    chips.push({ value: `${storageVal}kWh`, label: 'Storage Capacity' });
+  }
+
+  if (project.productionKwp != null && project.productionKwp > 0) {
+    chips.push({ value: `${project.productionKwp}kWp`, label: 'Production Capacity' });
+  } else {
+    const m = project.system?.match(/^([\d.]+)\s*kWp/i);
+    if (m) chips.push({ value: `${m[1]}kWp`, label: 'Production Capacity' });
+  }
+
+  if (project.savings) {
+    chips.push({ value: project.savings, label: 'Estimated Savings' });
+  }
+
+  if (project.electricalSystem) {
+    chips.push({ value: project.electricalSystem, label: 'Electrical System' });
+  } else if (project.system) {
+    const isThree = /3-phase|three.phase/i.test(project.system);
+    chips.push({ value: isThree ? 'Three-Phase' : 'Single-Phase', label: 'Electrical System' });
+  }
+
+  const seen = new Set<string>();
+  return chips.filter(c => { if (seen.has(c.label)) return false; seen.add(c.label); return true; });
 }
+
+const CHIP_PAGE_SIZE = 3;
+
+function useIsMobile(breakpoint = 768) {
+  const [mobile, setMobile] = useState(() => window.matchMedia(`(max-width: ${breakpoint}px)`).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpoint]);
+  return mobile;
+}
+
+// must match --chip-w and --chip-gap in LESS
+const CAROUSEL_CHIP_W = 165;
+const CAROUSEL_CHIP_GAP = 12;
+const CAROUSEL_STEP = CAROUSEL_CHIP_W + CAROUSEL_CHIP_GAP;
 
 function HeroSection({ project }: { project: ApiProject }) {
   const [videoOpen, setVideoOpen] = useState(false);
+  const [chipIdx, setChipIdx] = useState(0);
+  const isMobile = useIsMobile();
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const hasAnimated = useRef(false);
+  const [isShown, setIsShown] = useState(false);
+
+  const chips = buildHeroChips(project);
+  const useCarousel = !isMobile && chips.length > CHIP_PAGE_SIZE;
+  const canPrev = chipIdx > 0;
+  const canNext = chipIdx < chips.length - CHIP_PAGE_SIZE;
+
+  const heroSrc = getYouTubeThumbnail(project.videoUrl) ?? project.imageUrl;
+  const heroFallback = getYouTubeThumbnail(project.videoUrl, "hq") ?? project.imageUrl;
+
+  const handleHeroError = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      if (img.dataset.fallbackApplied === "true") return; // guard against loop
+      img.dataset.fallbackApplied = "true";
+      img.src = heroFallback;
+    },
+    [heroFallback],
+  );
+
+  const handleHeroLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      // YouTube serves a 120×90 gray placeholder when maxres doesn't exist
+      if (img.naturalWidth <= 120 && img.dataset.fallbackApplied !== "true") {
+        img.dataset.fallbackApplied = "true";
+        img.src = heroFallback;
+      }
+    },
+    [heroFallback],
+  );
+
+  useEffect(() => {
+    const el = bottomRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        setIsShown(true);
+        observer.disconnect();
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="as-pd-hero">
       {videoOpen && project.videoUrl && (
         <VideoModal url={project.videoUrl} onClose={() => setVideoOpen(false)} />
       )}
-      {project.videoUrl ? (
-        !videoOpen && <HeroBgVideo url={project.videoUrl} />
-      ) : (
-        <img src={project.imageUrl} alt={project.title} className="as-pd-hero-img" />
-      )}
+      <img
+        src={heroSrc}
+        alt={project.title}
+        className="as-pd-hero-img"
+        onError={handleHeroError}
+        onLoad={handleHeroLoad}
+      />
       <div className="as-pd-hero-overlay" />
-      {project.videoUrl && (
-        <button
-          className="as-pd-hero-play"
-          onClick={() => setVideoOpen(true)}
-          aria-label="Watch the video"
-        >
-          <img src={iconPlay} alt="" draggable={false} />
-        </button>
-      )}
-      <div className="as-pd-hero-content">
-        <div className="as-pd-hero-left">
-          <span
-            className="as-pd-category-badge"
-            style={{ color: categoryColor(project.category) }}
-          >
-            {project.category.toUpperCase()}
-          </span>
-          <h1 className="as-pd-hero-title">{project.title}</h1>
-          {project.subtitle && (
-            <p className="as-pd-hero-subtitle">{project.subtitle}</p>
-          )}
-          {project.stats && project.stats.length > 0 && (
-            <div className="as-pd-hero-stats">
-              {(project.stats as ProjectStat[]).map((stat, i) => (
-                <div key={i} className="as-pd-hero-stat">
-                  <span className="as-pd-hero-stat-value">{stat.value}</span>
-                  <span className="as-pd-hero-stat-label">{stat.label}</span>
+      <div ref={bottomRef} className={`as-pd-hero-bottom${isShown ? ' is-shown' : ''}`}>
+        <div className="as-pd-hero-content">
+          <div className="as-pd-hero-left">
+            <span
+              className="as-pd-category-badge"
+              style={{ color: project.categoryColor || '#ffffff' }}
+            >
+              {project.category.toUpperCase()}
+            </span>
+            <h1 className="as-pd-hero-title">{project.title}</h1>
+            {project.subtitle && (
+              <p className="as-pd-hero-subtitle">{project.subtitle}</p>
+            )}
+            {chips.length > 0 && (
+              useCarousel ? (
+                <div className="as-pd-hero-stats as-pd-hero-stats--nav">
+                  <div className="as-pd-stats-clip">
+                    <div
+                      className="as-pd-stats-track"
+                      style={{ transform: `translateX(-${chipIdx * CAROUSEL_STEP}px)` }}
+                    >
+                      {chips.map(chip => (
+                        <div key={chip.label} className="as-pd-hero-stat">
+                          <span className="as-pd-hero-stat-value">{chip.value}</span>
+                          <span className="as-pd-hero-stat-label">{chip.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="as-pd-stat-nav-group">
+                    <button
+                      className="as-pd-stat-nav"
+                      onClick={() => setChipIdx(i => Math.max(0, i - 1))}
+                      disabled={!canPrev}
+                      aria-label="Previous stats"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                    <button
+                      className="as-pd-stat-nav"
+                      onClick={() => setChipIdx(i => Math.min(chips.length - CHIP_PAGE_SIZE, i + 1))}
+                      disabled={!canNext}
+                      aria-label="Next stats"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ) : (
+                <div className="as-pd-hero-stats">
+                  {chips.map(chip => (
+                    <div key={chip.label} className="as-pd-hero-stat">
+                      <span className="as-pd-hero-stat-value">{chip.value}</span>
+                      <span className="as-pd-hero-stat-label">{chip.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
         </div>
+        {project.videoUrl && (
+          <button
+            className="as-pd-hero-play"
+            onClick={() => setVideoOpen(true)}
+            aria-label="Watch the video"
+          >
+            <img src={iconPlay} alt="" draggable={false} />
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasAnimated = useRef(false);
+  const [isShown, setIsShown] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        setIsShown(true);
+        observer.disconnect();
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -8% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (!metrics || metrics.length === 0) return null;
   return (
-    <section className="as-pd-section as-pd-performance">
+    <section ref={sectionRef} className={`as-pd-section as-pd-performance${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">Performance &amp; Resilience Summary</h2>
-        <div className="as-pd-metrics-grid">
+        <div className="as-pd-perf-grid">
           {metrics.map((m, i) => (
-            <div key={i} className="as-pd-metric-card">
-              <div className="as-pd-metric-title">{m.title}</div>
-              <div className="as-pd-metric-desc">{m.description}</div>
+            <div key={i} className="as-pd-perf-item">
+              <div className="as-pd-perf-title">{m.title}</div>
+              <div className="as-pd-perf-desc">{m.description}</div>
             </div>
           ))}
         </div>
@@ -198,32 +334,34 @@ function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
 }
 
 function TechnicalBreakdownSection({ items }: { items: TechBreakdownItem[] }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasAnimated = useRef(false);
+  const [isShown, setIsShown] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        setIsShown(true);
+        observer.disconnect();
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -8% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   if (!items || items.length === 0) return null;
   return (
-    <section className="as-pd-section as-pd-breakdown">
+    <section ref={sectionRef} className={`as-pd-section as-pd-breakdown${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">Technical Breakdown</h2>
-        <div className="as-pd-breakdown-grid">
+        <div className="as-pd-breakdown-bento">
           {items.map((item, i) => (
-            <div
-              key={i}
-              className={`as-pd-breakdown-card${item.featured ? " as-pd-breakdown-card--featured" : ""}`}
-            >
-              {item.imageUrl && (
-                <div className="as-pd-breakdown-img-wrap">
-                  <img src={item.imageUrl} alt={item.title} className="as-pd-breakdown-img" />
-                </div>
-              )}
-              <div className="as-pd-breakdown-body">
-                {item.badge && (
-                  <span className="as-pd-breakdown-badge">{item.badge}</span>
-                )}
-                <div className="as-pd-breakdown-title">{item.title}</div>
-                {item.subtitle && (
-                  <div className="as-pd-breakdown-subtitle">{item.subtitle}</div>
-                )}
-              </div>
-            </div>
+            <BentoCard key={i} item={item} />
           ))}
         </div>
       </div>
@@ -232,8 +370,32 @@ function TechnicalBreakdownSection({ items }: { items: TechBreakdownItem[] }) {
 }
 
 function GallerySection({ images }: { images: string[] }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasAnimated = useRef(false);
+  const [isShown, setIsShown] = useState(false);
+  const [visibleItems, setVisibleItems] = useState(-1);
   const [modalOpen, setModalOpen] = useState(false);
   const [navbarBottom, setNavbarBottom] = useState(91);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        setIsShown(true);
+        const count = Math.min(images.length, 8);
+        Array.from({ length: count }).forEach((_, index) => {
+          window.setTimeout(() => setVisibleItems(index), (index + 1) * 180);
+        });
+        observer.disconnect();
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -8% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [images.length]);
 
   useEffect(() => {
     if (!modalOpen) return;
@@ -252,7 +414,7 @@ function GallerySection({ images }: { images: string[] }) {
   const remaining = extraImages.length;
 
   return (
-    <section className="as-pd-section as-pd-gallery">
+    <section ref={sectionRef} className={`as-pd-section as-pd-gallery${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">Project Installation Gallery</h2>
         <div className="as-pd-gallery-grid">
@@ -261,7 +423,7 @@ function GallerySection({ images }: { images: string[] }) {
             return (
               <div
                 key={i}
-                className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : ""}`}
+                className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : ""}${i <= visibleItems ? " is-shown" : ""}`}
                 onClick={isLast ? () => setModalOpen(true) : undefined}
               >
                 <img src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" />
@@ -326,16 +488,42 @@ function GallerySection({ images }: { images: string[] }) {
 }
 
 function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const hasAnimated = useRef(false);
+  const [isShown, setIsShown] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated.current) return;
+        hasAnimated.current = true;
+        setIsShown(true);
+        observer.disconnect();
+      },
+      { threshold: 0.2, rootMargin: '0px 0px -8% 0px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="as-pd-section as-pd-testimonial-section">
+    <section ref={sectionRef} className={`as-pd-section as-pd-testimonial-section${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">What our clients say</h2>
-        <div className="as-pd-testimonial-card">
-          <div className="as-pd-testimonial-quote-mark">&ldquo;</div>
-          <p className="as-pd-testimonial-quote">{testimonial.quote}</p>
+        <div className="as-pd-testimonial-layout">
+          { }
           <div className="as-pd-testimonial-author">
             <span className="as-pd-testimonial-name">{testimonial.clientName}</span>
             <span className="as-pd-testimonial-role">{testimonial.clientRole}</span>
+          </div>
+          { }
+          <div className="as-pd-testimonial-open-quote" aria-hidden="true">&ldquo;</div>
+          { }
+          <div className="as-pd-testimonial-body">
+            <p className="as-pd-testimonial-quote">{testimonial.quote}</p>
+            <div className="as-pd-testimonial-close-quote" aria-hidden="true">&rdquo;</div>
           </div>
         </div>
       </div>
@@ -356,10 +544,10 @@ function SkeletonLoader() {
   );
 }
 
-export default function ASProjectDetail() {
+export default function ASProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [project, setProject] = useState<ApiProject | null>(null);
+  const [project, setProject] = useState<ASProjectDetailsModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 

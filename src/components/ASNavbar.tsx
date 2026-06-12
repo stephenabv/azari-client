@@ -27,12 +27,12 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
   const showPackages = pageVis.packages !== false;
 
-  const tabs = ["Home", "Projects", ...(showPackages ? ["Packages"] : []), "Client Journey"];
+  const tabs = ["Projects", ...(showPackages ? ["Packages"] : []), "Client Journey"];
 
   const tabRoutes: Record<string, string> = {
-    Home: "/",
     Projects: "/projects",
     Packages: "/packages",
+    "Client Journey": "/client-journey",
   };
 
   const updateIndicator = (tab: string) => {
@@ -92,7 +92,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
 
   useEffect(() => {
     if (location.pathname === "/" && location.hash === "#calculator") {
-      setActiveTab("Home");
+      setActiveTab("");
 
       setTimeout(() => {
         const calculatorSection = document.getElementById("calculator");
@@ -136,47 +136,23 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
 
   const handleTabClick = (tab: string) => {
     setIsMobileMenuOpen(false);
-
-    if (tab === "Client Journey") {
-      const scroll = () => {
-        document.getElementById("client-journey")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      };
-      if (location.pathname !== "/") {
-        navigate("/");
-        setTimeout(scroll, 220);
-      } else {
-        scroll();
-      }
-      return;
-    }
-
     setActiveTab(tab);
-
-    if (tab === "Home" && location.pathname === "/") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
 
     navigate(tabRoutes[tab]);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleGetQuoteClick = () => {
-    setIsMobileMenuOpen(false);
-    navigate("/quotation-engine");
   };
 
   return (
     <nav className="ASNavbar" ref={navbarRef}>
       <div
         className="nav-logo"
-        onClick={() => handleTabClick("Home")}
+        onClick={() => { setActiveTab(""); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
         role="button"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            handleTabClick("Home");
+            setActiveTab(""); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" });
           }
         }}
       />
@@ -207,10 +183,6 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
       </ul>
 
       <div className="nav-actions">
-        <button className="getQuote-btn" onClick={handleGetQuoteClick}>
-          Get Quote
-        </button>
-
         <button
           type="button"
           className="theme-toggle-btn"

@@ -5,8 +5,9 @@ import ASAdmin from "../pages/ASAdmin";
 import ASPackages from "../pages/ASPackages";
 import ASQuotationEngine from "../components/ASQuotationEngine";
 import ASProjects from "../components/ASProjects";
-import ASProjectDetail from "../pages/ASProjectDetail";
+import ASProjectDetails from "../pages/ASProjectDetail";
 import ASNotFound from "../components/ASNotFound";
+import ASClientJourneyPage from "../pages/ASClientJourneyPage";
 
 const normalizeRoutePath = (value: string) => {
   const trimmed = value.trim();
@@ -33,7 +34,7 @@ export const ASAppRoute = createBrowserRouter([
       },
       {
         path: "/projects/:id",
-        element: <ASProjectDetail />
+        element: <ASProjectDetails />
       },
       {
         path: "/packages",
@@ -42,6 +43,10 @@ export const ASAppRoute = createBrowserRouter([
       {
         path: "/quotation-engine",
         element: <ASQuotationEngine />
+      },
+      {
+        path: "/client-journey",
+        element: <ASClientJourneyPage />
       },
       {
         path: "*",

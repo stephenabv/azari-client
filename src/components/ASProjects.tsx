@@ -32,9 +32,15 @@ const filters: ProjectCategory[] = [
 function getYouTubeThumbnail(url?: string): string | null {
   if (!url) return null;
   const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
-  if (ytWatch) return `https://img.youtube.com/vi/${ytWatch[1]}/hqdefault.jpg`;
+  if (ytWatch) return `https://img.youtube.com/vi/${ytWatch[1]}/maxresdefault.jpg`;
   const ytShort = url.match(/youtu\.be\/([\w-]+)/);
-  if (ytShort) return `https://img.youtube.com/vi/${ytShort[1]}/hqdefault.jpg`;
+  if (ytShort) return `https://img.youtube.com/vi/${ytShort[1]}/maxresdefault.jpg`;
+  return null;
+}
+
+function getYouTubeFallbackThumbnail(src: string): string | null {
+  if (!src.includes('img.youtube.com')) return null;
+  if (src.includes('maxresdefault')) return src.replace('maxresdefault', 'mqdefault');
   return null;
 }
 
@@ -140,7 +146,14 @@ export default function ASProjects() {
               onClick={() => navigate(`/projects/${project.id}`)}
               onKeyDown={(e) => { if (e.key === "Enter") navigate(`/projects/${project.id}`); }}
             >
-              <img src={project.image} alt={project.title} />
+              <img
+                src={project.image}
+                alt={project.title}
+                onError={(e) => {
+                  const fallback = getYouTubeFallbackThumbnail(e.currentTarget.src);
+                  if (fallback) e.currentTarget.src = fallback;
+                }}
+              />
               <div className="as-project-card-shade" />
 
               <div className="as-project-card-content">

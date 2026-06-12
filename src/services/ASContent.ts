@@ -1,8 +1,7 @@
 
 const API_BASE = '/api';
 
-// ─── Rate-limit pub/sub ────────────────────────────────────────────────────────
-// Any fetch that receives a 429 fires this so components can show the banner.
+
 
 export type RateLimitInfo = { retryAfterSec: number; resetAt: number };
 const _rlSubs = new Set<(info: RateLimitInfo) => void>();
@@ -18,7 +17,7 @@ function notifyRateLimit(res: Response): never {
   throw new Error(`rate_limited:${sec}`);
 }
 
-// Central fetch wrapper — intercepts 429 before callers see it
+
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, init);
   if (res.status === 429) notifyRateLimit(res);
@@ -259,15 +258,38 @@ export interface ProjectStat {
 export interface PerformanceMetric {
   title: string;
   description: string;
+  value?: number;
 }
 
-export interface TechBreakdownItem {
-  title: string;
-  subtitle?: string;
-  badge?: string;
+
+
+interface BaseBentoCard {
+  tag?: string;
   imageUrl?: string;
-  featured?: boolean;
 }
+
+export interface HeroBentoCard extends BaseBentoCard {
+  readonly cardType: 'hero';
+  title: string;
+  badge?: string;
+  accent?: string;
+}
+
+export interface StatBentoCard extends BaseBentoCard {
+  readonly cardType: 'stat';
+  statValue: number;
+  statUnit: string;
+  statLabel: string;
+  ringColor?: string;
+}
+
+export interface FeatureBentoCard extends BaseBentoCard {
+  readonly cardType: 'feature';
+  title: string;
+  description?: string;
+}
+
+export type TechBreakdownItem = HeroBentoCard | StatBentoCard | FeatureBentoCard;
 
 export interface ProjectTestimonial {
   clientName: string;
@@ -280,6 +302,7 @@ export interface ApiProject {
   title: string;
   subtitle?: string;
   category: ProjectCategory;
+  categoryColor?: string;
   system: string;
   savings: string;
   imageUrl: string;
@@ -291,14 +314,24 @@ export interface ApiProject {
   technicalBreakdown: TechBreakdownItem[];
   galleryImages: string[];
   testimonial?: ProjectTestimonial | null;
+  systemCardSubtext?: string;
+  savingsCardSubtext?: string;
+  electricalSystem?: string;
+  loadKw?: number;
+  productionKwp?: number;
+  storageKwh?: number;
   createdAt: string;
   updatedAt: string;
 }
+
+
+export type ASProjectDetailsModel = ApiProject;
 
 export interface ProjectInput {
   title: string;
   subtitle?: string;
   category: ProjectCategory;
+  categoryColor?: string;
   system: string;
   savings: string;
   videoUrl?: string;
@@ -310,6 +343,12 @@ export interface ProjectInput {
   technicalBreakdown?: TechBreakdownItem[];
   galleryImages?: string[];
   testimonial?: ProjectTestimonial | null;
+  systemCardSubtext?: string;
+  savingsCardSubtext?: string;
+  electricalSystem?: string;
+  loadKw?: number;
+  productionKwp?: number;
+  storageKwh?: number;
 }
 
 export async function fetchProjects(): Promise<ApiProject[]> {
@@ -346,6 +385,7 @@ function buildProjectFormData(data: ProjectInput): FormData {
   fd.append('title', data.title);
   if (data.subtitle !== undefined) fd.append('subtitle', data.subtitle);
   fd.append('category', data.category);
+  if (data.categoryColor !== undefined) fd.append('categoryColor', data.categoryColor);
   fd.append('system', data.system);
   fd.append('savings', data.savings);
   if (data.videoUrl !== undefined) fd.append('videoUrl', data.videoUrl);
@@ -356,6 +396,12 @@ function buildProjectFormData(data: ProjectInput): FormData {
   fd.append('technicalBreakdown', JSON.stringify(data.technicalBreakdown ?? []));
   fd.append('galleryImages', JSON.stringify(data.galleryImages ?? []));
   fd.append('testimonial', data.testimonial ? JSON.stringify(data.testimonial) : '');
+  if (data.systemCardSubtext  !== undefined) fd.append('systemCardSubtext', data.systemCardSubtext);
+  if (data.savingsCardSubtext !== undefined) fd.append('savingsCardSubtext', data.savingsCardSubtext);
+  if (data.electricalSystem   !== undefined) fd.append('electricalSystem', data.electricalSystem);
+  if (data.loadKw             !== undefined) fd.append('loadKw', String(data.loadKw));
+  if (data.productionKwp      !== undefined) fd.append('productionKwp', String(data.productionKwp));
+  if (data.storageKwh         !== undefined) fd.append('storageKwh', String(data.storageKwh));
   if (data.imageFile) fd.append('image', data.imageFile);
   return fd;
 }
@@ -400,7 +446,7 @@ export async function adminDeleteProject(apiKey: string, id: string) {
 
 
 
-// ─── Component inventory ─────────────────────────────────────────────────────
+
 
 export interface ApiSolarComponent {
   id: string;
@@ -412,20 +458,20 @@ export interface ApiSolarComponent {
   unitPrice: number | null;
   pricingEnabled: boolean;
   isActive: boolean;
-  sortOrder: number; // DEPRECATED: Sorting now uses createdAt
+  sortOrder: number;
   productionCapacityKwp: number;
   loadCapacityKw: number;
   storageCapacityKwh: number;
   capacityUnit?: string | null;
-  // Ratio-bound fields — read by the package-builder stepper UI
-  parallelMin: number;   // Inverter: min absolute count in a package
-  parallelMax: number;   // Inverter: max absolute count (= max_parallel_units)
-  perInverterMin: number; // Battery/Panel: legacy min units per inverter
-  perInverterMax: number; // Battery/Panel: legacy max units per inverter
-  // Inverter electrical spec — used to derive physics-based panel/battery bounds
-  pvMinPower?: number | null;          // kWp per unit — min PV input (lower panel bound)
-  pvMaxPower?: number | null;          // kWp per unit — max PV input (upper panel bound)
-  batteryMaxCapacity?: number | null;  // kWh per unit — max battery storage supported
+
+  parallelMin: number;
+  parallelMax: number;
+  perInverterMin: number;
+  perInverterMax: number;
+
+  pvMinPower?: number | null;
+  pvMaxPower?: number | null;
+  batteryMaxCapacity?: number | null;
   specsReviewedAt?: string | null;
   dataSheetUrl?: string | null;
   createdAt: string;
@@ -452,7 +498,7 @@ export interface ComponentInput {
   pvMaxPower?: number | null;
   batteryMaxCapacity?: number | null;
   dataSheetUrl?: string | null;
-  // Note: 'unit' (SKU unit) and 'sortOrder' are deprecated - capacity units are dimension-driven by category
+
 }
 
 export interface ApiPackageComponent {
@@ -465,7 +511,7 @@ export interface ApiPackageComponent {
   component: ApiSolarComponent;
 }
 
-// ─── Packages ─────────────────────────────────────────────────────────────────
+
 
 export interface ApiSolarPackage {
   id: string;
@@ -474,12 +520,12 @@ export interface ApiSolarPackage {
   inverterKw: number;
   storageKwh: number;
   phase: 'single' | 'three';
-  totalPrice: number | null;   // null = components not fully priced yet
+  totalPrice: number | null;
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
-  sortOrder: number; // DEPRECATED: Sorting now uses createdAt
+  sortOrder: number;
   imageUrl?: string | null;
   mainFeatures: string[];
   components: ApiPackageComponent[];
@@ -490,17 +536,11 @@ export interface ApiSolarPackage {
 export interface PackageComponentLine {
   componentId: string;
   quantity: number;
-  baseComponentId?: string | null;  // drives derived quantity; null = fixed
-  multiplier?: number;              // quantity = ceil(base.quantity * multiplier)
+  baseComponentId?: string | null;
+  multiplier?: number;
 }
 
-/**
- * Monthly savings estimate from production capacity.
- * Formula: productionKwp × 4 peak-sun-hours × 30 days × ₱12/kWh × 0.80 performance ratio,
- * rounded DOWN to the nearest ₱500. Range is savings ±₱1000.
- * 0.80 PR accounts for temperature derating, wiring losses, inverter efficiency, and soiling
- * (NREL PVWatts default for the Philippines).
- */
+
 export function computeMonthlySavings(productionKwp: number): { savings: number; min: number; max: number } {
   const raw = productionKwp * 4 * 30 * 12 * 0.80;
   const savings = Math.floor(raw / 500) * 500;
@@ -580,7 +620,7 @@ export async function adminDeletePackage(apiKey: string, id: string) {
   return res.json();
 }
 
-// ─── Component inventory API ──────────────────────────────────────────────────
+
 
 export async function adminGetComponents(apiKey: string) {
   const res = await apiFetch(`${API_BASE}/admin/components`, {
@@ -676,11 +716,9 @@ export async function adminLoadDefaultComponents(apiKey: string, force = false) 
   return res.json();
 }
 
-// ─── Package Inquiries API ────────────────────────────────────────────────────
 
-// Customized config the customer actually inquired about (Scope B: faithful submission).
-// All capacity fields are canonical kilo values (kWp / kW / kWh).
-// qty and components carry the customer's scaled selections.
+
+
 export interface PackageDetails {
   solarKwp: number;
   inverterKw: number;
@@ -689,7 +727,7 @@ export interface PackageDetails {
   billRangeMin: number;
   billRangeMax: number;
   totalPrice: number | null;
-  // Scope B additions — present when the customer customized the package:
+
   qty?: { inverter: number; batteries: number; panels: number };
   components?: Array<{ brand: string; name: string; category: string; quantity: number; unitPrice: number | null }>;
 }
@@ -708,7 +746,7 @@ export interface PackageInquiry {
   updatedAt: string;
 }
 
-// The live, scaled selection built in PackageCard when the customer clicks Inquire.
+
 export interface PackageSelection {
   qty: { inverter: number; batteries: number; panels: number };
   solarKwp: number;
@@ -774,6 +812,166 @@ export async function adminUploadPackageImage(apiKey: string, id: string, imageF
   const fd = new FormData();
   fd.append('image', imageFile);
   const res = await apiFetch(`${API_BASE}/admin/packages/${id}/image`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey },
+    body: fd,
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Upload failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+
+
+export type JourneyStatus = 'draft' | 'published';
+
+export interface BulletItem {
+  text: string;
+  boldLead?: string;
+  children?: BulletItem[];
+  linkUrl?: string;
+  linkLabel?: string;
+  linkExternal?: boolean;
+}
+
+export interface LinkItem {
+  label: string;
+  url: string;
+  external: boolean;
+  style: 'text' | 'button';
+}
+
+export interface PartnerItem {
+  name: string;
+  logoUrl?: string;
+  downloadUrl?: string;
+  external: boolean;
+}
+
+export interface ContactChannel {
+  kind: 'whatsapp' | 'viber' | 'facebook' | 'instagram' | 'email' | 'phone';
+  value: string;
+  url: string;
+}
+
+interface BaseBlock { order: number }
+
+export interface HeadingBlock       extends BaseBlock { type: 'heading';          text: string; level: 1 | 2 | 3 | 4 }
+export interface ParagraphBlock     extends BaseBlock { type: 'paragraph';        html: string }
+export interface BulletListBlock    extends BaseBlock { type: 'bullet_list';      items: BulletItem[] }
+export interface LinkGroupBlock     extends BaseBlock { type: 'link_group';       links: LinkItem[] }
+export interface ButtonBlock        extends BaseBlock { type: 'button';           label: string; url: string; external: boolean }
+export interface ImageBlock         extends BaseBlock { type: 'image';            src: string; alt: string; caption?: string }
+export interface PartnerGridBlock   extends BaseBlock { type: 'partner_grid';     items: PartnerItem[] }
+export interface ContactBlock       extends BaseBlock { type: 'contact_channels'; channels: ContactChannel[] }
+export interface DividerBlock       extends BaseBlock { type: 'divider' }
+
+export type ContentBlock =
+  | HeadingBlock | ParagraphBlock | BulletListBlock | LinkGroupBlock
+  | ButtonBlock  | ImageBlock     | PartnerGridBlock | ContactBlock | DividerBlock;
+
+export interface ApiJourneyStep {
+  id: string;
+  order: number;
+  title: string;
+  iconKey?: string | null;
+  iconUrl?: string | null;
+  iconUrlHighlighted?: string | null;
+  accentColor?: string | null;
+  subheading?: string | null;
+  status: JourneyStatus;
+  blocks: ContentBlock[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type JourneyStepInput = Omit<ApiJourneyStep, 'id' | 'createdAt' | 'updatedAt'>;
+
+export async function fetchClientJourney(): Promise<ApiJourneyStep[]> {
+  try {
+    const res = await apiFetch(`${API_BASE}/client-journey`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success: boolean; data: ApiJourneyStep[] };
+    return json.data ?? [];
+  } catch { return []; }
+}
+
+export async function adminGetJourneySteps(apiKey: string) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' },
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load steps: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: ApiJourneyStep[] };
+}
+
+export async function adminCreateJourneyStep(apiKey: string, data: JourneyStepInput) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUpdateJourneyStep(apiKey: string, id: string, data: Partial<JourneyStepInput>) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Update failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDeleteJourneyStep(apiKey: string, id: string) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' },
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminReorderJourneySteps(apiKey: string, steps: Array<{ id: string; order: number }>) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps/reorder`, {
+    method: 'PATCH',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ steps }),
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Reorder failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminPatchJourneyStepStatus(apiKey: string, id: string, status: JourneyStatus) {
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps/${id}/status`, {
+    method: 'PATCH',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Status update failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminUploadJourneyIcon(apiKey: string, id: string, imageFile: File) {
+  const fd = new FormData();
+  fd.append('image', imageFile);
+  const res = await apiFetch(`${API_BASE}/admin/client-journey/steps/${id}/icon`, {
     method: 'PUT',
     headers: { 'x-admin-api-key': apiKey },
     body: fd,

@@ -81,7 +81,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
     setIsSubmitting(true);
     setSubmitError("");
     try {
-      // Scope B: submit the customer's customized config when available.
+
       const savings = selection
         ? { min: selection.savings.min, max: selection.savings.max }
         : computeMonthlySavings(pkg.solarKwp);

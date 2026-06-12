@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   calculateSolarEstimate,
   formatProjectionDescription,
-  // formatProjectionLabel,
+
   formatSystemSize,
   getProjectionMonths,
   SOLAR_CONSTANTS,
@@ -206,11 +206,7 @@ export default function ASImpactCalculator() {
     config.animation.duration
   );
 
-  // const rollingProjectedSavings = useInitialRollingNumber(
-  //   results.projectedSavings,
-  //   isShown,
-  //   config.animation.duration
-  // );
+
 
   const formattedSystemSize = formatSystemSize(rollingSystemSize);
 
@@ -225,7 +221,7 @@ export default function ASImpactCalculator() {
     100;
 
   const projectionMonths = getProjectionMonths(config.formula);
-  // const projectionLabel = formatProjectionLabel(projectionMonths);
+
   const projectionDescription = formatProjectionDescription(projectionMonths);
 
   const handleGetQuote = () => {
@@ -382,15 +378,7 @@ export default function ASImpactCalculator() {
               </p>
             </div>
 
-            {/* <div>
-              <p className="as-result-label">{projectionLabel}</p>
-              <p className="as-savings">
-                ₱{" "}
-                {Math.round(rollingProjectedSavings).toLocaleString("en-US", {
-                  maximumFractionDigits: 0,
-                })}
-              </p>
-            </div> */}
+            {}
           </div>
 
           <button

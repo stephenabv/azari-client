@@ -9,7 +9,7 @@ import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
 import checkBullet from "../assets/logos/packages/check-bullet.svg";
 
 
-// Mobile responsive styles for CEO image
+
 const ctaMobileStyles = `
   @media (max-width: 767px) {
     .as-packages-cta {
@@ -48,7 +48,7 @@ const INITIAL_VISIBLE = 6;
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };
 
-// ─── Package builder helpers ───────────────────────────────────────────────────
+
 
 function getCoreComponents(pkg: ApiSolarPackage) {
   return {
@@ -75,12 +75,12 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
   const bc = batteryLine?.component;
   const pc = panelLine?.component;
 
-  // Admin-configured quantities are the floor for legacy packages
+
   const cfgI = inverterLine?.quantity ?? 1;
   const cfgB = batteryLine?.quantity  ?? 0;
   const cfgP = panelLine?.quantity    ?? 1;
 
-  // Panel bounds — physics-derived when pvMaxPower is set, legacy ratio otherwise
+
   let pMin: number, pMax: number;
   if (ic?.pvMaxPower != null && pc != null && pc.productionCapacityKwp > 0) {
     const totalPvMin = (ic.pvMinPower ?? 0) * inverterCount;
@@ -88,7 +88,7 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
     pMin = totalPvMin > 0 ? Math.ceil(totalPvMin / pc.productionCapacityKwp) : 1;
     pMax = Math.floor(totalPvMax / pc.productionCapacityKwp);
   } else {
-    // Legacy: cap at floor(inverter rated kW / panel kWp) per inverter
+
     const panelMaxPerInverter = (ic && pc && pc.productionCapacityKwp > 0)
       ? Math.floor(ic.loadCapacityKw / pc.productionCapacityKwp)
       : cfgP;
@@ -96,14 +96,14 @@ function computeBounds(pkg: ApiSolarPackage, inverterCount: number): Bounds {
     pMax = Math.max(cfgP, panelMaxPerInverter * inverterCount);
   }
 
-  // Battery bounds — physics-derived when batteryMaxCapacity is set, legacy ratio otherwise
+
   let bMin: number, bMax: number;
   if (ic?.batteryMaxCapacity != null && bc != null && bc.storageCapacityKwh > 0) {
     const totalBattMax = ic.batteryMaxCapacity * inverterCount;
     bMin = 1;
     bMax = Math.max(1, Math.floor(totalBattMax / bc.storageCapacityKwh));
   } else {
-    // Legacy: floor(inverter rated kW / battery kWh) per inverter
+
     const batteryMaxPerInverter = (ic && bc && bc.storageCapacityKwh > 0)
       ? Math.max(1, Math.floor(ic.loadCapacityKw / bc.storageCapacityKwh))
       : cfgB;
@@ -144,9 +144,9 @@ function effectiveQty(pc: ApiPackageComponent, allPcs: ApiPackageComponent[], qt
 
 function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
   const isHybrid = pkg.storageKwh > 0;
-  // mainFeatures override the auto-generated capacity bullets when present
+
   if (pkg.mainFeatures?.length) return pkg.mainFeatures;
-  // Daily energy yield: kWp × 4 PSH × 0.80 PR (consistent with computeMonthlySavings)
+
   const dailyKwh = Math.round(solarKwp * 4 * 0.80 * 10) / 10;
   const list = [
     `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
@@ -234,7 +234,7 @@ function PackageCard({
   const isHybrid = pkg.storageKwh > 0;
   const displayName = inverterLine?.component.model ?? pkg.name;
 
-  // Live capacity — derived from actual component specs, not from pkg flat fields
+
   const liveInverterKw = Math.round((inverterLine?.component.loadCapacityKw ?? 0) * qty.inverter * 10) / 10;
   const liveSolarKwp   = Math.round((panelLine?.component.productionCapacityKwp ?? 0) * qty.panels * 100) / 100;
   const liveStorageKwh = Math.round((batteryLine?.component.storageCapacityKwh ?? 0) * qty.batteries * 100) / 100;
@@ -242,7 +242,7 @@ function PackageCard({
   const savings = computeMonthlySavings(liveSolarKwp);
   const features = buildFeatures(pkg, liveInverterKw, liveSolarKwp, liveStorageKwh);
 
-  // Bounds derived from catalog product fields (recomputed whenever inverter count changes)
+
   const bounds = computeBounds(pkg, qty.inverter);
 
   const bumpInverter = (delta: number) => {
@@ -250,8 +250,7 @@ function PackageCard({
       const newI = clamp(prev.inverter + delta, bounds.iMin, bounds.iMax);
       if (newI === prev.inverter) return prev;
       const nb = computeBounds(pkg, newI);
-      // Scale batteries and panels proportionally using the admin-configured ratio —
-      // the recommended configuration scales linearly with inverter count.
+
       const cfgI = inverterLine?.quantity ?? 1;
       const cfgB = batteryLine?.quantity ?? 0;
       const cfgP = panelLine?.quantity ?? 1;
@@ -273,7 +272,7 @@ function PackageCard({
   const bumpPanels = (delta: number) =>
     setQty((prev) => ({ ...prev, panels: clamp(prev.panels + delta, bounds.pMin, bounds.pMax) }));
 
-  // Dynamic price: use live qty for core components; keep default qty for accessories
+
   const calcPrice = (): { price: number | null; breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> } => {
     if (!pkg.components?.length) return { price: pkg.totalPrice, breakdown: [] };
     const breakdown: Array<{ name: string; qty: number; unitPrice: number; total: number }> = [];
@@ -292,7 +291,7 @@ function PackageCard({
 
   const { price: dynamicPrice } = calcPrice();
 
-  // Animate price counter on change
+
   useEffect(() => {
     if (dynamicPrice === null) { setDisplayPrice(null); return; }
     const start = displayPrice ?? (pkg.totalPrice ?? dynamicPrice);
@@ -307,7 +306,7 @@ function PackageCard({
       else setDisplayPrice(dynamicPrice);
     };
     requestAnimationFrame(tick);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [dynamicPrice]);
 
   const priceToDisplay = displayPrice ?? dynamicPrice ?? pkg.totalPrice;
@@ -392,16 +391,14 @@ function PackageCard({
 
       <button className="as-pkg-details-link" onClick={() => { setShowModal(true); setShowOtherComponents(false); }}>
         See more details
-        {/* <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
-          <path d="M1 5H9M5.5 1.5L9 5L5.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg> */}
+        {}
       </button>
 
       {showModal && createPortal(
         <div className="as-pkg-modal-overlay" style={{ top: `${navbarBottom}px` }} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
           <div className="as-pkg-modal" style={{ maxHeight: `calc(100vh - ${navbarBottom}px - 32px)` }} onClick={(e) => e.stopPropagation()}>
 
-            {/* Hero — image background + summary */}
+            {}
             <div className="as-pkg-modal-hero">
               {pkg.imageUrl && (
                 <div className="as-pkg-modal-hero-bg" style={{ backgroundImage: `url(${pkg.imageUrl})` }} />
@@ -430,10 +427,10 @@ function PackageCard({
               </div>
             </div>
 
-            {/* Body — scrollable spec sections */}
+            {}
             <div className="as-pkg-modal-body">
 
-              {/* Inverter Specification */}
+              {}
               {inverterLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
@@ -461,7 +458,7 @@ function PackageCard({
                 </div>
               )}
 
-              {/* Battery Specification */}
+              {}
               {isHybrid && batteryLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
@@ -489,7 +486,7 @@ function PackageCard({
                 </div>
               )}
 
-              {/* Solar Panel Specification */}
+              {}
               {panelLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
@@ -517,7 +514,7 @@ function PackageCard({
                 </div>
               )}
 
-              {/* Other Components — collapsed until "See more details" is tapped */}
+              {}
               {(() => {
                 const CORE = ["Inverter", "Battery", "Solar Panel"];
                 const otherPcs = (pkg.components ?? []).filter((pc) => !CORE.includes(pc.component.category));
@@ -598,7 +595,7 @@ export default function ASPackages() {
     if (pageVis.packages === false) navigate("/", { replace: true });
   }, [pageVis.packages, navigate]);
 
-  // Inject mobile styles for CEO image background
+
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = ctaMobileStyles;
