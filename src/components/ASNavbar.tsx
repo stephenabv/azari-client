@@ -166,6 +166,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
             }}
             className={activeTab === tab ? "active" : ""}
             onClick={() => handleTabClick(tab)}
+            data-preload={tabRoutes[tab]}
           >
             <span className="nav-link-text">{tab}</span>
           </li>
@@ -220,6 +221,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
             type="button"
             className={activeTab === tab ? "active" : ""}
             onClick={() => handleTabClick(tab)}
+            data-preload={tabRoutes[tab]}
           >
             {tab}
           </button>

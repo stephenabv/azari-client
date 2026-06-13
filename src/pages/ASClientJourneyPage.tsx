@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
+import { PUBLIC_ROUTES } from "../router/routes";
+
+const clientJourneyMeta = PUBLIC_ROUTES.find(r => r.path === "/client-journey")!.meta;
 import type {
   ApiJourneyStep, ContentBlock,
   HeadingBlock, ParagraphBlock, BulletListBlock, LinkGroupBlock,
@@ -407,6 +411,8 @@ export default function ASClientJourneyPage() {
   }
 
   return (
+    <>
+    <SeoHead meta={clientJourneyMeta} />
     <section ref={sectionRef} className="as-cjp">
       <div className="as-cjp-container">
         <header className="as-cjp-header">
@@ -482,5 +488,6 @@ export default function ASClientJourneyPage() {
 
       <ASCallToAction />
     </section>
+    </>
   );
 }

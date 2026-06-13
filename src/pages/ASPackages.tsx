@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
+import { PUBLIC_ROUTES } from "../router/routes";
+
+const packagesMeta = PUBLIC_ROUTES.find(r => r.path === "/packages")!.meta;
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
@@ -637,6 +641,8 @@ export default function ASPackages() {
   };
 
   return (
+    <>
+    <SeoHead meta={packagesMeta} />
     <div className="route-page">
       <svg style={{ display: "none" }} width="0" height="0">
         <defs>
@@ -733,5 +739,6 @@ export default function ASPackages() {
       />
       <ASTalkToAnExpert isOpen={ctaModalOpen} onClose={() => setCtaModalOpen(false)} />
     </div>
+    </>
   );
 }

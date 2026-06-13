@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
+import { HoverPreloadStrategy } from "../router/preload";
+import { preloadableRoutes } from "../router/routes";
 
 const getSystemTheme = (): "light-theme" | "dark-theme" => {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -14,6 +16,13 @@ const getSystemTheme = (): "light-theme" | "dark-theme" => {
 
 export default function ASMainLayout() {
   const location = useLocation();
+  const preloadStrategy = useRef(new HoverPreloadStrategy());
+
+  useEffect(() => {
+    const strategy = preloadStrategy.current;
+    strategy.register(preloadableRoutes);
+    return () => strategy.destroy();
+  }, []);
 
   const isHeroPage = location.pathname === "/";
   const isProjectDetail = /^\/projects\/.+/.test(location.pathname);

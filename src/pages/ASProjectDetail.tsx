@@ -1,6 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
+import { breadcrumbSchema } from "../seo/jsonLd";
+import type { PageMeta } from "../seo/types";
+import { SITE_URL } from "../seo/types";
 import iconPlay from "../assets/icons/icon-play.svg";
 import {
   fetchProjectById,
@@ -188,6 +192,8 @@ function HeroSection({ project }: { project: ApiProject }) {
         src={heroSrc}
         alt={project.title}
         className="as-pd-hero-img"
+        fetchPriority="high"
+        decoding="async"
         onError={handleHeroError}
         onLoad={handleHeroLoad}
       />
@@ -363,7 +369,7 @@ function GallerySection({ images }: { images: string[] }) {
                 className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : ""}${i <= visibleItems ? " is-shown" : ""}`}
                 onClick={isLast ? () => setModalOpen(true) : undefined}
               >
-                <img src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" />
+                <img src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" loading="lazy" decoding="async" />
                 {isLast && (
                   <div className="as-pd-gallery-more">
                     <span>+{remaining}</span>
@@ -412,6 +418,8 @@ function GallerySection({ images }: { images: string[] }) {
                     src={src}
                     alt={`Gallery photo ${i + 9}`}
                     className="as-pd-gallery-modal-img"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               ))}
@@ -529,7 +537,29 @@ export default function ASProjectDetails() {
   const gallery = (project.galleryImages ?? []) as string[];
   const testimonial = project.testimonial as ProjectTestimonial | null | undefined;
 
+  const projectMeta = useMemo((): PageMeta => ({
+    title: `${project.title} — ${project.category} Solar Project`,
+    description:
+      project.subtitle ??
+      `View the ${project.title} ${project.category.toLowerCase()} solar installation by Azari Solar. ${project.system} system with ${project.savings} in projected savings.`,
+    canonical: `/projects/${project.id}`,
+    robots: "index,follow",
+    og: {
+      type: "article",
+      image: typeof project.imageUrl === "string" ? project.imageUrl : undefined,
+    },
+    jsonLd: [
+      breadcrumbSchema([
+        { name: "Home", url: "/" },
+        { name: "Projects", url: "/projects" },
+        { name: project.title, url: `${SITE_URL}/projects/${project.id}` },
+      ]),
+    ],
+  }), [project]);
+
   return (
+    <>
+    <SeoHead meta={projectMeta} />
     <div className="as-pd-page">
       <HeroSection project={project} />
       <PerformanceSection metrics={metrics} />
@@ -538,5 +568,6 @@ export default function ASProjectDetails() {
       {testimonial && <TestimonialSection testimonial={testimonial} />}
       <ASCallToAction />
     </div>
+    </>
   );
 }

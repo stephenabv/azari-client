@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
+import { SeoHead } from "../seo/SeoHead";
+import { PUBLIC_ROUTES } from "../router/routes";
+
+const quotationMeta = PUBLIC_ROUTES.find(r => r.path === "/quotation-engine")!.meta;
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
@@ -922,6 +926,8 @@ export default function ASQuotationEngine() {
       : null;
 
   return (
+    <>
+    <SeoHead meta={quotationMeta} />
     <section className="as-quote-page">
       <div className="as-quote-container">
         <header className="as-quote-header">
@@ -1058,5 +1064,6 @@ export default function ASQuotationEngine() {
 
       {modalLayer}
     </section>
+    </>
   );
 }

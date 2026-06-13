@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
+import { SeoHead } from "../seo/SeoHead";
+import { PUBLIC_ROUTES } from "../router/routes";
+
+const projectsMeta = PUBLIC_ROUTES.find(r => r.path === "/projects")!.meta;
 
 type ProjectCategory =
   | "All Projects"
@@ -97,6 +101,8 @@ export default function ASProjects() {
     : "Project records have not been published yet. When the portfolio is available, this section will show completed installations, estimated savings, and system details.";
 
   return (
+    <>
+    <SeoHead meta={projectsMeta} />
     <section className="as-projects-section">
       <div className="as-projects-header">
         <h2 className="as-projects-title">
@@ -149,6 +155,8 @@ export default function ASProjects() {
               <img
                 src={project.image}
                 alt={project.title}
+                loading="lazy"
+                decoding="async"
                 onError={(e) => {
                   const fallback = getYouTubeFallbackThumbnail(e.currentTarget.src);
                   if (fallback) e.currentTarget.src = fallback;
@@ -225,5 +233,6 @@ export default function ASProjects() {
         </div>
       )}
     </section>
+    </>
   );
 }

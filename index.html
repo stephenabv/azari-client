@@ -8,6 +8,14 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!--
+    Default robots: noindex for the raw SPA shell.
+    Public pages override this to "index,follow" via react-helmet-async (and the
+    override is baked into their prerendered HTML by the SSG build).
+    The admin route never sets a SeoHead, so it permanently keeps noindex,nofollow.
+  -->
+  <meta name="robots" content="noindex,nofollow" />
+
   <title>Azari Solar | Clean & Renewable Energy Solutions</title>
   <meta name="description"
     content="Azari Solar provides reliable and sustainable solar energy solutions for homes and businesses. Save on energy costs and switch to clean power today." />

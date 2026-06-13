@@ -69,7 +69,7 @@ function HeroBentoCardView({ item, staticMetric: _sm }: { item: HeroBentoCard; s
       className="as-pd-bento-hero"
       style={{ '--bento-hero-accent': item.accent ?? '#c84020' } as CSSProperties}
     >
-      {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="as-pd-bento-hero-img" />}
+      {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="as-pd-bento-hero-img" loading="lazy" decoding="async" />}
       {item.badge && <span className="as-pd-bento-hero-badge">{item.badge}</span>}
       <div className="as-pd-bento-hero-content">
         <h3 className="as-pd-bento-title">{item.title}</h3>
@@ -101,7 +101,7 @@ function StatBentoCardView({ item, staticMetric = false }: { item: StatBentoCard
 function FeatureBentoCardView({ item, staticMetric: _sm }: { item: FeatureBentoCard; staticMetric?: boolean }) {
   return (
     <div className="as-pd-bento-feature">
-      {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="as-pd-bento-feature-img" />}
+      {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="as-pd-bento-feature-img" loading="lazy" decoding="async" />}
       <div className="as-pd-bento-feature-content">
         <h3 className="as-pd-bento-title">{item.title}</h3>
         {item.description && <p className="as-pd-bento-subtitle">{item.description}</p>}

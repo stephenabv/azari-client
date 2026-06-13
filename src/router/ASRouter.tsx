@@ -1,13 +1,18 @@
+import { Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import ASMainLayout from "../layout/ASMainLayout";
-import ASDashboard from "../pages/ASDashboard";
-import ASAdmin from "../pages/ASAdmin";
-import ASPackages from "../pages/ASPackages";
-import ASQuotationEngine from "../components/ASQuotationEngine";
-import ASProjects from "../components/ASProjects";
-import ASProjectDetails from "../pages/ASProjectDetail";
-import ASNotFound from "../components/ASNotFound";
-import ASClientJourneyPage from "../pages/ASClientJourneyPage";
+import { ChunkErrorBoundary } from "../lib/ChunkErrorBoundary";
+import { PageSkeleton, AdminSkeleton } from "../components/ASPageSkeleton";
+import {
+  LazyDashboard,
+  LazyProjects,
+  LazyProjectDetail,
+  LazyPackages,
+  LazyQuotation,
+  LazyClientJourney,
+  LazyAdmin,
+  LazyNotFound,
+} from "./routes";
 
 const normalizeRoutePath = (value: string) => {
   const trimmed = value.trim();
@@ -19,47 +24,55 @@ const ADMIN_ROUTE_PATH =
   normalizeRoutePath(import.meta.env.VITE_ADMIN_ROUTE ?? "") ||
   "/ops-console-a9f4c31e";
 
+function withSuspense(node: React.ReactNode, fallback: React.ReactNode = <PageSkeleton />) {
+  return (
+    <ChunkErrorBoundary>
+      <Suspense fallback={fallback}>{node}</Suspense>
+    </ChunkErrorBoundary>
+  );
+}
+
 export const ASAppRoute = createBrowserRouter([
   {
     path: "/",
     element: <ASMainLayout />,
     children: [
       {
-        path: "/",
-        element: <ASDashboard />
+        index: true,
+        element: withSuspense(<LazyDashboard />),
       },
       {
-        path: "/projects",
-        element: <ASProjects />
+        path: "projects",
+        element: withSuspense(<LazyProjects />),
       },
       {
-        path: "/projects/:id",
-        element: <ASProjectDetails />
+        path: "projects/:id",
+        element: withSuspense(<LazyProjectDetail />),
       },
       {
-        path: "/packages",
-        element: <ASPackages />
+        path: "packages",
+        element: withSuspense(<LazyPackages />),
       },
       {
-        path: "/quotation-engine",
-        element: <ASQuotationEngine />
+        path: "quotation-engine",
+        element: withSuspense(<LazyQuotation />),
       },
       {
-        path: "/client-journey",
-        element: <ASClientJourneyPage />
+        path: "client-journey",
+        element: withSuspense(<LazyClientJourney />),
       },
       {
         path: "*",
-        element: <ASNotFound />
-      }
-    ]
+        element: withSuspense(<LazyNotFound />),
+      },
+    ],
   },
   {
     path: ADMIN_ROUTE_PATH,
-    element: <ASAdmin />,
+    element: withSuspense(<LazyAdmin />, <AdminSkeleton />),
   },
   {
     path: "*",
-    element: <ASNotFound />,
+    element: withSuspense(<LazyNotFound />),
   },
 ]);

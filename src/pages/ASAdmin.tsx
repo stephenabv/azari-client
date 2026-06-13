@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
+import { SeoHead } from "../seo/SeoHead";
+
+const ADMIN_META = {
+  title: "Admin",
+  description: "",
+  robots: "noindex,nofollow" as const,
+};
 import {
   adminGetStats,
   adminGetAllContent,
@@ -5780,6 +5787,7 @@ export default function ASAdmin() {
   if (!apiKey) {
     return (
       <div className={`as-admin${isLight ? " is-light" : ""}`}>
+        <SeoHead meta={ADMIN_META} />
         <LoginScreen onLogin={handleLogin} error={authError} />
       </div>
     );
@@ -5787,6 +5795,7 @@ export default function ASAdmin() {
 
   return (
     <div className={`as-admin${isLight ? " is-light" : ""}`}>
+      <SeoHead meta={ADMIN_META} />
       <ASRateLimitBanner />
 
       <nav className="ad-topnav">

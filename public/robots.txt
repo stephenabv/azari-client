@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /projects
+Allow: /packages
+Allow: /quotation-engine
+Allow: /client-journey
+
+# Admin console — keep out of the index
+Disallow: /ops-console
+
+Sitemap: https://azarisolar.com/sitemap.xml
