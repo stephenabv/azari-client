@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
   ApiJourneyStep, ContentBlock,
@@ -9,44 +9,39 @@ import { fetchClientJourney } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
 import iconDefault from "../assets/icons/icon-default.svg";
 
-const ICON_PATHS: Record<string, string> = {
-  "customer-service": "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z",
-  "system-design": "M3 3h18v18H3V3zm16 16V5H5v14h14zM11 7h2v2h-2V7zm0 4h2v6h-2v-6z",
-  "financing": "M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z",
-  "hardware": "M22 9V7h-2V5c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2v-2h-2V9h2zm-4 10H4V5h14v14zm-6-6H7v-2h5v2zm3-4H7V7h8v2z",
-  "installation": "M13.5 2c-5.621 0-10.211 4.443-10.475 10h-3.025l5 6.625 5-6.625h-2.975c.257-3.351 3.06-6 6.475-6 3.584 0 6.5 2.916 6.5 6.5s-2.916 6.5-6.5 6.5c-1.863 0-3.542-.793-4.728-2.053l-2.427 3.216c1.877 1.754 4.389 2.837 7.155 2.837 5.79 0 10.5-4.71 10.5-10.5s-4.71-10.5-10.5-10.5z",
-  "smart-tracking": "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-  "after-sales": "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93-2.67-1.14-5-4.43-5-7.93V7.18L12 5z",
-};
+function subscribeBodyClass(cb: () => void) {
+  const mo = new MutationObserver(cb);
+  mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  return () => mo.disconnect();
+}
+function getIsLightTheme() {
+  return document.body.classList.contains('light-theme');
+}
 
-function JourneyIcon({ iconKey, iconUrl, iconUrlHighlighted, isActive }: {
+export function JourneyIcon({ iconUrl, iconUrlHighlighted, iconUrlLight, iconUrlLightHighlighted, isActive, isLight: isLightProp }: {
   iconKey?: string | null;
   iconUrl?: string | null;
   iconUrlHighlighted?: string | null;
+  iconUrlLight?: string | null;
+  iconUrlLightHighlighted?: string | null;
   isActive: boolean;
+  isLight?: boolean;
 }) {
-  const src = isActive && iconUrlHighlighted ? iconUrlHighlighted : iconUrl;
+  const isLightBody = useSyncExternalStore(subscribeBodyClass, getIsLightTheme, () => false);
+  const isLight = isLightProp !== undefined ? isLightProp : isLightBody;
+
+  let src: string | null | undefined;
+  if (isActive) {
+    src = (isLight ? iconUrlLightHighlighted : null)
+       ?? iconUrlHighlighted
+       ?? (isLight ? iconUrlLight : null)
+       ?? iconUrl;
+  } else {
+    src = (isLight ? iconUrlLight : null) ?? iconUrl;
+  }
+
   if (src) {
     return <img src={src} alt="" className="as-cjp-icon-img" aria-hidden="true" />;
-  }
-  const d = iconKey ? ICON_PATHS[iconKey] : null;
-  if (d) {
-    return (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="48" height="48" rx="16" fill="#2C2C2C" />
-        <rect x="0.5" y="0.5" width="47" height="47" rx="15.5" stroke="#E3E3E3" stroke-opacity="0.2" />
-        <g clip-path="url(#clip0_1665_26545)">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M24 14C18.4772 14 14 18.4772 14 24C14 29.5228 18.4772 34 24 34C29.5228 34 34 29.5228 34 24C34 18.4772 29.5228 14 24 14ZM24 15.6667C28.6024 15.6667 32.3333 19.3976 32.3333 24C32.3333 28.6024 28.6024 32.3333 24 32.3333C19.3976 32.3333 15.6667 28.6024 15.6667 24C15.6667 19.3976 19.3976 15.6667 24 15.6667Z" fill="#9CA3AF" />
-          <path d="M24 22.1667C24.4602 22.1667 24.8333 22.5398 24.8333 23V28C24.8333 28.4602 24.4602 28.8333 24 28.8333C23.5398 28.8333 23.1667 28.4602 23.1667 28V23C23.1667 22.5398 23.5398 22.1667 24 22.1667Z" fill="#9CA3AF" />
-          <path d="M24 19.1667C24.6443 19.1667 25.1667 19.689 25.1667 20.3333C25.1667 20.9777 24.6443 21.5 24 21.5C23.3557 21.5 22.8333 20.9777 22.8333 20.3333C22.8333 19.689 23.3557 19.1667 24 19.1667Z" fill="#9CA3AF" />
-        </g>
-        <defs>
-          <clipPath id="clip0_1665_26545">
-            <rect width="20" height="20" fill="white" transform="translate(14 14)" />
-          </clipPath>
-        </defs>
-      </svg>
-    );
   }
   return <img src={iconDefault} alt="" className="as-cjp-icon-img" aria-hidden="true" />;
 }
@@ -219,7 +214,7 @@ function BlockRenderer({ block }: { block: ContentBlock }) {
   return <Renderer block={block} />;
 }
 
-function StepContent({ step }: { step: ApiJourneyStep }) {
+export function StepContent({ step }: { step: ApiJourneyStep }) {
   const sorted = [...step.blocks].sort((a, b) => a.order - b.order);
   return (
     <div className="as-cjp-panel-inner">
@@ -238,10 +233,12 @@ export default function ASClientJourneyPage() {
   const [shownCount, setShownCount] = useState(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
   const [panelTopOffset, setPanelTopOffset] = useState(0);
+  const [connectorBottom, setConnectorBottom] = useState(34);
   const sectionRef = useRef<HTMLElement>(null);
   const stepsColRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
   const alignRO = useRef<ResizeObserver | null>(null);
+  const connectorRO = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
     fetchClientJourney().then(data => {
@@ -258,20 +255,45 @@ export default function ASClientJourneyPage() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) { setShownCount(steps.length); return; }
 
+    if (hasAnimated.current) return;
+
     const timeouts: number[] = [];
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting || hasAnimated.current) return;
-        hasAnimated.current = true;
-        steps.forEach((_, i) => {
-          timeouts.push(window.setTimeout(() => setShownCount(i + 1), (i + 1) * 800));
-        });
-        observer.disconnect();
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
-    );
-    observer.observe(el);
-    return () => { observer.disconnect(); timeouts.forEach(clearTimeout); };
+
+    const triggerAnimation = () => {
+      if (hasAnimated.current) return;
+      hasAnimated.current = true;
+      steps.forEach((_, i) => {
+        timeouts.push(window.setTimeout(() => setShownCount(i + 1), (i + 1) * 800));
+      });
+    };
+
+    // On direct load / refresh the section is already in the viewport — check
+    // synchronously so we don't depend on IntersectionObserver firing.
+    const rect = el.getBoundingClientRect();
+    const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
+
+    let observer: IntersectionObserver | null = null;
+
+    if (inViewport) {
+      triggerAnimation();
+    } else {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting || hasAnimated.current) return;
+          triggerAnimation();
+          observer!.disconnect();
+          observer = null;
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+      );
+      observer.observe(el);
+    }
+
+    return () => {
+      if (observer) observer.disconnect();
+      timeouts.forEach(clearTimeout);
+      hasAnimated.current = false;
+    };
   }, [steps]);
 
   useEffect(() => {
@@ -319,6 +341,32 @@ export default function ASClientJourneyPage() {
     };
   }, [openId]);
 
+  useEffect(() => {
+    connectorRO.current?.disconnect();
+    connectorRO.current = null;
+    if (!steps.length) return;
+
+    const lastId = steps[steps.length - 1].id;
+
+    const update = () => {
+      const colEl = stepsColRef.current;
+      const lastEl = document.getElementById(`cjp-step-${lastId}`);
+      if (!colEl || !lastEl) return;
+      const colRect = colEl.getBoundingClientRect();
+      const lastRect = lastEl.getBoundingClientRect();
+      const iconCenterFromTop = (lastRect.top - colRect.top) + 34; // 14px padding-top + 20px half icon
+      setConnectorBottom(Math.max(0, colEl.offsetHeight - iconCenterFromTop));
+    };
+
+    const ro = new ResizeObserver(update);
+    connectorRO.current = ro;
+    const raf = requestAnimationFrame(() => {
+      if (stepsColRef.current) { ro.observe(stepsColRef.current); update(); }
+    });
+
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); connectorRO.current = null; };
+  }, [steps]);
+
   const toggle = (id: string) => setOpenId(prev => (prev === id ? null : id));
 
   const connectorPct = steps.length ? (shownCount / steps.length) * 100 : 0;
@@ -338,7 +386,7 @@ export default function ASClientJourneyPage() {
         disabled={!isShown}
       >
         <div className="as-cjp-icon-chip">
-          <JourneyIcon iconKey={step.iconKey} iconUrl={step.iconUrl} iconUrlHighlighted={step.iconUrlHighlighted} isActive={isActive} />
+          <JourneyIcon iconKey={step.iconKey} iconUrl={step.iconUrl} iconUrlHighlighted={step.iconUrlHighlighted} iconUrlLight={step.iconUrlLight} iconUrlLightHighlighted={step.iconUrlLightHighlighted} isActive={isActive} />
         </div>
         <span className="as-cjp-step-index">{idx}</span>
         <span className="as-cjp-step-title">{step.title}</span>
@@ -372,7 +420,7 @@ export default function ASClientJourneyPage() {
         { }
         <div className="as-cjp-desktop">
           <div className="as-cjp-steps-col" ref={stepsColRef}>
-            <div className="as-cjp-connector">
+            <div className="as-cjp-connector" style={{ bottom: connectorBottom }}>
               <div className="as-cjp-connector-track" />
               <div
                 className="as-cjp-connector-bar"

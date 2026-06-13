@@ -880,6 +880,8 @@ export interface ApiJourneyStep {
   iconKey?: string | null;
   iconUrl?: string | null;
   iconUrlHighlighted?: string | null;
+  iconUrlLight?: string | null;
+  iconUrlLightHighlighted?: string | null;
   accentColor?: string | null;
   subheading?: string | null;
   status: JourneyStatus;

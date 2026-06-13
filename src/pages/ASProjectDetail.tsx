@@ -130,36 +130,14 @@ function buildHeroChips(project: ApiProject): HeroChip[] {
   return chips.filter(c => { if (seen.has(c.label)) return false; seen.add(c.label); return true; });
 }
 
-const CHIP_PAGE_SIZE = 3;
-
-function useIsMobile(breakpoint = 768) {
-  const [mobile, setMobile] = useState(() => window.matchMedia(`(max-width: ${breakpoint}px)`).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const handler = (e: MediaQueryListEvent) => setMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [breakpoint]);
-  return mobile;
-}
-
-// must match --chip-w and --chip-gap in LESS
-const CAROUSEL_CHIP_W = 165;
-const CAROUSEL_CHIP_GAP = 12;
-const CAROUSEL_STEP = CAROUSEL_CHIP_W + CAROUSEL_CHIP_GAP;
 
 function HeroSection({ project }: { project: ApiProject }) {
   const [videoOpen, setVideoOpen] = useState(false);
-  const [chipIdx, setChipIdx] = useState(0);
-  const isMobile = useIsMobile();
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
 
   const chips = buildHeroChips(project);
-  const useCarousel = !isMobile && chips.length > CHIP_PAGE_SIZE;
-  const canPrev = chipIdx > 0;
-  const canNext = chipIdx < chips.length - CHIP_PAGE_SIZE;
 
   const heroSrc = getYouTubeThumbnail(project.videoUrl) ?? project.imageUrl;
   const heroFallback = getYouTubeThumbnail(project.videoUrl, "hq") ?? project.imageUrl;
@@ -167,7 +145,7 @@ function HeroSection({ project }: { project: ApiProject }) {
   const handleHeroError = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
-      if (img.dataset.fallbackApplied === "true") return; // guard against loop
+      if (img.dataset.fallbackApplied === "true") return;
       img.dataset.fallbackApplied = "true";
       img.src = heroFallback;
     },
@@ -177,7 +155,6 @@ function HeroSection({ project }: { project: ApiProject }) {
   const handleHeroLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
-      // YouTube serves a 120×90 gray placeholder when maxres doesn't exist
       if (img.naturalWidth <= 120 && img.dataset.fallbackApplied !== "true") {
         img.dataset.fallbackApplied = "true";
         img.src = heroFallback;
@@ -229,54 +206,14 @@ function HeroSection({ project }: { project: ApiProject }) {
               <p className="as-pd-hero-subtitle">{project.subtitle}</p>
             )}
             {chips.length > 0 && (
-              useCarousel ? (
-                <div className="as-pd-hero-stats as-pd-hero-stats--nav">
-                  <div className="as-pd-stats-clip">
-                    <div
-                      className="as-pd-stats-track"
-                      style={{ transform: `translateX(-${chipIdx * CAROUSEL_STEP}px)` }}
-                    >
-                      {chips.map(chip => (
-                        <div key={chip.label} className="as-pd-hero-stat">
-                          <span className="as-pd-hero-stat-value">{chip.value}</span>
-                          <span className="as-pd-hero-stat-label">{chip.label}</span>
-                        </div>
-                      ))}
-                    </div>
+              <div className="as-pd-hero-stats">
+                {chips.map(chip => (
+                  <div key={chip.label} className="as-pd-hero-stat">
+                    <span className="as-pd-hero-stat-value">{chip.value}</span>
+                    <span className="as-pd-hero-stat-label">{chip.label}</span>
                   </div>
-                  <div className="as-pd-stat-nav-group">
-                    <button
-                      className="as-pd-stat-nav"
-                      onClick={() => setChipIdx(i => Math.max(0, i - 1))}
-                      disabled={!canPrev}
-                      aria-label="Previous stats"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                    <button
-                      className="as-pd-stat-nav"
-                      onClick={() => setChipIdx(i => Math.min(chips.length - CHIP_PAGE_SIZE, i + 1))}
-                      disabled={!canNext}
-                      aria-label="Next stats"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                        <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="as-pd-hero-stats">
-                  {chips.map(chip => (
-                    <div key={chip.label} className="as-pd-hero-stat">
-                      <span className="as-pd-hero-stat-value">{chip.value}</span>
-                      <span className="as-pd-hero-stat-label">{chip.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -513,16 +450,17 @@ function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">What our clients say</h2>
         <div className="as-pd-testimonial-layout">
-          { }
           <div className="as-pd-testimonial-author">
-            <span className="as-pd-testimonial-name">{testimonial.clientName}</span>
-            <span className="as-pd-testimonial-role">{testimonial.clientRole}</span>
+            <div className="as-pd-testimonial-name-role">
+              <span className="as-pd-testimonial-name">{testimonial.clientName}</span>
+              <span className="as-pd-testimonial-role">{testimonial.clientRole}</span>
+            </div>
           </div>
-          { }
-          <div className="as-pd-testimonial-open-quote" aria-hidden="true">&ldquo;</div>
-          { }
-          <div className="as-pd-testimonial-body">
-            <p className="as-pd-testimonial-quote">{testimonial.quote}</p>
+          <div className="as-pd-testimonial-quote-container">
+            <div className="as-pd-testimonial-open-quote" aria-hidden="true">&ldquo;</div>
+            <div className="as-pd-testimonial-quote-inner-container">
+              <p className="as-pd-testimonial-quote">{testimonial.quote}</p>
+            </div>
             <div className="as-pd-testimonial-close-quote" aria-hidden="true">&rdquo;</div>
           </div>
         </div>

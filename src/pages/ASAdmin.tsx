@@ -67,6 +67,7 @@ import {
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 import { BentoCard } from "../components/ASBentoCard";
+import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "sections"
@@ -4799,7 +4800,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
 const BLOCK_TYPE_LABELS: Record<ContentBlock['type'], string> = {
   heading:          'Heading',
-  paragraph:        'Paragraph (rich text)',
+  paragraph:        'Paragraph',
   bullet_list:      'Bullet List',
   link_group:       'Link Group',
   button:           'Button',
@@ -4809,11 +4810,23 @@ const BLOCK_TYPE_LABELS: Record<ContentBlock['type'], string> = {
   divider:          'Divider',
 };
 
+const BLOCK_TYPE_DESCRIPTIONS: Record<ContentBlock['type'], string> = {
+  heading:          'h1–h4 section title',
+  paragraph:        'Rich text / HTML content',
+  bullet_list:      'Nested bullet points',
+  link_group:       'Multiple text or button links',
+  button:           'Single call-to-action button',
+  image:            'Photo with optional caption',
+  partner_grid:     'Logo grid with download links',
+  contact_channels: 'WhatsApp, email, phone…',
+  divider:          'Horizontal separator rule',
+};
+
 const BLOCK_TYPES = Object.keys(BLOCK_TYPE_LABELS) as ContentBlock['type'][];
 
 const EMPTY_STEP: JourneyStepInput = {
   order: 0, title: '', iconKey: '', accentColor: '', subheading: '',
-  iconUrl: null, iconUrlHighlighted: null,
+  iconUrl: null, iconUrlHighlighted: null, iconUrlLight: null, iconUrlLightHighlighted: null,
   status: 'draft', blocks: [],
 };
 
@@ -5035,8 +5048,9 @@ function ContactBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { t
   );
 }
 
-function BlockForm({ block, onPatch, onRemove, onMoveUp, onMoveDown }: {
+function BlockForm({ block, index, onPatch, onRemove, onMoveUp, onMoveDown }: {
   block: ContentBlock;
+  index: number;
   onPatch: (p: Partial<ContentBlock>) => void;
   onRemove: () => void;
   onMoveUp: () => void;
@@ -5044,8 +5058,16 @@ function BlockForm({ block, onPatch, onRemove, onMoveUp, onMoveDown }: {
 }) {
   const [expanded, setExpanded] = useState(true);
   return (
-    <div className="ad-card" style={{ marginBottom: 10 }}>
-      <div className="ad-field-row" style={{ alignItems: 'center', marginBottom: expanded ? 12 : 0 }}>
+    <div className="ad-card" style={{ marginBottom: 10, padding: 0, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 14px',
+        background: 'var(--ad-surface2)',
+        borderBottom: expanded ? '1px solid var(--ad-border)' : 'none',
+      }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--ad-text3)', background: 'var(--ad-surface)', border: '1px solid var(--ad-border)', borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>
+          {String(index + 1).padStart(2, '0')}
+        </span>
         <strong style={{ flex: 1, fontSize: 13 }}>{BLOCK_TYPE_LABELS[block.type]}</strong>
         <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onMoveUp} title="Move up">↑</button>
         <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={onMoveDown} title="Move down">↓</button>
@@ -5053,18 +5075,135 @@ function BlockForm({ block, onPatch, onRemove, onMoveUp, onMoveDown }: {
         <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ color: '#fc615a' }} onClick={onRemove}>Remove</button>
       </div>
       {expanded && (
-        block.type === 'heading'          ? <HeadingBlockForm     block={block as Extract<ContentBlock, { type: 'heading' }>}          onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'heading' }>>) => void} /> :
-        block.type === 'paragraph'        ? <ParagraphBlockForm   block={block as Extract<ContentBlock, { type: 'paragraph' }>}        onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'paragraph' }>>) => void} /> :
-        block.type === 'bullet_list'      ? <BulletListBlockForm  block={block as Extract<ContentBlock, { type: 'bullet_list' }>}      onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'bullet_list' }>>) => void} /> :
-        block.type === 'link_group'       ? <LinkGroupBlockForm   block={block as Extract<ContentBlock, { type: 'link_group' }>}       onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'link_group' }>>) => void} /> :
-        block.type === 'button'           ? <ButtonBlockForm      block={block as Extract<ContentBlock, { type: 'button' }>}           onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'button' }>>) => void} /> :
-        block.type === 'image'            ? <ImageBlockForm       block={block as Extract<ContentBlock, { type: 'image' }>}            onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'image' }>>) => void} /> :
-        block.type === 'partner_grid'     ? <PartnerGridBlockForm block={block as Extract<ContentBlock, { type: 'partner_grid' }>}     onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'partner_grid' }>>) => void} /> :
-        block.type === 'contact_channels' ? <ContactBlockForm     block={block as Extract<ContentBlock, { type: 'contact_channels' }>} onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'contact_channels' }>>) => void} /> :
-        block.type === 'divider'          ? <p style={{ color: 'var(--ad-text3)', fontSize: 12 }}>Horizontal divider — no settings.</p> :
-        null
+        <div style={{ padding: '14px 16px' }}>
+          {block.type === 'heading'          ? <HeadingBlockForm     block={block as Extract<ContentBlock, { type: 'heading' }>}          onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'heading' }>>) => void} /> :
+           block.type === 'paragraph'        ? <ParagraphBlockForm   block={block as Extract<ContentBlock, { type: 'paragraph' }>}        onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'paragraph' }>>) => void} /> :
+           block.type === 'bullet_list'      ? <BulletListBlockForm  block={block as Extract<ContentBlock, { type: 'bullet_list' }>}      onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'bullet_list' }>>) => void} /> :
+           block.type === 'link_group'       ? <LinkGroupBlockForm   block={block as Extract<ContentBlock, { type: 'link_group' }>}       onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'link_group' }>>) => void} /> :
+           block.type === 'button'           ? <ButtonBlockForm      block={block as Extract<ContentBlock, { type: 'button' }>}           onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'button' }>>) => void} /> :
+           block.type === 'image'            ? <ImageBlockForm       block={block as Extract<ContentBlock, { type: 'image' }>}            onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'image' }>>) => void} /> :
+           block.type === 'partner_grid'     ? <PartnerGridBlockForm block={block as Extract<ContentBlock, { type: 'partner_grid' }>}     onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'partner_grid' }>>) => void} /> :
+           block.type === 'contact_channels' ? <ContactBlockForm     block={block as Extract<ContentBlock, { type: 'contact_channels' }>} onPatch={onPatch as (p: Partial<Extract<ContentBlock, { type: 'contact_channels' }>>) => void} /> :
+           block.type === 'divider'          ? <p style={{ color: 'var(--ad-text3)', fontSize: 12, margin: 0 }}>Horizontal divider — no settings.</p> :
+           null}
+        </div>
       )}
     </div>
+  );
+}
+
+function JourneyPreviewModal({ steps, initialOpenId, onClose }: {
+  steps: ApiJourneyStep[];
+  initialOpenId?: string | null;
+  onClose: () => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
+  const [previewTheme, setPreviewTheme] = useState<'dark' | 'light'>('dark');
+  const isPreviewLight = previewTheme === 'light';
+
+  const previewBg = isPreviewLight ? '#f4f4f6' : '#0a0a0a';
+  const previewBorder = isPreviewLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+  const emptyColor = isPreviewLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.35)';
+
+  return createPortal(
+    <div
+      className="ad-modal-backdrop"
+      onClick={onClose}
+      style={{ zIndex: 9000, alignItems: 'flex-start', overflowY: 'auto', padding: '5vh 16px' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ margin: '0 auto', maxWidth: 680, width: '100%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--ad-surface)', border: '1px solid var(--ad-border)', borderBottom: 'none', borderRadius: '12px 12px 0 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ad-text)' }}>Client Journey Preview</span>
+            <span style={{ fontSize: 11, color: 'var(--ad-text3)', background: 'var(--ad-surface2)', padding: '2px 8px', borderRadius: 4 }}>
+              {steps.length} step{steps.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', background: 'var(--ad-surface2)', borderRadius: 6, border: '1px solid var(--ad-border)', overflow: 'hidden' }}>
+              <button
+                onClick={() => setPreviewTheme('dark')}
+                style={{ fontSize: 11, padding: '4px 10px', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, transition: 'background 0.15s, color 0.15s', background: previewTheme === 'dark' ? '#fc615a' : 'transparent', color: previewTheme === 'dark' ? '#fff' : 'var(--ad-text3)' }}
+              >
+                Dark
+              </button>
+              <button
+                onClick={() => setPreviewTheme('light')}
+                style={{ fontSize: 11, padding: '4px 10px', border: 'none', cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, transition: 'background 0.15s, color 0.15s', background: previewTheme === 'light' ? '#fc615a' : 'transparent', color: previewTheme === 'light' ? '#fff' : 'var(--ad-text3)' }}
+              >
+                Light
+              </button>
+            </div>
+            <a href="/client-journey" target="_blank" rel="noopener noreferrer" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ fontSize: 12 }}>
+              Open Live ↗
+            </a>
+            <button className="ad-btn ad-btn--ghost" onClick={onClose} aria-label="Close preview" style={{ fontSize: 20, lineHeight: '20px', padding: '4px 10px' }}>
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={isPreviewLight ? 'light-theme' : 'dark-theme'}
+          style={{ background: previewBg, border: `1px solid ${previewBorder}`, borderTop: 'none', borderRadius: '0 0 12px 12px', padding: '20px 20px 28px', maxHeight: '78vh', overflowY: 'auto' }}
+        >
+          {steps.length === 0 ? (
+            <p style={{ color: emptyColor, textAlign: 'center', padding: '40px 0', fontFamily: 'Inter, sans-serif', fontSize: 14, margin: 0 }}>
+              No steps to preview.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {steps.map((step, i) => {
+                const isActive = openId === step.id;
+                const accent = step.accentColor ?? '#fc615a';
+                const idx = String(i + 1).padStart(2, '0');
+                return (
+                  <div key={step.id} className="as-cjp-mobile-item is-shown">
+                    <button
+                      className={`as-cjp-step-row is-shown${isActive ? ' is-active' : ''}`}
+                      style={isActive ? { '--step-accent': accent } as CSSProperties : undefined}
+                      onClick={() => setOpenId(prev => prev === step.id ? null : step.id)}
+                      aria-expanded={isActive}
+                    >
+                      <div className="as-cjp-icon-chip">
+                        <JourneyIcon
+                          iconKey={step.iconKey}
+                          iconUrl={step.iconUrl}
+                          iconUrlHighlighted={step.iconUrlHighlighted}
+                          iconUrlLight={step.iconUrlLight}
+                          iconUrlLightHighlighted={step.iconUrlLightHighlighted}
+                          isActive={isActive}
+                          isLight={isPreviewLight}
+                        />
+                      </div>
+                      <span className="as-cjp-step-index">{idx}</span>
+                      <span className="as-cjp-step-title">{step.title || '(untitled)'}</span>
+                      <span className="as-cjp-toggle" aria-hidden="true">{isActive ? '−' : '+'}</span>
+                    </button>
+                    <div className={`as-cjp-mobile-panel${isActive ? ' is-open' : ''}`} role="region">
+                      <div className="as-cjp-mobile-panel-inner">
+                        <StepContent step={step} />
+                      </div>
+                    </div>
+                    {step.status === 'draft' && (
+                      <div style={{ paddingLeft: 70, paddingBottom: 6 }}>
+                        <span style={{ fontSize: 10, fontFamily: 'Inter, sans-serif', color: 'rgba(255,200,0,0.65)', background: 'rgba(255,200,0,0.07)', border: '1px solid rgba(255,200,0,0.18)', borderRadius: 3, padding: '1px 6px' }}>
+                          draft — not visible to clients
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -5075,11 +5214,14 @@ function StepEditor({ step, onSave, onCancel, saving }: {
   saving: boolean;
 }) {
   const [form, setForm] = useState<JourneyStepInput>({ ...step, blocks: [...step.blocks] });
-  const [addBlockType, setAddBlockType] = useState<ContentBlock['type']>('paragraph');
+  const [addingBlock, setAddingBlock] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
   const [svgDraft, setSvgDraft] = useState('');
   const [svgDraftHighlighted, setSvgDraftHighlighted] = useState('');
+  const [svgDraftLight, setSvgDraftLight] = useState('');
+  const [svgDraftLightHighlighted, setSvgDraftLightHighlighted] = useState('');
+  const [editorPreviewOpen, setEditorPreviewOpen] = useState(false);
 
   const patchField = (k: keyof JourneyStepInput, v: unknown) =>
     setForm(f => ({ ...f, [k]: v }));
@@ -5101,19 +5243,45 @@ function StepEditor({ step, onSave, onCancel, saving }: {
       return { ...f, blocks: reorder(arr) };
     });
 
-  const addBlock = () =>
-    setForm(f => ({ ...f, blocks: reorder([...f.blocks, makeEmptyBlock(addBlockType, f.blocks.length)]) }));
+  const addBlock = (type: ContentBlock['type']) =>
+    setForm(f => ({ ...f, blocks: reorder([...f.blocks, makeEmptyBlock(type, f.blocks.length)]) }));
 
   return (
     <div>
+      {/* Row 1: Title + Status */}
       <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
-        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 160 }}>
+        <div className="ad-field" style={{ flex: '1 1 220px' }}>
           <label className="ad-label">Title *</label>
           <input className={`ad-input${errors.title ? ' ad-input--error' : ''}`} value={form.title} onChange={e => { patchField('title', e.target.value); clearErr('title'); }} placeholder="e.g. Customer Service" />
           {errors.title && <span className="ad-field-error" data-field-error>{errors.title}</span>}
         </div>
-        {}
-        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 170 }}>
+        <div className="ad-field" style={{ flex: '0 0 120px' }}>
+          <label className="ad-label">Status</label>
+          <select className="ad-input" value={form.status} onChange={e => patchField('status', e.target.value as 'draft' | 'published')}>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Row 2: Subheading + Accent color */}
+      <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="ad-field" style={{ flex: '1 1 220px' }}>
+          <label className="ad-label">Subheading (shown above blocks when open)</label>
+          <input className="ad-input" value={form.subheading ?? ''} onChange={e => patchField('subheading', e.target.value)} placeholder="e.g. Your Consultation Starts Here" />
+        </div>
+        <div className="ad-field" style={{ flex: '0 0 180px' }}>
+          <label className="ad-label">Accent color</label>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input type="color" value={form.accentColor ?? '#fc615a'} onChange={e => patchField('accentColor', e.target.value)} style={{ width: 36, height: 36, padding: 2, border: '1px solid var(--ad-border)', borderRadius: 6, background: 'none', cursor: 'pointer', flexShrink: 0 }} />
+            <input className="ad-input" value={form.accentColor ?? ''} onChange={e => patchField('accentColor', e.target.value)} placeholder="#fc615a" style={{ flex: 1, minWidth: 0 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Icons side-by-side */}
+      <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="ad-field" style={{ flex: '1 1 240px' }}>
           <label className="ad-label">Icon — Normal *</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrl && (
@@ -5142,8 +5310,8 @@ function StepEditor({ step, onSave, onCancel, saving }: {
             {errors.iconUrl && <span className="ad-field-error" data-field-error>{errors.iconUrl}</span>}
           </div>
         </div>
-        {}
-        <div className="ad-field" style={{ flex: '1 1 200px', minWidth: 170 }}>
+
+        <div className="ad-field" style={{ flex: '1 1 240px' }}>
           <label className="ad-label">Icon — Highlighted *</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrlHighlighted && (
@@ -5172,47 +5340,109 @@ function StepEditor({ step, onSave, onCancel, saving }: {
             {errors.iconUrlHighlighted && <span className="ad-field-error" data-field-error>{errors.iconUrlHighlighted}</span>}
           </div>
         </div>
-        <div className="ad-field" style={{ flex: '1 1 130px', minWidth: 100 }}>
-          <label className="ad-label">Status</label>
-          <select className="ad-input" value={form.status} onChange={e => patchField('status', e.target.value as 'draft' | 'published')}>
-            <option value="draft">Draft</option>
-            <option value="published">Published</option>
-          </select>
-        </div>
-      </div>
 
-      <div className="ad-field-row" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
-        <div className="ad-field" style={{ flex: '1 1 260px' }}>
-          <label className="ad-label">Subheading (shown above blocks when open)</label>
-          <input className="ad-input" value={form.subheading ?? ''} onChange={e => patchField('subheading', e.target.value)} placeholder="e.g. Your Consultation Starts Here" />
+        <div className="ad-field" style={{ flex: '1 1 240px' }}>
+          <label className="ad-label">Icon — Light Mode</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {form.iconUrlLight && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={form.iconUrlLight} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
+                <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlLight', null); }}>Remove</button>
+              </div>
+            )}
+            <label className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '5px 12px', cursor: 'pointer', textAlign: 'center' }}>
+              Upload Image / SVG File
+              <input type="file" accept="image/*,.svg" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { patchField('iconUrlLight', reader.result as string); };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }} />
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <textarea className="ad-input" style={{ flex: 1, minHeight: 54, fontSize: 11, fontFamily: 'monospace', resize: 'vertical' }} placeholder="Or paste SVG code…" value={svgDraftLight} onChange={e => setSvgDraftLight(e.target.value)} />
+              <button type="button" className="ad-btn" style={{ fontSize: 12, padding: '5px 10px', alignSelf: 'flex-end' }} disabled={!svgDraftLight.trim()} onClick={() => {
+                try { const b64 = btoa(unescape(encodeURIComponent(svgDraftLight.trim()))); patchField('iconUrlLight', `data:image/svg+xml;base64,${b64}`); setSvgDraftLight(''); } catch { }
+              }}>Apply</button>
+            </div>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--ad-text3)' }}>Shown instead of the normal icon when the site is in light mode. Optional — falls back to the normal icon if omitted.</p>
+          </div>
         </div>
-        <div className="ad-field" style={{ flex: '0 0 140px' }}>
-          <label className="ad-label">Accent color</label>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="color" value={form.accentColor ?? '#fc615a'} onChange={e => patchField('accentColor', e.target.value)} style={{ width: 36, height: 36, padding: 2, border: '1px solid var(--ad-border)', borderRadius: 6, background: 'none', cursor: 'pointer', flexShrink: 0 }} />
-            <input className="ad-input" value={form.accentColor ?? ''} onChange={e => patchField('accentColor', e.target.value)} placeholder="#fc615a" style={{ flex: 1 }} />
+
+        <div className="ad-field" style={{ flex: '1 1 240px' }}>
+          <label className="ad-label">Icon — Light Highlighted</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {form.iconUrlLightHighlighted && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={form.iconUrlLightHighlighted} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
+                <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlLightHighlighted', null); }}>Remove</button>
+              </div>
+            )}
+            <label className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '5px 12px', cursor: 'pointer', textAlign: 'center' }}>
+              Upload Image / SVG File
+              <input type="file" accept="image/*,.svg" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => { patchField('iconUrlLightHighlighted', reader.result as string); };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+              }} />
+            </label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <textarea className="ad-input" style={{ flex: 1, minHeight: 54, fontSize: 11, fontFamily: 'monospace', resize: 'vertical' }} placeholder="Or paste SVG code…" value={svgDraftLightHighlighted} onChange={e => setSvgDraftLightHighlighted(e.target.value)} />
+              <button type="button" className="ad-btn" style={{ fontSize: 12, padding: '5px 10px', alignSelf: 'flex-end' }} disabled={!svgDraftLightHighlighted.trim()} onClick={() => {
+                try { const b64 = btoa(unescape(encodeURIComponent(svgDraftLightHighlighted.trim()))); patchField('iconUrlLightHighlighted', `data:image/svg+xml;base64,${b64}`); setSvgDraftLightHighlighted(''); } catch { }
+              }}>Apply</button>
+            </div>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--ad-text3)' }}>Active/highlighted state in light mode. Optional — falls back to the highlighted icon, then the light icon.</p>
           </div>
         </div>
       </div>
+
+      {addingBlock && createPortal(
+        <div className="ad-modal-backdrop" onClick={() => setAddingBlock(false)}>
+          <div className="ad-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '92vw' }}>
+            <h3 className="ad-modal-title">Add Content Block</h3>
+            <p style={{ color: 'var(--ad-text3)', fontSize: 13, marginTop: -4, marginBottom: 16 }}>Choose a block type to add to this step.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {BLOCK_TYPES.map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  className="ad-btn ad-btn--ghost"
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '10px 12px', textAlign: 'left', gap: 3, height: 'auto' }}
+                  onClick={() => { addBlock(t); setAddingBlock(false); }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{BLOCK_TYPE_LABELS[t]}</span>
+                  <span style={{ fontSize: 11, color: 'var(--ad-text3)', fontWeight: 400, lineHeight: 1.35 }}>{BLOCK_TYPE_DESCRIPTIONS[t]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="ad-modal-actions" style={{ marginTop: 16 }}>
+              <button type="button" className="ad-btn ad-btn--ghost" onClick={() => setAddingBlock(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <strong style={{ fontSize: 13 }}>Content Blocks ({form.blocks.length})</strong>
-          <div className="ad-field-row" style={{ gap: 8 }}>
-            <select className="ad-input ad-input--sm" value={addBlockType} onChange={e => setAddBlockType(e.target.value as ContentBlock['type'])}>
-              {BLOCK_TYPES.map(t => <option key={t} value={t}>{BLOCK_TYPE_LABELS[t]}</option>)}
-            </select>
-            <button type="button" className="ad-btn" onClick={addBlock}>+ Add Block</button>
-          </div>
+          <button type="button" className="ad-btn" onClick={() => setAddingBlock(true)}>+ Add Block</button>
         </div>
 
         {form.blocks.length === 0 && (
-          <p style={{ color: 'var(--ad-text3)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No blocks yet. Add one above.</p>
+          <p style={{ color: 'var(--ad-text3)', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>No blocks yet. Click "+ Add Block" to add one.</p>
         )}
 
         {form.blocks.map((block, i) => (
           <BlockForm
             key={i}
+            index={i}
             block={block}
             onPatch={patch => patchBlock(i, patch)}
             onRemove={() => removeBlock(i)}
@@ -5242,7 +5472,29 @@ function StepEditor({ step, onSave, onCancel, saving }: {
           {saving ? 'Saving…' : 'Save Step'}
         </button>
         <button type="button" className="ad-btn ad-btn--ghost" onClick={onCancel}>Cancel</button>
+        <button type="button" className="ad-btn ad-btn--ghost" onClick={() => setEditorPreviewOpen(true)}>Preview</button>
       </div>
+
+      {editorPreviewOpen && (() => {
+        const previewStep: ApiJourneyStep = {
+          id: '_editor_preview',
+          createdAt: '',
+          updatedAt: '',
+          ...form,
+          iconKey: form.iconKey ?? null,
+          iconUrl: form.iconUrl ?? null,
+          iconUrlHighlighted: form.iconUrlHighlighted ?? null,
+          accentColor: form.accentColor ?? null,
+          subheading: form.subheading ?? null,
+        };
+        return (
+          <JourneyPreviewModal
+            steps={[previewStep]}
+            initialOpenId={previewStep.id}
+            onClose={() => setEditorPreviewOpen(false)}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -5255,6 +5507,8 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [previewInitialId, setPreviewInitialId] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -5342,7 +5596,14 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
     <div className="ad-section">
       <div className="ad-section-header">
         <h2 className="ad-section-title">Client Journey Steps</h2>
-        <button className="ad-btn" onClick={() => setCreating(true)}>+ New Step</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {steps.length > 0 && (
+            <button className="ad-btn ad-btn--ghost" onClick={() => { setPreviewInitialId(steps[0].id); setPreviewOpen(true); }}>
+              Preview All
+            </button>
+          )}
+          <button className="ad-btn" onClick={() => setCreating(true)}>+ New Step</button>
+        </div>
       </div>
 
       {toast && createPortal(<div className={`ad-toast${toast.ok ? '' : ' ad-toast--error'}`}>{toast.msg}</div>, document.body)}
@@ -5359,6 +5620,13 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
         </div>,
         document.body
       )}
+      {previewOpen && (
+        <JourneyPreviewModal
+          steps={steps}
+          initialOpenId={previewInitialId}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
 
       {loading ? (
         <p style={{ color: 'var(--ad-text3)', padding: '32px 0', textAlign: 'center' }}>Loading…</p>
@@ -5374,7 +5642,7 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
                 <th style={{ width: 80 }}>Blocks</th>
                 <th style={{ width: 100 }}>Status</th>
                 <th style={{ width: 180 }}>Last Updated</th>
-                <th style={{ width: 200 }}>Actions</th>
+                <th style={{ width: 220 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -5397,8 +5665,9 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
                   </td>
                   <td style={{ fontSize: 12, color: 'var(--ad-text3)' }}>{new Date(step.updatedAt).toLocaleString()}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: '4px 6px' }}>
                       <button className="ad-btn ad-btn--sm" onClick={() => setEditStep(step)}>Edit</button>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => { setPreviewInitialId(step.id); setPreviewOpen(true); }}>Preview</button>
                       <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => void handleToggleStatus(step)}>
                         {step.status === 'published' ? 'Unpublish' : 'Publish'}
                       </button>

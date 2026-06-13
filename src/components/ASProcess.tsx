@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import { useContent } from "../hooks/useContent";
+import { useNavigate } from "react-router-dom";
 
 type ProcessStep = {
   number: string;
@@ -44,6 +45,7 @@ export default function ASProcessSection() {
   const [activeStep, setActiveStep] = useState(-1);
   const [showFooter, setShowFooter] = useState(false);
   const content = useContent<ProcessContent>("process", DEFAULT_PROCESS_CONTENT);
+  const navigate = useNavigate();
 
   const steps = useMemo(
     () => [...(content.steps ?? [])].sort((a, b) => Number(a.number) - Number(b.number)),
@@ -176,7 +178,7 @@ export default function ASProcessSection() {
 
         <div className="as-process-cta">
           <p>Your Path to Energy Independence</p>
-          <button type="button">Get Started</button>
+          <button type="button" onClick={() => navigate("/client-journey")}>Get Started</button>
         </div>
       </div>
     </section>

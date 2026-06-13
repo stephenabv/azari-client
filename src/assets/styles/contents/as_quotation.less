@@ -954,9 +954,16 @@
   padding-right: 14px;
 }
 
-.as-appliance-input-with-unit select {
+.as-appliance-unit-select {
+  position: relative;
   height: 100%;
-  padding: 0 14px;
+  display: flex;
+  align-items: center;
+}
+
+.as-appliance-unit-select select {
+  height: 100%;
+  padding: 0 32px 0 14px;
   background: #2e2e2e;
   border: none;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
@@ -968,6 +975,16 @@
   outline: none;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.as-appliance-unit-select-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: auto;
+  pointer-events: none;
 }
 
 .as-appliance-schedule {
@@ -1019,6 +1036,76 @@
   font-weight: 500;
   cursor: pointer;
   width: fit-content;
+}
+
+.as-schedule-type-selector {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.as-schedule-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9ca3af;
+
+  input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #ff615c;
+    flex-shrink: 0;
+    margin: 0;
+  }
+}
+
+.as-appliance-time-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+
+  input[type="time"] {
+    width: 100%;
+    padding: 0 28px 0 14px;
+
+    &::-webkit-calendar-picker-indicator {
+      display: none;
+    }
+  }
+}
+
+.as-appliance-time-select-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: auto;
+  pointer-events: none;
+}
+
+.as-schedule-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 97, 92, 0.06);
+  border: 1px solid rgba(255, 97, 92, 0.15);
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: #9ca3af;
+
+  strong {
+    color: #ff615c;
+  }
 }
 
 .as-appliance-estimate {
@@ -1404,7 +1491,7 @@
   color: #6b7280;
 }
 
-.light-theme .as-appliance-input-with-unit select {
+.light-theme .as-appliance-unit-select select {
   background: #e9eaec;
   border-left-color: rgba(0, 0, 0, 0.1);
   color: #6b7280;
@@ -1423,6 +1510,20 @@
 
 .light-theme .as-schedule-row input[type="time"] {
   color-scheme: light;
+}
+
+.light-theme .as-schedule-type-option {
+  color: #6b7280;
+}
+
+.light-theme .as-schedule-summary {
+  background: rgba(252, 97, 90, 0.04);
+  border-color: rgba(252, 97, 90, 0.2);
+  color: #6b7280;
+
+  strong {
+    color: #fc615a;
+  }
 }
 
 .light-theme .as-appliance-modal .as-btn-secondary {
