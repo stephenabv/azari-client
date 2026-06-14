@@ -236,9 +236,11 @@ export default function ASClientJourneyPage() {
   const [connectorBottom, setConnectorBottom] = useState(34);
   const sectionRef = useRef<HTMLElement>(null);
   const stepsColRef = useRef<HTMLDivElement>(null);
+  const mobileColRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
   const alignRO = useRef<ResizeObserver | null>(null);
   const connectorRO = useRef<ResizeObserver | null>(null);
+  const justOpenedRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetchClientJourney().then(data => {
@@ -367,7 +369,40 @@ export default function ASClientJourneyPage() {
     return () => { cancelAnimationFrame(raf); ro.disconnect(); connectorRO.current = null; };
   }, [steps]);
 
-  const toggle = (id: string) => setOpenId(prev => (prev === id ? null : id));
+  const toggle = (id: string) => setOpenId(prev => {
+    if (prev === id) return null;
+    justOpenedRef.current = id;
+    return id;
+  });
+
+  useEffect(() => {
+    if (!openId || justOpenedRef.current !== openId) return;
+    justOpenedRef.current = null;
+
+    const raf = requestAnimationFrame(() => {
+      // Pick whichever column is currently visible (desktop hides mobile and vice-versa).
+      const desktopCol = stepsColRef.current;
+      const mobileCol = mobileColRef.current;
+      const col = desktopCol && desktopCol.offsetHeight > 0 ? desktopCol : mobileCol;
+      if (!col) return;
+
+      // Sum row heights above the target — mirrors the panel-alignment logic.
+      // This avoids reading the step's own getBoundingClientRect() which is
+      // unreliable while the previous panel/spacer is mid-collapse transition.
+      let offsetFromColTop = 0;
+      for (const row of col.querySelectorAll<HTMLElement>('.as-cjp-step-row')) {
+        if (row.id === `cjp-step-${openId}`) break;
+        offsetFromColTop += row.offsetHeight;
+      }
+
+      const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--navbar-height')) || 75;
+      const colTop = col.getBoundingClientRect().top + window.scrollY;
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: colTop + offsetFromColTop - navH, behavior: reduced ? 'auto' : 'smooth' });
+    });
+
+    return () => cancelAnimationFrame(raf);
+  }, [openId]);
 
   const connectorPct = steps.length ? (shownCount / steps.length) * 100 : 0;
 
@@ -456,7 +491,7 @@ export default function ASClientJourneyPage() {
         </div>
 
         { }
-        <div className="as-cjp-mobile">
+        <div className="as-cjp-mobile" ref={mobileColRef}>
           {steps.map((step, i) => {
             const isActive = openId === step.id;
             const isShown = i < shownCount;
