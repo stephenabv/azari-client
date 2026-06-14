@@ -191,4 +191,79 @@
   .as-ceo-light {
     display: block;
   }
+
+  // ── Package detail modal ──────────────────────────────────────────────────────
+
+  .as-pkg-modal-overlay {
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .as-pkg-modal {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+
+  .as-pkg-modal-hero {
+    background: #d8d8d8;
+  }
+
+  .as-pkg-modal-body {
+    background: #f5f5f5;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .as-pkg-modal-desc {
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  .as-pkg-spec-sec-title {
+    color: #111111;
+  }
+
+  .as-pkg-spec-datasheet {
+    &.is-disabled {
+      color: rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  .as-pkg-modal-see-more-btn {
+    color: rgba(0, 0, 0, 0.45);
+
+    &:hover {
+      color: #111111;
+    }
+  }
+
+  .as-pkg-spec-row {
+    color: rgba(0, 0, 0, 0.45);
+
+    .spec-value {
+      color: rgba(0, 0, 0, 0.75);
+    }
+  }
+
+  .as-pkg-spec-other-item {
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+
+    .other-qty {
+      color: rgba(0, 0, 0, 0.35);
+    }
+
+    .other-name {
+      color: rgba(0, 0, 0, 0.75);
+    }
+
+    .other-model {
+      color: rgba(0, 0, 0, 0.4);
+    }
+
+    .other-cap {
+      color: rgba(0, 0, 0, 0.55);
+    }
+  }
 }

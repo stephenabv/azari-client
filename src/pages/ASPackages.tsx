@@ -223,10 +223,28 @@ function PackageCard({
     const nb = navbar ? Math.round(navbar.getBoundingClientRect().bottom) : 91;
     setNavbarBottom(nb);
 
+    const scrollY = window.scrollY;
+    const original = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      width: document.body.style.width,
+    };
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false); };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+
+      document.body.style.overflow = original.overflow;
+      document.body.style.position = original.position;
+      document.body.style.top = original.top;
+      document.body.style.width = original.width;
+      window.scrollTo(0, scrollY);
     };
   }, [showModal]);
 

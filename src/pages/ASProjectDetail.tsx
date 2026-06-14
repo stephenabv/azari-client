@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import iconPlay from "../assets/icons/icon-play.svg";
+import iconGoBack from "../assets/icons/icon-go-back.svg";
 import {
   fetchProjectById,
   type ASProjectDetailsModel,
@@ -136,6 +137,7 @@ function HeroSection({ project }: { project: ApiProject }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
+  const navigate = useNavigate();
 
   const chips = buildHeroChips(project);
 
@@ -192,7 +194,13 @@ function HeroSection({ project }: { project: ApiProject }) {
         onLoad={handleHeroLoad}
       />
       <div className="as-pd-hero-overlay" />
+      <button className="as-pd-back-btn as-pd-back-btn--mobile" onClick={() => navigate(-1)} aria-label="Go back">
+        <img src={iconGoBack} alt="" />
+      </button>
       <div ref={bottomRef} className={`as-pd-hero-bottom${isShown ? ' is-shown' : ''}`}>
+        <button className="as-pd-back-btn as-pd-back-btn--desktop" onClick={() => navigate(-1)} aria-label="Go back">
+          <img src={iconGoBack} alt="" />
+        </button>
         <div className="as-pd-hero-content">
           <div className="as-pd-hero-left">
             <span

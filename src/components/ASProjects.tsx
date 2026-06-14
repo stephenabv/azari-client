@@ -100,7 +100,7 @@ export default function ASProjects() {
     <section className="as-projects-section">
       <div className="as-projects-header">
         <h2 className="as-projects-title">
-          Our Clients journey to <span>Energy Independence</span>
+          Our Clients journey to <br/> Energy Independence
         </h2>
 
         <p className="as-projects-description">
