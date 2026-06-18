@@ -43,7 +43,7 @@ const ctaMobileStyles = `
   }
 `;
 
-const INITIAL_VISIBLE = 6;
+const PAGE_SIZE = 3;
 
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };
@@ -626,7 +626,7 @@ export default function ASPackages() {
   const [phase, setPhase] = useState<Phase>("single");
   const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
   const [selectedPkg, setSelectedPkg] = useState<ApiSolarPackage | null>(null);
   const [selectedSelection, setSelectedSelection] = useState<PackageSelection | null>(null);
   const [inquireOpen, setInquireOpen] = useState(false);
@@ -640,18 +640,20 @@ export default function ASPackages() {
 
   const groups = groupByType(packages, phase);
 
-  const toggleGroup = (label: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
+  const showMore = (label: string, total: number) => {
+    setVisibleCounts((prev) => ({
+      ...prev,
+      [label]: Math.min((prev[label] ?? PAGE_SIZE) + PAGE_SIZE, total),
+    }));
+  };
+
+  const showLess = (label: string) => {
+    setVisibleCounts((prev) => ({ ...prev, [label]: PAGE_SIZE }));
   };
 
   const handlePhase = (p: Phase) => {
     setPhase(p);
-    setExpandedGroups(new Set());
+    setVisibleCounts({});
   };
 
   return (
@@ -691,9 +693,10 @@ export default function ASPackages() {
           <div className="as-packages-empty">No packages available for this phase.</div>
         ) : (
           groups.map((group) => {
-            const isExpanded = expandedGroups.has(group.label);
-            const visible = isExpanded ? group.packages : group.packages.slice(0, INITIAL_VISIBLE);
-            const surplus = group.packages.length - INITIAL_VISIBLE;
+            const total = group.packages.length;
+            const visibleCount = visibleCounts[group.label] ?? PAGE_SIZE;
+            const visible = group.packages.slice(0, visibleCount);
+            const allShown = visibleCount >= total;
             const groupType = group.label.split("·")[1]?.trim() ?? "";
 
             return (
@@ -704,11 +707,12 @@ export default function ASPackages() {
                     <PackageCard key={pkg.id} pkg={pkg} onInquire={(sel) => { setSelectedPkg(pkg); setSelectedSelection(sel); setInquireOpen(true); }} />
                   ))}
                 </div>
-                {surplus > 0 && (
-                  <button className="as-packages-show-more" onClick={() => toggleGroup(group.label)}>
-                    {isExpanded
-                      ? `See less ${groupType} packages`
-                      : `See ${surplus} more ${groupType} packages`}
+                {total > PAGE_SIZE && (
+                  <button
+                    className="as-packages-show-more"
+                    onClick={() => allShown ? showLess(group.label) : showMore(group.label, total)}
+                  >
+                    {allShown ? "Show less" : "Show more"}
                   </button>
                 )}
               </div>
