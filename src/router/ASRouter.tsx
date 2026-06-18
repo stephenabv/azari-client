@@ -1,13 +1,17 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import ASMainLayout from "../layout/ASMainLayout";
-import ASDashboard from "../pages/ASDashboard";
-import ASAdmin from "../pages/ASAdmin";
-import ASPackages from "../pages/ASPackages";
-import ASQuotationEngine from "../components/ASQuotationEngine";
-import ASProjects from "../components/ASProjects";
-import ASProjectDetails from "../pages/ASProjectDetail";
+import ASErrorBoundary from "../components/ASErrorBoundary";
+import ASPageLoader from "../components/ASPageLoader";
 import ASNotFound from "../components/ASNotFound";
-import ASClientJourneyPage from "../pages/ASClientJourneyPage";
+
+const ASDashboard         = lazy(() => import("../pages/ASDashboard"));
+const ASAdmin             = lazy(() => import("../pages/ASAdmin"));
+const ASPackages          = lazy(() => import("../pages/ASPackages"));
+const ASQuotationEngine   = lazy(() => import("../components/ASQuotationEngine"));
+const ASProjects          = lazy(() => import("../components/ASProjects"));
+const ASProjectDetails    = lazy(() => import("../pages/ASProjectDetail"));
+const ASClientJourneyPage = lazy(() => import("../pages/ASClientJourneyPage"));
 
 const normalizeRoutePath = (value: string) => {
   const trimmed = value.trim();
@@ -19,6 +23,16 @@ const ADMIN_ROUTE_PATH =
   normalizeRoutePath(import.meta.env.VITE_ADMIN_ROUTE ?? "") ||
   "/ops-console-a9f4c31e";
 
+function RouteSlot({ context, children }: { context: string; children: ReactNode }) {
+  return (
+    <ASErrorBoundary context={context}>
+      <Suspense fallback={<ASPageLoader />}>
+        {children}
+      </Suspense>
+    </ASErrorBoundary>
+  );
+}
+
 export const ASAppRoute = createBrowserRouter([
   {
     path: "/",
@@ -26,37 +40,65 @@ export const ASAppRoute = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <ASDashboard />
+        element: (
+          <RouteSlot context="the home page">
+            <ASDashboard />
+          </RouteSlot>
+        ),
       },
       {
         path: "/projects",
-        element: <ASProjects />
+        element: (
+          <RouteSlot context="the projects page">
+            <ASProjects />
+          </RouteSlot>
+        ),
       },
       {
         path: "/projects/:id",
-        element: <ASProjectDetails />
+        element: (
+          <RouteSlot context="this project">
+            <ASProjectDetails />
+          </RouteSlot>
+        ),
       },
       {
         path: "/packages",
-        element: <ASPackages />
+        element: (
+          <RouteSlot context="the packages page">
+            <ASPackages />
+          </RouteSlot>
+        ),
       },
       {
         path: "/quotation-engine",
-        element: <ASQuotationEngine />
+        element: (
+          <RouteSlot context="the quotation engine">
+            <ASQuotationEngine />
+          </RouteSlot>
+        ),
       },
       {
         path: "/client-journey",
-        element: <ASClientJourneyPage />
+        element: (
+          <RouteSlot context="the client journey page">
+            <ASClientJourneyPage />
+          </RouteSlot>
+        ),
       },
       {
         path: "*",
-        element: <ASNotFound />
-      }
-    ]
+        element: <ASNotFound />,
+      },
+    ],
   },
   {
     path: ADMIN_ROUTE_PATH,
-    element: <ASAdmin />,
+    element: (
+      <RouteSlot context="the admin console">
+        <ASAdmin />
+      </RouteSlot>
+    ),
   },
   {
     path: "*",
