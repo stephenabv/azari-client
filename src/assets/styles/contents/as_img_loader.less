@@ -1,0 +1,48 @@
+.as-img-loader {
+  position: relative;
+  overflow: hidden;
+}
+
+// fills absolute-positioned image slots (project card, hero)
+.as-img-loader-fill {
+  position: absolute;
+  inset: 0;
+}
+
+// fills a block container that sizes itself (gallery items)
+.as-img-loader-block {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.as-img-loader-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 15, 15, 0.92);
+  pointer-events: none;
+}
+
+.as-img-loader-logo {
+  width: 52px;
+  height: auto;
+  opacity: 0.88;
+  display: block;
+}
+
+// journey page content block image (flow/static image)
+.as-cjp-block-img-loader {
+  display: block;
+  width: 100%;
+  max-width: 460px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+}
+
+body.light-theme .as-img-loader-overlay {
+  background: rgba(225, 225, 225, 0.92);
+}

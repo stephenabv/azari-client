@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
+import ASImgLoader from "./ASImgLoader";
 
 type ProjectCategory =
   | "All Projects"
@@ -57,11 +58,12 @@ export default function ASProjects() {
     useState<ProjectCategory>("All Projects");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProjects().then((data) => {
-      setProjects(data.map(apiToProject));
-    });
+    fetchProjects()
+      .then((data) => setProjects(data.map(apiToProject)))
+      .finally(() => setLoading(false));
   }, []);
 
   const activeIndex = filters.indexOf(activeFilter);
@@ -134,7 +136,20 @@ export default function ASProjects() {
         ))}
       </div>
 
-      {filteredProjects.length > 0 ? (
+      {loading ? (
+        <div className="as-projects-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="as-project-card-skeleton" aria-hidden="true">
+              <div className="as-project-skeleton-image" />
+              <div className="as-project-skeleton-body">
+                <div className="as-project-skeleton-line as-project-skeleton-line--short" />
+                <div className="as-project-skeleton-line" />
+                <div className="as-project-skeleton-line as-project-skeleton-line--med" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredProjects.length > 0 ? (
         <div className="as-projects-grid">
           {filteredProjects.map((project, index) => (
             <article
@@ -146,9 +161,10 @@ export default function ASProjects() {
               onClick={() => navigate(`/projects/${project.id}`)}
               onKeyDown={(e) => { if (e.key === "Enter") navigate(`/projects/${project.id}`); }}
             >
-              <img
+              <ASImgLoader
                 src={project.image}
                 alt={project.title}
+                wrapClassName="as-img-loader-fill"
                 onError={(e) => {
                   const fallback = getYouTubeFallbackThumbnail(e.currentTarget.src);
                   if (fallback) e.currentTarget.src = fallback;

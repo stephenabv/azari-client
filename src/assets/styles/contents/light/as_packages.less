@@ -36,9 +36,32 @@
     }
   }
 
-  .as-packages-loading,
   .as-packages-empty {
     color: rgba(0, 0, 0, 0.35);
+  }
+
+  .as-pkg-card-skeleton {
+    background: rgba(0, 0, 0, 0.025);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .as-pkg-skeleton-group-label,
+  .as-pkg-skeleton-line,
+  .as-pkg-skeleton-btn,
+  .as-pkg-skeleton-feature,
+  .as-pkg-skeleton-stepper {
+    background: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.04) 25%,
+      rgba(0, 0, 0, 0.09) 50%,
+      rgba(0, 0, 0, 0.04) 75%
+    );
+    background-size: 200% 100%;
+    animation: asPkgSkeletonShimmer 2s linear infinite;
+  }
+
+  .as-pkg-skeleton-divider {
+    background: rgba(0, 0, 0, 0.07);
   }
 
   .as-pkg-card {

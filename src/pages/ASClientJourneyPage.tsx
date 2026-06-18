@@ -7,6 +7,7 @@ import type {
 } from "../services/ASContent";
 import { fetchClientJourney } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
+import ASImgLoader from "../components/ASImgLoader";
 import iconDefault from "../assets/icons/icon-default.svg";
 
 function subscribeBodyClass(cb: () => void) {
@@ -134,7 +135,7 @@ function ButtonRenderer({ block }: { block: ButtonBlock }) {
 function ImageRenderer({ block }: { block: ImageBlock }) {
   return (
     <figure className="as-cjp-block-figure">
-      <img src={block.src} alt={block.alt} className="as-cjp-block-img" loading="lazy" />
+      <ASImgLoader src={block.src} alt={block.alt} className="as-cjp-block-img" wrapClassName="as-cjp-block-img-loader" loading="lazy" />
       {block.caption && <figcaption className="as-cjp-block-caption">{block.caption}</figcaption>}
     </figure>
   );

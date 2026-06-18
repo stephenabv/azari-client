@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type PackageSelection } from "../services/ASContent";
@@ -212,16 +212,20 @@ function PackageCard({
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
   const [showModal, setShowModal] = useState(false);
+  const [isClosingModal, setIsClosingModal] = useState(false);
   const [showOtherComponents, setShowOtherComponents] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<number | null>(null);
-  const [navbarBottom, setNavbarBottom] = useState(91);
+
+  const handleCloseModal = useCallback(() => {
+    setIsClosingModal(true);
+    window.setTimeout(() => {
+      setIsClosingModal(false);
+      setShowModal(false);
+    }, 220);
+  }, []);
 
   useEffect(() => {
     if (!showModal) return;
-
-    const navbar = document.querySelector('header.navbar-section');
-    const nb = navbar ? Math.round(navbar.getBoundingClientRect().bottom) : 91;
-    setNavbarBottom(nb);
 
     const scrollY = window.scrollY;
     const original = {
@@ -235,7 +239,7 @@ function PackageCard({
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
 
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowModal(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleCloseModal(); };
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
@@ -246,7 +250,7 @@ function PackageCard({
       document.body.style.width = original.width;
       window.scrollTo(0, scrollY);
     };
-  }, [showModal]);
+  }, [showModal, handleCloseModal]);
 
   const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
   const isHybrid = pkg.storageKwh > 0;
@@ -413,8 +417,8 @@ function PackageCard({
       </button>
 
       {showModal && createPortal(
-        <div className="as-pkg-modal-overlay" style={{ top: `${navbarBottom}px` }} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
-          <div className="as-pkg-modal" style={{ maxHeight: `calc(100vh - ${navbarBottom}px - 32px)` }} onClick={(e) => e.stopPropagation()}>
+        <div className={`as-pkg-modal-overlay${isClosingModal ? " is-closing" : ""}`} onClick={handleCloseModal} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
+          <div className={`as-pkg-modal${isClosingModal ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()}>
 
             {}
             <div className="as-pkg-modal-hero">
@@ -423,7 +427,7 @@ function PackageCard({
               )}
               <div className="as-pkg-modal-hero-gradient" />
 
-              <button className="as-pkg-modal-close" onClick={() => setShowModal(false)} aria-label="Close details">✕</button>
+              <button className="as-pkg-modal-close" onClick={handleCloseModal} aria-label="Close details">✕</button>
 
               <div className="as-pkg-modal-hero-content">
                 <div className="as-pkg-modal-hero-label">{displayName}</div>
@@ -438,7 +442,7 @@ function PackageCard({
                 </div>
                 <button
                   className="as-pkg-modal-hero-inquire"
-                  onClick={() => { setShowModal(false); onInquire(buildSelection()); }}
+                  onClick={() => { handleCloseModal(); onInquire(buildSelection()); }}
                 >
                   Inquire
                 </button>
@@ -605,6 +609,33 @@ function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] 
   return groups;
 }
 
+function PkgCardSkeleton() {
+  return (
+    <div className="as-pkg-card-skeleton" aria-hidden="true">
+      <div className="as-pkg-skeleton-top">
+        <div className="as-pkg-skeleton-line as-pkg-skeleton-line--name" />
+        <div className="as-pkg-skeleton-line as-pkg-skeleton-line--price" />
+        <div className="as-pkg-skeleton-line as-pkg-skeleton-line--meta" />
+        <div className="as-pkg-skeleton-line as-pkg-skeleton-line--meta" />
+        <div className="as-pkg-skeleton-btn" />
+      </div>
+      <div className="as-pkg-skeleton-divider" />
+      <div className="as-pkg-skeleton-features">
+        <div className="as-pkg-skeleton-feature" />
+        <div className="as-pkg-skeleton-feature" />
+        <div className="as-pkg-skeleton-feature" />
+        <div className="as-pkg-skeleton-feature as-pkg-skeleton-feature--short" />
+      </div>
+      <div className="as-pkg-skeleton-line as-pkg-skeleton-line--note" />
+      <div className="as-pkg-skeleton-steppers">
+        <div className="as-pkg-skeleton-stepper" />
+        <div className="as-pkg-skeleton-stepper" />
+        <div className="as-pkg-skeleton-stepper" />
+      </div>
+    </div>
+  );
+}
+
 export default function ASPackages() {
   const navigate = useNavigate();
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
@@ -688,7 +719,16 @@ export default function ASPackages() {
         </div>
 
         {loading ? (
-          <div className="as-packages-loading">Loading packages…</div>
+          <div className="as-packages-skeleton" aria-busy="true">
+            {[0, 1].map((g) => (
+              <div key={g} className="as-pkg-skeleton-group">
+                <div className="as-pkg-skeleton-group-label" aria-hidden="true" />
+                <div className="as-packages-grid">
+                  {[0, 1, 2].map((i) => <PkgCardSkeleton key={i} />)}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : groups.length === 0 ? (
           <div className="as-packages-empty">No packages available for this phase.</div>
         ) : (

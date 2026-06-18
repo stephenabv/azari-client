@@ -13,6 +13,7 @@ import {
 } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
 import { BentoCard } from "../components/ASBentoCard";
+import ASImgLoader from "../components/ASImgLoader";
 
 function getVideoEmbedUrl(url: string): string | null {
   if (!url.trim()) return null;
@@ -186,10 +187,11 @@ function HeroSection({ project }: { project: ApiProject }) {
       {videoOpen && project.videoUrl && (
         <VideoModal url={project.videoUrl} onClose={() => setVideoOpen(false)} />
       )}
-      <img
+      <ASImgLoader
         src={heroSrc}
         alt={project.title}
         className="as-pd-hero-img"
+        wrapClassName="as-img-loader-fill"
         onError={handleHeroError}
         onLoad={handleHeroLoad}
       />
@@ -371,7 +373,7 @@ function GallerySection({ images }: { images: string[] }) {
                 className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : ""}${i <= visibleItems ? " is-shown" : ""}`}
                 onClick={isLast ? () => setModalOpen(true) : undefined}
               >
-                <img src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" />
+                <ASImgLoader src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
                 {isLast && (
                   <div className="as-pd-gallery-more">
                     <span>+{remaining}</span>
@@ -416,10 +418,11 @@ function GallerySection({ images }: { images: string[] }) {
             <div className="as-pd-gallery-modal-grid">
               {extraImages.map((src, i) => (
                 <div key={i} className="as-pd-gallery-modal-item">
-                  <img
+                  <ASImgLoader
                     src={src}
                     alt={`Gallery photo ${i + 9}`}
                     className="as-pd-gallery-modal-img"
+                    wrapClassName="as-img-loader-block"
                   />
                 </div>
               ))}

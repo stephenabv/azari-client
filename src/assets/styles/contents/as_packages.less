@@ -95,13 +95,108 @@
   }
 }
 
-.as-packages-loading,
 .as-packages-empty {
   padding: 80px 0;
   text-align: center;
   font-family: "Inter", sans-serif;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.35);
+}
+
+// ── Package skeleton loader ───────────────────────────────────────────────────
+
+@keyframes asPkgSkeletonShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.as-pkg-skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: asPkgSkeletonShimmer 2s linear infinite;
+}
+
+.as-pkg-skeleton-group {
+  margin-bottom: clamp(36px, 4vw, 64px);
+}
+
+.as-pkg-skeleton-group-label {
+  height: 13px;
+  width: 160px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  .as-pkg-skeleton-shimmer();
+}
+
+.as-pkg-card-skeleton {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.as-pkg-skeleton-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 18px;
+}
+
+.as-pkg-skeleton-line {
+  border-radius: 6px;
+  .as-pkg-skeleton-shimmer();
+
+  &--name  { height: 12px; width: 60%; }
+  &--price { height: 28px; width: 50%; }
+  &--meta  { height: 12px; width: 80%; }
+  &--note  { height: 11px; width: 55%; margin-bottom: 14px; }
+}
+
+.as-pkg-skeleton-btn {
+  height: 40px;
+  border-radius: 10px;
+  margin-top: 4px;
+  .as-pkg-skeleton-shimmer();
+}
+
+.as-pkg-skeleton-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 0 -22px 18px;
+}
+
+.as-pkg-skeleton-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.as-pkg-skeleton-feature {
+  height: 12px;
+  border-radius: 6px;
+  .as-pkg-skeleton-shimmer();
+  &--short { width: 60%; }
+}
+
+.as-pkg-skeleton-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-pkg-skeleton-stepper {
+  height: 44px;
+  border-radius: 10px;
+  .as-pkg-skeleton-shimmer();
 }
 
 .as-pkg-card {
@@ -414,17 +509,25 @@
 
 .as-pkg-modal-overlay {
   position: fixed;
-  top: 91px;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 9000;
+  z-index: 9900;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 16px;
+  animation: pkgModalOverlayIn 0.22s ease forwards;
+
+  &.is-closing {
+    animation: pkgModalOverlayOut 0.2s ease forwards;
+  }
+
+  @media (max-width: 560px) {
+    padding: 0;
+    align-items: flex-end;
+  }
 }
 
 .as-pkg-modal {
@@ -433,28 +536,57 @@
   border-radius: 20px;
   width: 100%;
   max-width: 520px;
-  max-height: calc(100vh - 91px - 32px); // fallback; overridden by inline style
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04);
-  animation: pkgModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pkgModalIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  &.is-closing {
+    animation: pkgModalOut 0.18s ease forwards;
+  }
 
   @media (max-width: 560px) {
     max-width: 100%;
-    border-radius: 16px;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    animation: pkgModalInMobile 0.26s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+
+    &.is-closing {
+      animation: pkgModalOutMobile 0.2s ease forwards;
+    }
   }
 }
 
+@keyframes pkgModalOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pkgModalOverlayOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 @keyframes pkgModalIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+@keyframes pkgModalOut {
+  from { opacity: 1; transform: scale(1)    translateY(0);  }
+  to   { opacity: 0; transform: scale(0.94) translateY(8px); }
+}
+
+@keyframes pkgModalInMobile {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes pkgModalOutMobile {
+  from { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 0; transform: translateY(40px); }
 }
 
 // ── Modal hero (image + package summary) ─────────────────────────────────────
