@@ -697,8 +697,6 @@ export default function ASPackages() {
             const visibleCount = visibleCounts[group.label] ?? PAGE_SIZE;
             const visible = group.packages.slice(0, visibleCount);
             const allShown = visibleCount >= total;
-            const groupType = group.label.split("·")[1]?.trim() ?? "";
-
             return (
               <div key={group.label} className="as-packages-group">
                 <h2 className="as-packages-group-label">{group.label}</h2>
