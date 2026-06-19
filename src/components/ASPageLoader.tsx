@@ -1,7 +1,11 @@
+import { createPortal } from "react-dom";
+import logoAnimated from "../assets/animations/logo-animated.svg";
+
 export default function ASPageLoader() {
-  return (
+  return createPortal(
     <div className="as-page-loader" aria-label="Loading…" role="status">
-      <div className="as-page-loader-spinner" aria-hidden="true" />
-    </div>
+      <img src={logoAnimated} alt="" className="as-page-loader-logo" aria-hidden="true" />
+    </div>,
+    document.body,
   );
 }
