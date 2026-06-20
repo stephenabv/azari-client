@@ -139,16 +139,7 @@
   flex-wrap: nowrap;
   gap: 12px;
   margin-top: 8px;
-  // clip to exactly 3 cards; chips 4+ scroll into view naturally
-  max-width: calc(3 * 165px + 2 * 12px);
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  overflow: hidden;
 }
 
 .as-pd-hero-stat {
@@ -162,7 +153,6 @@
   padding: 16px 20px;
   width: 165px;
   flex-shrink: 0;
-  scroll-snap-align: start;
   text-align: center;
   overflow: hidden;
   border-radius: 16px;
@@ -179,10 +169,11 @@
 
 .as-pd-hero-stat-label {
   font-family: @pd-font-inter;
-  font-size: 11px;
+  font-size: 9px;
   color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 @keyframes pd-play-grow {
@@ -1139,14 +1130,11 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    max-width: unset;
-    overflow-x: unset;
-    scroll-snap-type: unset;
+    overflow: unset;
 
     .as-pd-hero-stat {
       width: 100%;
       flex-shrink: unset;
-      scroll-snap-align: unset;
     }
   }
 

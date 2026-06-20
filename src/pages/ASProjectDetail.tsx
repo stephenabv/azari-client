@@ -140,7 +140,7 @@ function HeroSection({ project }: { project: ApiProject }) {
   const [isShown, setIsShown] = useState(false);
   const navigate = useNavigate();
 
-  const chips = buildHeroChips(project);
+  const chips = buildHeroChips(project).slice(0, 5);
 
   const heroSrc = getYouTubeThumbnail(project.videoUrl) ?? project.imageUrl;
   const heroFallback = getYouTubeThumbnail(project.videoUrl, "hq") ?? project.imageUrl;
