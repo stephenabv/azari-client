@@ -118,21 +118,20 @@
 
 .as-pd-hero-title {
   font-family: @pd-font-outfit;
-  font-size: 50px;
+  font-size: clamp(26px, 5vw, 52px);
   font-weight: 500;
   color: #ffffff;
-  line-height: 120%;
+  line-height: 1.2;
   margin: 0 0 48px;
-  letter-spacing: 0;
 }
 
 .as-pd-hero-subtitle {
   font-family: @pd-font-inter;
-  font-size: 17px;
+  font-size: 14px;
   color: #FFFFFF;
   margin: 0 0 48px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .as-pd-hero-stats {
@@ -249,12 +248,11 @@
 
 .as-pd-section-title {
   font-family: @pd-font-outfit;
-  font-size: 42px;
+  font-size: clamp(22px, 3.2vw, 42px);
   font-weight: 500;
   color: #E8E8E8;
-  line-height: 120%;
+  line-height: 1.2;
   margin: 0 0 40px;
-  letter-spacing: 0;
 }
 
 .as-pd-perf-grid {
@@ -278,9 +276,9 @@
 
 .as-pd-perf-desc {
   font-family: @pd-font-inter;
-  font-size: 20px;
+  font-size: 14px;
   color: @pd-text-muted;
-  line-height: 30px;
+  line-height: 1.6;
 }
 
 .as-pd-metric-ring-wrap {
@@ -724,17 +722,17 @@
 .as-pd-testimonial-name,
 .as-pd-testimonial-role {
   font-family: @pd-font-outfit;
-  font-size: 42px;
   font-weight: 500;
-  line-height: 120%;
-  letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .as-pd-testimonial-name {
+  font-size: clamp(20px, 3.5vw, 42px);
   color: #ffffff;
 }
 
 .as-pd-testimonial-role {
+  font-size: clamp(14px, 2.8vw, 28px);
   color: @pd-accent;
 }
 
@@ -771,11 +769,10 @@
 
 .as-pd-testimonial-quote {
   font-family: @pd-font-outfit;
-  font-size: 35px;
-  line-height: 120%;
-  color: #65696F;
+  font-size: clamp(13px, 2.8vw, 35px);
+  line-height: 1.2;
+  color: #65696f;
   margin: 0;
-  letter-spacing: 0;
   font-style: normal;
 }
 
@@ -1033,7 +1030,7 @@
 
 .as-pd-not-found-desc {
   font-family: @pd-font-inter;
-  font-size: 15px;
+  font-size: 14px;
   color: @pd-text-muted;
   margin: 0 0 28px;
 }
@@ -1065,10 +1062,6 @@
 
   .as-pd-back-btn--desktop {
     left: 32px;
-  }
-
-  .as-pd-hero-title {
-    font-size: 40px;
   }
 
   .as-pd-container {
@@ -1138,14 +1131,6 @@
     transform: translateX(-50%);
   }
 
-  .as-pd-hero-title {
-    font-size: 30px;
-  }
-
-  .as-pd-hero-subtitle {
-    font-size: 14px;
-  }
-
   .as-pd-hero-stat-value {
     font-size: 17px;
   }
@@ -1174,7 +1159,6 @@
   }
 
   .as-pd-section-title {
-    font-size: 22px;
     margin-bottom: 28px;
   }
 
@@ -1244,17 +1228,6 @@
     padding: 20px 28px;
   }
 
-  .as-pd-testimonial-name {
-    font-size: 28px;
-  }
-
-  .as-pd-testimonial-role {
-    font-size: 20px;
-  }
-
-  .as-pd-testimonial-quote {
-    font-size: 22px;
-  }
 
   .as-pd-gallery-modal {
     padding: 20px;
@@ -1307,17 +1280,6 @@
     padding: 14px 22px;
   }
 
-  .as-pd-testimonial-name {
-    font-size: 24px;
-  }
-
-  .as-pd-testimonial-role {
-    font-size: 17px;
-  }
-
-  .as-pd-testimonial-quote {
-    font-size: 18px;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1350,7 +1312,6 @@
   }
 
   .as-pd-hero-title {
-    font-size: 24px;
     margin-bottom: 8px;
   }
 
@@ -1385,12 +1346,7 @@
   }
 
   .as-pd-section-title {
-    font-size: 18px;
     margin-bottom: 20px;
-  }
-
-  .as-pd-perf-desc {
-    font-size: 13px;
   }
 
   // System cards
@@ -1418,30 +1374,12 @@
     padding: 10px 18px;
   }
 
-  .as-pd-testimonial-name {
-    font-size: 22px;
-  }
-
-  .as-pd-testimonial-role {
-    font-size: 15px;
-  }
-
-  .as-pd-testimonial-quote {
-    font-size: 15px;
-  }
 }
 
 @media (max-width: 360px) {
-  .as-pd-hero-title {
-    font-size: 20px;
-  }
 
   .as-pd-hero-stat-value {
     font-size: 13px;
-  }
-
-  .as-pd-section-title {
-    font-size: 16px;
   }
 
   .as-pd-system-card-value {
@@ -1455,17 +1393,5 @@
 
   .as-pd-testimonial-quote-container {
     padding: 8px 14px;
-  }
-
-  .as-pd-testimonial-name {
-    font-size: 20px;
-  }
-
-  .as-pd-testimonial-role {
-    font-size: 14px;
-  }
-
-  .as-pd-testimonial-quote {
-    font-size: 13px;
   }
 }

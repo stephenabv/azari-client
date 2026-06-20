@@ -27,12 +27,14 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
   const showPackages = pageVis.packages !== false;
 
-  const tabs = ["Projects", ...(showPackages ? ["Packages"] : []), "Client Journey"];
+  const tabs = ["Home", "Client Journey", "Projects", ...(showPackages ? ["Packages"] : []), "System Calculator"];
 
   const tabRoutes: Record<string, string> = {
+    Home: "/",
     Projects: "/projects",
     Packages: "/packages",
     "Client Journey": "/client-journey",
+    "System Calculator": "/quotation-engine",
   };
 
   const updateIndicator = (tab: string) => {
@@ -146,13 +148,13 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     <nav className="ASNavbar" ref={navbarRef}>
       <div
         className="nav-logo"
-        onClick={() => { setActiveTab(""); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        onClick={() => { setActiveTab("Home"); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
         role="button"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            setActiveTab(""); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" });
+            setActiveTab("Home"); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" });
           }
         }}
       />
