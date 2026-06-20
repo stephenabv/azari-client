@@ -6,8 +6,13 @@
   padding-bottom: clamp(60px, 8vw, 120px);
 }
 
+// Chained selector beats .page-container (same specificity otherwise)
+.ASPackages.page-container {
+  padding-top: 230px;
+}
+
 .as-packages-header {
-  padding: clamp(32px, 4vw, 64px) 0 clamp(20px, 3vw, 36px);
+  padding: 0 0 clamp(20px, 3vw, 36px);
 }
 
 .as-packages-title {
@@ -991,8 +996,24 @@
 }
 
 @media (max-width: 1024px) {
+  .ASPackages.page-container {
+    padding-top: 140px;
+  }
+
   .as-packages-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .ASPackages.page-container {
+    padding-top: 96px;
+  }
+}
+
+@media (max-width: 576px) {
+  .ASPackages.page-container {
+    padding-top: 80px;
   }
 }
 
