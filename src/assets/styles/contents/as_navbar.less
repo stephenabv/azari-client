@@ -261,10 +261,16 @@
 @media (max-width: 768px) {
   .ASNavbar {
     padding: 10px 16px;
+    /* Menu column is hidden below. Collapse to logo | rest and place each
+       child explicitly so removing the menu can't reshuffle the layout. */
+    grid-template-columns: auto 1fr;
+  }
+
+  .nav-logo {
+    grid-column: 1;
   }
 
   .nav-menu {
-    grid-template-columns: 1fr auto;
     display: none;
   }
 
@@ -277,6 +283,8 @@
   }
 
   .nav-actions {
+    grid-column: 2;
+    justify-self: end; /* pin the cluster to the right edge of its track */
     gap: 14px;
   }
 
@@ -370,11 +378,16 @@
 @media (max-height: 520px) and (orientation: landscape) {
   .ASNavbar {
     padding: 8px 20px;
+    /* Menu is hidden in landscape too — same explicit two-track placement. */
+    grid-template-columns: auto 1fr;
+  }
+
+  .nav-logo {
+    grid-column: 1;
   }
 
   .nav-menu {
     display: none;
-    grid-template-columns: 1fr auto;
   }
 
   .mobile-menu-btn {
@@ -385,6 +398,11 @@
     display: flex;
     max-height: calc(100vh - 80px);
     overflow-y: auto;
+  }
+
+  .nav-actions {
+    grid-column: 2;
+    justify-self: end;
   }
 
   .getQuote-btn {
