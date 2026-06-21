@@ -10,6 +10,7 @@ import {
   type PerformanceMetric,
   type TechBreakdownItem,
   type ProjectTestimonial,
+  type HeroCardSource,
 } from "../services/ASContent";
 import ASCallToAction from "../components/ASCallToAction";
 import { BentoCard } from "../components/ASBentoCard";
@@ -93,6 +94,62 @@ export function getYouTubeThumbnail(
 
 type HeroChip = { value: string; label: string };
 
+function resolveHeroChips(project: ApiProject): HeroChip[] {
+  const cards: HeroCardSource[] = project.heroCards ?? [];
+
+  // If the admin has configured cards, resolve them; else auto-generate.
+  if (cards.length > 0) {
+    return cards.slice(0, 5).flatMap((card): HeroChip[] => {
+      if (card.type === 'custom') {
+        if (!card.value && !card.label) return [];
+        return [{ value: card.value, label: card.label }];
+      }
+      // system card — resolve from project fields
+      const label = card.label ?? systemFieldDefaultLabel(card.field);
+      const value = resolveSystemField(project, card.field);
+      if (!value) return [];
+      return [{ value, label }];
+    });
+  }
+
+  return buildHeroChips(project);
+}
+
+function systemFieldDefaultLabel(field: string): string {
+  const labels: Record<string, string> = {
+    loadKw: 'Load Capacity',
+    storageKwh: 'Storage Capacity',
+    productionKwp: 'Production Capacity',
+    savings: 'Estimated Savings',
+    electricalSystem: 'Electrical System',
+  };
+  return labels[field as string] ?? field;
+}
+
+function resolveSystemField(project: ApiProject, field: string): string | null {
+  switch (field) {
+    case 'loadKw':
+      return project.loadKw != null && project.loadKw > 0 ? `${project.loadKw}kW` : null;
+    case 'storageKwh': {
+      const val = project.storageKwh != null && project.storageKwh > 0
+        ? project.storageKwh
+        : (() => { const m = project.system?.match(/\(([\d.]+)\s*kWh/i); return m ? parseFloat(m[1]) : 0; })();
+      return val > 0 ? `${val}kWh` : null;
+    }
+    case 'productionKwp':
+      if (project.productionKwp != null && project.productionKwp > 0) return `${project.productionKwp}kWp`;
+      { const m = project.system?.match(/^([\d.]+)\s*kWp/i); return m ? `${m[1]}kWp` : null; }
+    case 'savings':
+      return project.savings || null;
+    case 'electricalSystem':
+      if (project.electricalSystem) return project.electricalSystem;
+      if (project.system) return /3-phase|three.phase/i.test(project.system) ? 'Three-Phase' : 'Single-Phase';
+      return null;
+    default:
+      return null;
+  }
+}
+
 function buildHeroChips(project: ApiProject): HeroChip[] {
   const chips: HeroChip[] = [];
 
@@ -140,7 +197,7 @@ function HeroSection({ project }: { project: ApiProject }) {
   const [isShown, setIsShown] = useState(false);
   const navigate = useNavigate();
 
-  const chips = buildHeroChips(project).slice(0, 5);
+  const chips = resolveHeroChips(project);
 
   const heroSrc = getYouTubeThumbnail(project.videoUrl) ?? project.imageUrl;
   const heroFallback = getYouTubeThumbnail(project.videoUrl, "hq") ?? project.imageUrl;
@@ -241,10 +298,13 @@ function HeroSection({ project }: { project: ApiProject }) {
   );
 }
 
+const PERF_PAGE_SIZE = 3;
+
 function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -263,24 +323,51 @@ function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
   }, []);
 
   if (!metrics || metrics.length === 0) return null;
+
+  const hasMore = metrics.length > PERF_PAGE_SIZE;
+  const visible = showAll ? metrics : metrics.slice(0, PERF_PAGE_SIZE);
+
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-performance${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">Performance &amp; Resilience Summary</h2>
         <div className="as-pd-perf-grid">
-          {metrics.map((m, i) => (
+          {visible.map((m, i) => (
             <div key={i} className="as-pd-perf-item">
               <div className="as-pd-perf-title">{m.title}</div>
               <div className="as-pd-perf-desc">{m.description}</div>
             </div>
           ))}
         </div>
+        {hasMore && (
+          <button
+            className="as-pd-perf-show-more"
+            onClick={() => setShowAll(v => !v)}
+          >
+            {showAll ? "Show less" : "Show more"}
+          </button>
+        )}
       </div>
     </section>
   );
 }
 
-function TechnicalBreakdownSection({ items }: { items: TechBreakdownItem[] }) {
+function isEmptyBentoCard(item: TechBreakdownItem): boolean {
+  if (item.cardType === 'hero' || item.cardType === 'feature') {
+    if (item.titleSource?.type === 'system') return false;
+    return !item.title?.trim();
+  }
+  return true;
+}
+
+function resolveBentoTitle(item: TechBreakdownItem, project: ApiProject): TechBreakdownItem {
+  if (item.cardType !== 'hero' && item.cardType !== 'feature') return item;
+  if (item.titleSource?.type !== 'system') return item;
+  const resolved = resolveSystemField(project, item.titleSource.field);
+  return resolved ? { ...item, title: resolved } : item;
+}
+
+function TechnicalBreakdownSection({ items, project }: { items: TechBreakdownItem[]; project: ApiProject }) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
@@ -301,13 +388,18 @@ function TechnicalBreakdownSection({ items }: { items: TechBreakdownItem[] }) {
     return () => observer.disconnect();
   }, []);
 
-  if (!items || items.length === 0) return null;
+  const filtered = (items ?? [])
+    .filter(item => !isEmptyBentoCard(item))
+    .map(item => resolveBentoTitle(item, project))
+    .slice(0, 5);
+
+  if (filtered.length === 0) return null;
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-breakdown${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
         <h2 className="as-pd-section-title">Technical Breakdown</h2>
-        <div className="as-pd-breakdown-bento">
-          {items.map((item, i) => (
+        <div className="as-pd-breakdown-bento" data-count={filtered.length}>
+          {filtered.map((item, i) => (
             <BentoCard key={i} item={item} />
           ))}
         </div>
@@ -486,7 +578,17 @@ function SkeletonLoader() {
       <div className="as-pd-skeleton-hero" />
       <div className="as-pd-container">
         <div className="as-pd-skeleton-line as-pd-skeleton-line--wide" />
-        <div className="as-pd-skeleton-line" />
+        <div className="as-pd-skeleton-perf-grid">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="as-pd-skeleton-perf-item">
+              <div className="as-pd-skeleton-line" style={{ width: '55%', height: 20, marginBottom: 12 }} />
+              <div className="as-pd-skeleton-line" style={{ width: '90%', marginBottom: 6 }} />
+              <div className="as-pd-skeleton-line" style={{ width: '75%', marginBottom: 6 }} />
+              <div className="as-pd-skeleton-line" style={{ width: '60%' }} />
+            </div>
+          ))}
+        </div>
+        <div className="as-pd-skeleton-line" style={{ width: '40%', height: 28, marginTop: 60 }} />
         <div className="as-pd-skeleton-line as-pd-skeleton-line--short" />
       </div>
     </div>
@@ -544,7 +646,7 @@ export default function ASProjectDetails() {
     <div className="as-pd-page">
       <HeroSection project={project} />
       <PerformanceSection metrics={metrics} />
-      <TechnicalBreakdownSection items={breakdown} />
+      <TechnicalBreakdownSection items={breakdown} project={project} />
       <GallerySection images={gallery} />
       {testimonial && <TestimonialSection testimonial={testimonial} />}
       <ASCallToAction />

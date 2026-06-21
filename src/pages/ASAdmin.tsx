@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
@@ -16,6 +16,7 @@ import {
   adminCreateProject,
   adminUpdateProject,
   adminDeleteProject,
+  adminPublishProject,
   adminDeleteTalkInquiry,
   adminUpdateTalkInquiry,
   adminDeleteQuotation,
@@ -44,9 +45,11 @@ import {
   type PerformanceMetric,
   type TechBreakdownItem,
   type HeroBentoCard,
-  type StatBentoCard,
   type FeatureBentoCard,
+  type BentoTitleSource,
   type ProjectTestimonial,
+  type HeroCardSource,
+  type HeroSystemField,
   type ApiSolarPackage,
   type PackageInput,
   type ApiSolarComponent,
@@ -808,6 +811,8 @@ type ProjectForm = {
   performanceMetrics: PerformanceMetric[];
   technicalBreakdown: TechBreakdownItem[];
   galleryImages: string[];
+  galleryImageNames: string[];
+  heroCards: HeroCardSource[];
   testimonial: ProjectTestimonial | null;
   systemCardSubtext: string;
   savingsCardSubtext: string;
@@ -825,49 +830,41 @@ interface BreakdownPreset {
 }
 
 const BREAKDOWN_PRESETS: readonly BreakdownPreset[] = [
-  { id: 'hero',      slotLabel: 'Hero Card',        colSpan: 8, cardType: 'hero'    },
-  { id: 'stat',      slotLabel: 'Stat Card',         colSpan: 4, cardType: 'stat'    },
-  { id: 'feature-1', slotLabel: 'Feature Card 1',   colSpan: 4, cardType: 'feature' },
-  { id: 'feature-2', slotLabel: 'Feature Card 2',   colSpan: 4, cardType: 'feature' },
-  { id: 'feature-3', slotLabel: 'Feature Card 3',   colSpan: 4, cardType: 'feature' },
+  { id: 'hero',      slotLabel: 'Hero Card',       colSpan: 8, cardType: 'hero'    },
+  { id: 'feature-1', slotLabel: 'Feature Card 1', colSpan: 4, cardType: 'feature' },
+  { id: 'feature-2', slotLabel: 'Feature Card 2', colSpan: 4, cardType: 'feature' },
+  { id: 'feature-3', slotLabel: 'Feature Card 3', colSpan: 4, cardType: 'feature' },
 ] as const;
 
 function emptyPresetItem(preset: BreakdownPreset): TechBreakdownItem {
-  if (preset.cardType === 'hero')    return { cardType: 'hero',    title: '',  accent: '#c84020' } satisfies HeroBentoCard;
-  if (preset.cardType === 'stat')    return { cardType: 'stat',    statValue: 0, statUnit: '%', statLabel: '', ringColor: '#22c55e' } satisfies StatBentoCard;
+  if (preset.cardType === 'hero') return { cardType: 'hero', title: '', accent: '#c84020' } satisfies HeroBentoCard;
   return { cardType: 'feature', title: '' } satisfies FeatureBentoCard;
 }
 
 function normalizeToPresets(items: TechBreakdownItem[]): TechBreakdownItem[] {
+  // Strip legacy stat cards so old data remaps cleanly to the new 4-slot layout
+  const nonStat = (items as Array<TechBreakdownItem & Record<string, unknown>>).filter(
+    item => (item as Record<string, unknown>).cardType !== 'stat'
+  );
   return BREAKDOWN_PRESETS.map((preset, i): TechBreakdownItem => {
-    const raw = items[i] as (TechBreakdownItem & Record<string, unknown>) | undefined;
+    const raw = nonStat[i] as (TechBreakdownItem & Record<string, unknown>) | undefined;
     if (!raw) return emptyPresetItem(preset);
     if (preset.cardType === 'hero') {
       return {
-        cardType: 'hero',
-        title:     String(raw.title ?? (raw as Record<string, unknown>).title ?? ''),
-        badge:     raw.badge as string | undefined,
-        tag:       raw.tag as string | undefined,
-        imageUrl:  raw.imageUrl as string | undefined,
-        accent:    raw.accent as string | undefined ?? '#c84020',
+        cardType:    'hero',
+        title:       String(raw.title ?? ''),
+        titleSource: raw.titleSource as BentoTitleSource | undefined,
+        badge:       raw.badge as string | undefined,
+        tag:         raw.tag as string | undefined,
+        imageUrl:    raw.imageUrl as string | undefined,
+        accent:      raw.accent as string | undefined ?? '#c84020',
       } satisfies HeroBentoCard;
-    }
-    if (preset.cardType === 'stat') {
-      const legacyValue = (raw as Record<string, unknown>).metricValue as number | undefined;
-      return {
-        cardType:   'stat',
-        statValue:  (raw.statValue as number) ?? legacyValue ?? 0,
-        statUnit:   (raw.statUnit as string) ?? '%',
-        statLabel:  (raw.statLabel as string) ?? String((raw as Record<string, unknown>).title ?? ''),
-        ringColor:  (raw.ringColor as string) ?? (raw as Record<string, unknown>).metricColor as string | undefined ?? '#22c55e',
-        tag:        raw.tag as string | undefined,
-        imageUrl:   undefined,
-      } satisfies StatBentoCard;
     }
     return {
       cardType:    'feature',
       title:       String(raw.title ?? ''),
-      description: (raw.description as string) ?? (raw as Record<string, unknown>).subtitle as string | undefined,
+      titleSource: raw.titleSource as BentoTitleSource | undefined,
+      description: raw.description as string | undefined,
       tag:         raw.tag as string | undefined,
       imageUrl:    raw.imageUrl as string | undefined,
     } satisfies FeatureBentoCard;
@@ -931,6 +928,66 @@ function BentoImageUpload({ slotIndex, imageUrl, onUpload, onRemove }: {
   );
 }
 
+const BENTO_SYSTEM_FIELD_LABELS: Record<HeroSystemField, string> = {
+  loadKw:           'Load Capacity',
+  storageKwh:       'Storage Capacity',
+  productionKwp:    'Production Capacity',
+  savings:          'Estimated Savings',
+  electricalSystem: 'Electrical System',
+};
+const BENTO_SYSTEM_FIELDS = Object.keys(BENTO_SYSTEM_FIELD_LABELS) as HeroSystemField[];
+
+function BentoTitleSourcePicker<T extends HeroBentoCard | FeatureBentoCard>({
+  item, onPatch, titlePlaceholder,
+}: {
+  item: T;
+  onPatch: (p: Partial<T>) => void;
+  titlePlaceholder: string;
+}) {
+  const sourceType = item.titleSource?.type ?? 'custom';
+  const systemField = (item.titleSource?.type === 'system' ? item.titleSource.field : 'productionKwp') as HeroSystemField;
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <label className="ad-label" style={{ margin: 0, flex: 1 }}>Title</label>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            type="button"
+            className={sourceType === 'custom' ? 'ad-btn ad-btn--sm' : 'ad-btn ad-btn--ghost ad-btn--sm'}
+            style={{ fontSize: 11, padding: '2px 8px', height: 24 }}
+            onClick={() => onPatch({ titleSource: { type: 'custom' } } as Partial<T>)}
+          >Custom</button>
+          <button
+            type="button"
+            className={sourceType === 'system' ? 'ad-btn ad-btn--sm' : 'ad-btn ad-btn--ghost ad-btn--sm'}
+            style={{ fontSize: 11, padding: '2px 8px', height: 24 }}
+            onClick={() => onPatch({ titleSource: { type: 'system', field: systemField } } as Partial<T>)}
+          >From project</button>
+        </div>
+      </div>
+      {sourceType === 'system' ? (
+        <select
+          className="ad-select"
+          value={systemField}
+          onChange={e => onPatch({ titleSource: { type: 'system', field: e.target.value as HeroSystemField } } as Partial<T>)}
+        >
+          {BENTO_SYSTEM_FIELDS.map(f => (
+            <option key={f} value={f}>{BENTO_SYSTEM_FIELD_LABELS[f]}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          className="ad-input"
+          value={item.title}
+          onChange={e => onPatch({ title: e.target.value } as Partial<T>)}
+          placeholder={titlePlaceholder}
+        />
+      )}
+    </div>
+  );
+}
+
 function HeroCardFields({ item, onPatch, slotIndex }: {
   item: HeroBentoCard;
   onPatch: (p: Partial<HeroBentoCard>) => void;
@@ -938,7 +995,7 @@ function HeroCardFields({ item, onPatch, slotIndex }: {
 }) {
   return (
     <>
-      <input className="ad-input" style={{ marginBottom: 8 }} value={item.title} onChange={e => onPatch({ title: e.target.value })} placeholder="Title" />
+      <BentoTitleSourcePicker item={item} onPatch={onPatch} titlePlaceholder="Headline (e.g. Advanced Solar Installation)" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         <input className="ad-input" value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="Tag pill (e.g. INVERTER + BATTERY)" />
         <input className="ad-input" value={item.badge ?? ""} onChange={e => onPatch({ badge: e.target.value || undefined })} placeholder="Badge (e.g. NEW)" />
@@ -952,42 +1009,6 @@ function HeroCardFields({ item, onPatch, slotIndex }: {
   );
 }
 
-function StatCardFields({ item, onPatch }: {
-  item: StatBentoCard;
-  onPatch: (p: Partial<StatBentoCard>) => void;
-}) {
-  return (
-    <>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 88px", gap: 8, marginBottom: 8 }}>
-        <div>
-          <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Value</label>
-          <input
-            className="ad-input"
-            type="number"
-            min={0}
-            value={item.statValue || ''}
-            onChange={e => onPatch({ statValue: e.target.value === '' ? 0 : (parseFloat(e.target.value) || 0) })}
-            placeholder="e.g. 99"
-          />
-        </div>
-        <div>
-          <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Unit</label>
-          <input className="ad-input" value={item.statUnit} readOnly style={{ opacity: 0.45, cursor: "default", userSelect: "none" }} tabIndex={-1} />
-        </div>
-      </div>
-      <input className="ad-input" style={{ marginBottom: 8 }} value={item.statLabel} onChange={e => onPatch({ statLabel: e.target.value })} placeholder="Label below ring (e.g. System efficiency)" />
-      <div style={{ marginBottom: 8 }}>
-        <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Ring colour</label>
-        <ColorInput value={item.ringColor} onChange={hex => onPatch({ ringColor: hex })} defaultHex="#22c55e" />
-      </div>
-      <div>
-        <label className="ad-label" style={{ fontSize: 10, marginBottom: 4 }}>Tag pill (optional)</label>
-        <input className="ad-input" value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="e.g. EFFICIENCY" />
-      </div>
-    </>
-  );
-}
-
 function FeatureCardFields({ item, onPatch, slotIndex }: {
   item: FeatureBentoCard;
   onPatch: (p: Partial<FeatureBentoCard>) => void;
@@ -995,7 +1016,7 @@ function FeatureCardFields({ item, onPatch, slotIndex }: {
 }) {
   return (
     <>
-      <input className="ad-input" style={{ marginBottom: 8 }} value={item.title} onChange={e => onPatch({ title: e.target.value })} placeholder="Title" />
+      <BentoTitleSourcePicker item={item} onPatch={onPatch} titlePlaceholder="Feature title (e.g. Grid-Tied System)" />
       <textarea className="ad-input" rows={2} style={{ marginBottom: 8, resize: "vertical", width: "100%" }} value={item.description ?? ""} onChange={e => onPatch({ description: e.target.value || undefined })} placeholder="Description (optional)" />
       <input className="ad-input" style={{ marginBottom: 8 }} value={item.tag ?? ""} onChange={e => onPatch({ tag: e.target.value || undefined })} placeholder="Tag pill (e.g. SOLAR PANEL)" />
       <BentoImageUpload slotIndex={slotIndex} imageUrl={item.imageUrl} onUpload={url => onPatch({ imageUrl: url })} onRemove={() => onPatch({ imageUrl: undefined })} />
@@ -1007,7 +1028,7 @@ const EMPTY_PROJECT_FORM: ProjectForm = {
   title: "", subtitle: "", category: "Residential", categoryColor: "",
   system: "", savings: "", videoUrl: "", isRecent: false, sortOrder: 0,
   stats: [], performanceMetrics: [], technicalBreakdown: normalizeToPresets([]),
-  galleryImages: [], testimonial: null,
+  galleryImages: [], galleryImageNames: [], heroCards: [], testimonial: null,
   systemCardSubtext: "", savingsCardSubtext: "",
   electricalSystem: "Single-Phase", loadKw: "", productionKwp: "", storageKwh: "",
 };
@@ -1032,7 +1053,7 @@ function categoryClass(c: string) {
   return "is-residential";
 }
 
-type FormSection = 'basic' | 'detail' | 'performance' | 'breakdown' | 'gallery' | 'testimonial';
+type FormSection = 'basic' | 'performance' | 'breakdown' | 'gallery' | 'testimonial';
 
 interface IAdminSection {
   readonly id: FormSection;
@@ -1043,13 +1064,8 @@ interface IAdminSection {
 const SECTION_REGISTRY: IAdminSection[] = [
   {
     id: 'basic',
-    label: 'Basic Info',
+    label: 'Hero (Basic Info)',
     isComplete: (f) => !!f.title.trim() && !!f.productionKwp.trim() && !!f.savings.trim(),
-  },
-  {
-    id: 'detail',
-    label: 'Detail Content',
-    isComplete: () => true,
   },
   {
     id: 'performance',
@@ -1073,6 +1089,313 @@ const SECTION_REGISTRY: IAdminSection[] = [
   },
 ];
 
+const PREVIEW_FIELD_LABELS: Record<string, string> = {
+  loadKw: 'Load Capacity',
+  storageKwh: 'Storage Capacity',
+  productionKwp: 'Production Capacity',
+  savings: 'Estimated Savings',
+  electricalSystem: 'Electrical System',
+};
+
+function resolveFormFieldValue(form: ProjectForm, field: string): string | null {
+  switch (field) {
+    case 'loadKw':         return form.loadKw && parseFloat(form.loadKw) > 0 ? `${form.loadKw}kW` : null;
+    case 'storageKwh':     return form.storageKwh && parseFloat(form.storageKwh) > 0 ? `${form.storageKwh}kWh` : null;
+    case 'productionKwp':  return form.productionKwp && parseFloat(form.productionKwp) > 0 ? `${form.productionKwp}kWp` : null;
+    case 'savings':        return form.savings || null;
+    case 'electricalSystem': return form.electricalSystem || null;
+    default:               return null;
+  }
+}
+
+function resolvePreviewChips(form: ProjectForm): Array<{ value: string; label: string }> {
+  if (form.heroCards.length > 0) {
+    return form.heroCards.slice(0, 5).flatMap((card): Array<{ value: string; label: string }> => {
+      if (card.type === 'custom') {
+        if (!card.value && !card.label) return [];
+        return [{ value: card.value || '—', label: card.label || 'Custom' }];
+      }
+      const label = card.label || PREVIEW_FIELD_LABELS[card.field] || card.field;
+      const value = resolveFormFieldValue(form, card.field);
+      if (!value) return [];
+      return [{ value, label }];
+    });
+  }
+  const chips: Array<{ value: string; label: string }> = [];
+  if (form.loadKw && parseFloat(form.loadKw) > 0) chips.push({ value: `${form.loadKw}kW`, label: 'Load Capacity' });
+  if (form.storageKwh && parseFloat(form.storageKwh) > 0) chips.push({ value: `${form.storageKwh}kWh`, label: 'Storage Capacity' });
+  if (form.productionKwp && parseFloat(form.productionKwp) > 0) chips.push({ value: `${form.productionKwp}kWp`, label: 'Production Capacity' });
+  if (form.savings) chips.push({ value: form.savings, label: 'Estimated Savings' });
+  if (form.electricalSystem) chips.push({ value: form.electricalSystem, label: 'Electrical System' });
+  return chips;
+}
+
+const PREVIEW_INNER_W = 1440;
+const PREVIEW_OUTER_W = 320;
+const PREVIEW_SCALE = PREVIEW_OUTER_W / PREVIEW_INNER_W;
+const PREVIEW_ENLARGED_W = 960;
+const PREVIEW_ENLARGED_SCALE = PREVIEW_ENLARGED_W / PREVIEW_INNER_W;
+
+function isEmptyPreviewBento(item: TechBreakdownItem): boolean {
+  if (item.cardType === 'hero')    return !(item as { title?: string }).title?.trim();
+  if (item.cardType === 'stat')    return !(item as { statLabel?: string }).statLabel?.trim();
+  if (item.cardType === 'feature') return !(item as { title?: string }).title?.trim();
+  return true;
+}
+
+function ProjectLivePreview({ form, imagePreview }: { form: ProjectForm; imagePreview: string }) {
+  const scalerRef = useRef<HTMLDivElement>(null);
+  const enlargedScalerRef = useRef<HTMLDivElement>(null);
+  const [outerHeight, setOuterHeight] = useState(300);
+  const [enlargedHeight, setEnlargedHeight] = useState(600);
+  const [enlarged, setEnlarged] = useState(false);
+
+  const chips = resolvePreviewChips(form);
+  const filteredBreakdown = form.technicalBreakdown.filter(item => !isEmptyPreviewBento(item)).slice(0, 5);
+  const perfItems = form.performanceMetrics.filter(m => m.title || m.description);
+  const hasPerf = perfItems.length > 0;
+  const hasBreakdown = filteredBreakdown.length > 0;
+  const hasGallery = form.galleryImages.length > 0;
+  const hasTestimonial = form.testimonial !== null && !!(form.testimonial?.quote || form.testimonial?.clientName);
+
+  useLayoutEffect(() => {
+    const el = scalerRef.current;
+    if (!el) return;
+    const update = () => setOuterHeight(el.scrollHeight * PREVIEW_SCALE);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [form, imagePreview]);
+
+  useLayoutEffect(() => {
+    if (!enlarged) return;
+    const el = enlargedScalerRef.current;
+    if (!el) return;
+    const update = () => setEnlargedHeight(el.scrollHeight * PREVIEW_ENLARGED_SCALE);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [enlarged, form, imagePreview]);
+
+  useEffect(() => {
+    if (!enlarged) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEnlarged(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [enlarged]);
+
+  // Shared section content — rendered in both small and enlarged canvases
+  const sections = (
+    <>
+      {/* ── Hero ── */}
+      <div className="as-pd-hero" style={{ height: 700 }}>
+        {imagePreview
+          ? <img src={imagePreview} alt="" className="as-pd-hero-img" />
+          : <div style={{ position: 'absolute', inset: 0, background: '#181818' }} />}
+        <div className="as-pd-hero-overlay" />
+        <div className="as-pd-hero-bottom is-shown" style={{ padding: '0 200px 56px' }}>
+          <div className="as-pd-hero-content">
+            <div className="as-pd-hero-left">
+              <span className="as-pd-category-badge" style={{ color: form.categoryColor || '#ffffff' }}>
+                {form.category.toUpperCase()}
+              </span>
+              <h1 className="as-pd-hero-title">{form.title || 'Project Title'}</h1>
+              {form.subtitle && <p className="as-pd-hero-subtitle">{form.subtitle}</p>}
+              {chips.length > 0 && (
+                <div className="as-pd-hero-stats">
+                  {chips.map((chip, i) => (
+                    <div key={i} className="as-pd-hero-stat">
+                      <span className="as-pd-hero-stat-value">{chip.value}</span>
+                      <span className="as-pd-hero-stat-label">{chip.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Performance ── */}
+      {hasPerf && (
+        <section className="as-pd-section as-pd-performance is-shown">
+          <div className="as-pd-container">
+            <h2 className="as-pd-section-title">Performance &amp; Resilience Summary</h2>
+            <div className="as-pd-perf-grid">
+              {perfItems.map((m, i) => (
+                <div key={i} className="as-pd-perf-item">
+                  <div className="as-pd-perf-title">{m.title}</div>
+                  <div className="as-pd-perf-desc">{m.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Technical Breakdown ── */}
+      {hasBreakdown && (
+        <section className="as-pd-section as-pd-breakdown is-shown">
+          <div className="as-pd-container">
+            <h2 className="as-pd-section-title">Technical Breakdown</h2>
+            <div className="as-pd-breakdown-bento" data-count={filteredBreakdown.length}>
+              {filteredBreakdown.map((item, i) => (
+                <BentoCard key={i} item={item} staticMetric />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Gallery ── */}
+      {hasGallery && (
+        <section className="as-pd-section as-pd-gallery is-shown">
+          <div className="as-pd-container">
+            <h2 className="as-pd-section-title">Project Installation Gallery</h2>
+            <div className="as-pd-gallery-grid">
+              {form.galleryImages.slice(0, 8).map((src, i) => (
+                <div key={i} className="as-pd-gallery-item is-shown">
+                  <img src={src} alt="" className="as-pd-gallery-img" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Testimonial ── */}
+      {hasTestimonial && form.testimonial && (
+        <section className="as-pd-section as-pd-testimonial-section is-shown">
+          <div className="as-pd-container">
+            <div className="as-pd-testimonial-layout">
+              <div className="as-pd-testimonial-author">
+                <div className="as-pd-testimonial-name-role">
+                  <span className="as-pd-testimonial-name">{form.testimonial.clientName}</span>
+                  <span className="as-pd-testimonial-role">{form.testimonial.clientRole}</span>
+                </div>
+              </div>
+              <div className="as-pd-testimonial-quote-container">
+                <div className="as-pd-testimonial-open-quote" aria-hidden="true">&ldquo;</div>
+                <div className="as-pd-testimonial-quote-inner-container">
+                  <p className="as-pd-testimonial-quote">{form.testimonial.quote}</p>
+                </div>
+                <div className="as-pd-testimonial-close-quote" aria-hidden="true">&rdquo;</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Empty state ── */}
+      {!imagePreview && !form.title && !hasPerf && !hasBreakdown && !hasGallery && !hasTestimonial && (
+        <div style={{ height: 700, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <div style={{ fontSize: 48, opacity: 0.12, color: '#fff' }}>◻</div>
+          <div style={{ fontSize: 24, color: 'rgba(255,255,255,0.2)', fontFamily: 'Outfit, sans-serif' }}>Start filling in the form</div>
+        </div>
+      )}
+    </>
+  );
+
+  const scalerStyle: React.CSSProperties = {
+    width: `${PREVIEW_INNER_W}px`,
+    transformOrigin: 'top left',
+    pointerEvents: 'none',
+    userSelect: 'none',
+    background: '#0a0a0a',
+  };
+
+  return (
+    <>
+      {/* ── Small inline preview ── */}
+      <div style={{ position: 'relative' }}>
+        <button
+          onClick={() => setEnlarged(true)}
+          title="Enlarge preview"
+          style={{
+            position: 'absolute', top: 8, right: 8, zIndex: 2,
+            background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(255,255,255,0.18)',
+            backdropFilter: 'blur(4px)', borderRadius: 6,
+            color: 'rgba(255,255,255,0.8)', cursor: 'pointer',
+            width: 28, height: 28,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, lineHeight: 1, padding: 0,
+            transition: 'background 0.15s, color 0.15s',
+          }}
+        >
+          ⛶
+        </button>
+        <div style={{
+          width: `${PREVIEW_OUTER_W}px`,
+          height: `${outerHeight}px`,
+          overflow: 'hidden',
+          borderRadius: 8,
+          border: '1px solid var(--ad-border2)',
+          background: '#0a0a0a',
+          position: 'relative',
+        }}>
+          <div ref={scalerRef} style={{ ...scalerStyle, transform: `scale(${PREVIEW_SCALE})` }}>
+            {sections}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Enlarged modal ── */}
+      {enlarged && createPortal(
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.9)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '32px 24px 48px',
+            overflowY: 'auto',
+          }}
+          onClick={() => setEnlarged(false)}
+        >
+          <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+            {/* Toolbar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 12, gap: 16,
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
+                Live Preview — {PREVIEW_ENLARGED_W}px desktop view
+              </span>
+              <button
+                onClick={() => setEnlarged(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)',
+                  borderRadius: 8, color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                  padding: '5px 14px', fontSize: 12, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                ✕ Close
+              </button>
+            </div>
+            {/* Canvas */}
+            <div style={{
+              width: `${PREVIEW_ENLARGED_W}px`,
+              height: `${enlargedHeight}px`,
+              overflow: 'hidden',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.1)',
+              background: '#0a0a0a',
+            }}>
+              <div ref={enlargedScalerRef} style={{ ...scalerStyle, transform: `scale(${PREVIEW_ENLARGED_SCALE})` }}>
+                {sections}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+}
+
 function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1083,6 +1406,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [imagePreview, setImagePreview] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewProject, setPreviewProject] = useState<ApiProject | null>(null);
@@ -1092,7 +1416,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [pkgList, setPkgList] = useState<ApiSolarPackage[]>([]);
   const [pkgListLoading, setPkgListLoading] = useState(false);
   const [selectedPkgId, setSelectedPkgId] = useState('');
-  const [showBreakdownPreview, setShowBreakdownPreview] = useState(false);
+  const [galleryMsg, setGalleryMsg] = useState("");
   const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
 
   const load = async () => {
@@ -1129,6 +1453,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       technicalBreakdown: normalizeToPresets((p.technicalBreakdown ?? []) as TechBreakdownItem[]),
       categoryColor: p.categoryColor ?? "",
       galleryImages: (p.galleryImages ?? []) as string[],
+      galleryImageNames: (p.galleryImageNames ?? []) as string[],
+      heroCards: (p.heroCards ?? []) as HeroCardSource[],
       testimonial: (p.testimonial ?? null) as ProjectTestimonial | null,
       systemCardSubtext: p.systemCardSubtext ?? "",
       savingsCardSubtext: p.savingsCardSubtext ?? "",
@@ -1139,7 +1465,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     });
     setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setFormSection('basic'); setSystemInputMode('manual'); setSelectedPkgId(''); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); setErrors({}); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); setErrors({}); setGalleryMsg(""); };
 
   const handleImageSelect = (file: File | undefined) => {
     if (!file) return;
@@ -1197,6 +1523,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         performanceMetrics: form.performanceMetrics,
         technicalBreakdown: form.technicalBreakdown,
         galleryImages: form.galleryImages,
+        galleryImageNames: form.galleryImageNames,
+        heroCards: form.heroCards,
         testimonial: form.testimonial,
         systemCardSubtext: form.systemCardSubtext || undefined,
         savingsCardSubtext: form.savingsCardSubtext || undefined,
@@ -1218,6 +1546,19 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
     try { await adminDeleteProject(apiKey, deleteTarget.id); setMsg("✓ Project deleted"); await load(); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
     finally { setDeleting(null); setDeleteTarget(null); }
+  };
+
+  const handleTogglePublish = async (p: ApiProject) => {
+    const next = !p.isPublished;
+    setPublishing(p.id);
+    setProjects(prev => prev.map(x => x.id === p.id ? { ...x, isPublished: next } : x));
+    try {
+      await adminPublishProject(apiKey, p.id, next);
+      setMsg(next ? `✓ "${p.title}" published` : `✓ "${p.title}" unpublished`);
+    } catch (e) {
+      setProjects(prev => prev.map(x => x.id === p.id ? { ...x, isPublished: p.isPublished } : x));
+      setMsg(`Error: ${(e as Error).message}`);
+    } finally { setPublishing(null); }
   };
 
   return (
@@ -1278,10 +1619,13 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         open={showForm}
         onClose={closeForm}
         title={editingId ? "Edit Project" : "Add New Project"}
-        maxWidth={860}
+        maxWidth={1260}
       >
+        <div style={{ display: "flex", gap: 0, alignItems: "flex-start" }}>
+          {/* ── Left: form ── */}
+          <div style={{ flex: 1, minWidth: 0, paddingRight: 24 }}>
         {}
-        <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "1px solid var(--ad-border)", paddingBottom: 12 }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 24, borderBottom: "1px solid var(--ad-border)", paddingBottom: 12, flexWrap: "wrap" }}>
           {SECTION_REGISTRY.map((section) => {
             const incomplete = !section.isComplete(form);
             return (
@@ -1415,53 +1759,122 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               <label className="ad-label">Sort Order</label>
               <input className="ad-input" type="number" value={form.sortOrder} onChange={(e) => setField("sortOrder", parseInt(e.target.value) || 0)} placeholder="0" />
             </div>
-          </div>
-        )}
 
-        {}
-        {formSection === "detail" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ fontSize: 12, color: "var(--ad-text3)", marginBottom: 8 }}>
-              Values are pulled from Basic Info automatically — only add a description for each card.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              {}
-              <div style={{ border: "1px solid var(--ad-border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ background: "#111111", padding: "20px 22px 16px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>System Capacity</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: form.productionKwp ? "#ffffff" : "rgba(255,255,255,0.2)", fontFamily: "var(--font-display, monospace)", lineHeight: 1 }}>
-                    {form.productionKwp ? `${form.productionKwp} kWp` : "—"}
-                  </div>
-                </div>
-                <div style={{ padding: "12px 14px", background: "var(--ad-input-bg)" }}>
-                  <label className="ad-label" style={{ fontSize: 11, marginBottom: 5 }}>Description / Subtext</label>
-                  <input
-                    className="ad-input"
-                    value={form.systemCardSubtext}
-                    onChange={(e) => setField("systemCardSubtext", e.target.value)}
-                    placeholder="e.g. High-performance residential solar system"
-                  />
-                </div>
-              </div>
+            {}
+            <div className="ad-form-full" style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 16, marginTop: 4 }}>
+              {(() => {
+                const MAX_HERO_CARDS = 5;
+                const SYSTEM_FIELD_LABELS: Record<HeroSystemField, string> = {
+                  loadKw:           'Load Capacity',
+                  storageKwh:       'Storage Capacity',
+                  productionKwp:    'Production Capacity',
+                  savings:          'Estimated Savings',
+                  electricalSystem: 'Electrical System',
+                };
+                const usedSystemFields = new Set(
+                  form.heroCards.filter((c): c is Extract<HeroCardSource, { type: 'system' }> => c.type === 'system').map(c => c.field)
+                );
+                const availableSystemFields = (Object.keys(SYSTEM_FIELD_LABELS) as HeroSystemField[]).filter(f => !usedSystemFields.has(f));
 
-              {}
-              <div style={{ border: "1px solid var(--ad-border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ background: "#111111", padding: "20px 22px 16px" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Estimated Savings</div>
-                  <div style={{ fontSize: 26, fontWeight: 800, color: form.savings ? "#ffffff" : "rgba(255,255,255,0.2)", fontFamily: "var(--font-display, monospace)", lineHeight: 1 }}>
-                    {form.savings || "—"}
-                  </div>
-                </div>
-                <div style={{ padding: "12px 14px", background: "var(--ad-input-bg)" }}>
-                  <label className="ad-label" style={{ fontSize: 11, marginBottom: 5 }}>Description / Subtext</label>
-                  <input
-                    className="ad-input"
-                    value={form.savingsCardSubtext}
-                    onChange={(e) => setField("savingsCardSubtext", e.target.value)}
-                    placeholder="e.g. 10-year projected savings on electricity bills"
-                  />
-                </div>
-              </div>
+                const addSystemCard = (field: HeroSystemField) => {
+                  if (form.heroCards.length >= MAX_HERO_CARDS) return;
+                  setField('heroCards', [...form.heroCards, { type: 'system' as const, field }]);
+                };
+                const addCustomCard = () => {
+                  if (form.heroCards.length >= MAX_HERO_CARDS) return;
+                  setField('heroCards', [...form.heroCards, { type: 'custom' as const, value: '', label: '' }]);
+                };
+                const removeCard = (i: number) => setField('heroCards', form.heroCards.filter((_, j) => j !== i));
+                const moveCard = (i: number, dir: -1 | 1) => {
+                  const arr = [...form.heroCards];
+                  const j = i + dir;
+                  if (j < 0 || j >= arr.length) return;
+                  [arr[i], arr[j]] = [arr[j], arr[i]];
+                  setField('heroCards', arr);
+                };
+                const patchCard = (i: number, patch: Partial<HeroCardSource>) =>
+                  setField('heroCards', form.heroCards.map((c, j) => j === i ? { ...c, ...patch } as HeroCardSource : c));
+
+                return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <label className="ad-label" style={{ margin: 0 }}>
+                        Hero Cards
+                        <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: "var(--ad-text3)" }}>
+                          {form.heroCards.length} / {MAX_HERO_CARDS}
+                        </span>
+                      </label>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {availableSystemFields.length > 0 && form.heroCards.length < MAX_HERO_CARDS && (
+                          <select
+                            className="ad-select"
+                            style={{ fontSize: 12, padding: "4px 8px", height: 30 }}
+                            value=""
+                            onChange={e => { if (e.target.value) addSystemCard(e.target.value as HeroSystemField); }}
+                          >
+                            <option value="">+ System field</option>
+                            {availableSystemFields.map(f => (
+                              <option key={f} value={f}>{SYSTEM_FIELD_LABELS[f]}</option>
+                            ))}
+                          </select>
+                        )}
+                        {form.heroCards.length < MAX_HERO_CARDS && (
+                          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" onClick={addCustomCard}>+ Custom</button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ad-text3)", marginBottom: 10 }}>
+                      These cards appear in the project hero section. Mix system-field cards (auto-populated) and custom cards. Reorder with ↑ ↓. Leave empty to auto-generate from system data.
+                    </div>
+                    {form.heroCards.length === 0 && (
+                      <div style={{ fontSize: 12, color: "var(--ad-text3)", padding: "10px 0", fontStyle: "italic" }}>
+                        No cards configured — hero will auto-generate chips from system data.
+                      </div>
+                    )}
+                    {form.heroCards.map((card, i) => (
+                      <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)", borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 2 }}>
+                          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ padding: "1px 6px", fontSize: 11 }} onClick={() => moveCard(i, -1)} disabled={i === 0}>↑</button>
+                          <button type="button" className="ad-btn ad-btn--ghost ad-btn--sm" style={{ padding: "1px 6px", fontSize: 11 }} onClick={() => moveCard(i, 1)} disabled={i === form.heroCards.length - 1}>↓</button>
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: card.type === 'system' ? "#22c55e" : "var(--ad-accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                            {card.type === 'system' ? `System · ${SYSTEM_FIELD_LABELS[card.field]}` : 'Custom'}
+                          </div>
+                          {card.type === 'system' && (
+                            <input
+                              className="ad-input"
+                              value={card.label ?? ""}
+                              onChange={e => patchCard(i, { label: e.target.value || undefined })}
+                              placeholder={`Label (default: "${SYSTEM_FIELD_LABELS[card.field]}")`}
+                              style={{ fontSize: 12 }}
+                            />
+                          )}
+                          {card.type === 'custom' && (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                              <input
+                                className="ad-input"
+                                value={card.value}
+                                onChange={e => patchCard(i, { value: e.target.value })}
+                                placeholder="Value (e.g. 5.2 kWp)"
+                                style={{ fontSize: 12 }}
+                              />
+                              <input
+                                className="ad-input"
+                                value={card.label}
+                                onChange={e => patchCard(i, { label: e.target.value })}
+                                placeholder="Label (e.g. System Size)"
+                                style={{ fontSize: 12 }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <button type="button" className="ad-btn ad-btn--danger ad-btn--sm" style={{ flexShrink: 0 }} onClick={() => removeCard(i)}>✕</button>
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -1488,16 +1901,10 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 
         {}
         {formSection === "breakdown" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>
-                {BREAKDOWN_PRESETS.length} fixed slots — row 1: Hero (8-col) + Stat (4-col) · row 2: three Feature cards (4-col each).
-              </div>
-              <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setShowBreakdownPreview(v => !v)}>
-                {showBreakdownPreview ? "Hide Preview" : "Show Preview"}
-              </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>
+              {BREAKDOWN_PRESETS.length} fixed slots — Hero (col-8) + Feature (col-4) · then two Feature cards (col-6 each). Titles can be pulled from project data or entered manually.
             </div>
-
             {BREAKDOWN_PRESETS.map((preset, i) => {
               const raw = form.technicalBreakdown[i] ?? emptyPresetItem(preset);
               const patchItem = (patch: Partial<TechBreakdownItem>) =>
@@ -1505,23 +1912,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   j === i ? { ...x, ...patch } as TechBreakdownItem : x
                 ));
 
-              const typeStyle =
-                preset.cardType === 'hero'    ? { bg: "rgba(200,64,32,0.12)",  fg: "#fc7a4a", label: "Hero · col-8" }  :
-                preset.cardType === 'stat'    ? { bg: "rgba(34,197,94,0.12)",  fg: "#22c55e", label: "Stat · col-4" }  :
-                                                { bg: "rgba(251,191,36,0.12)", fg: "#fbbf24", label: "Feature · col-4" };
-
-              const renderFields = () => {
-                if (preset.cardType === 'hero' && raw.cardType === 'hero') {
-                  return <HeroCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />;
-                }
-                if (preset.cardType === 'stat' && raw.cardType === 'stat') {
-                  return <StatCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} />;
-                }
-                if (raw.cardType === 'feature') {
-                  return <FeatureCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />;
-                }
-                return null;
-              };
+              const typeStyle = preset.cardType === 'hero'
+                ? { bg: "rgba(200,64,32,0.12)", fg: "#fc7a4a", label: i === 0 ? "Hero · col-8" : "Hero" }
+                : { bg: "rgba(251,191,36,0.12)", fg: "#fbbf24", label: i === 1 ? "Feature · col-4" : "Feature · col-6" };
 
               return (
                 <div key={preset.id} style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
@@ -1529,21 +1922,14 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                     <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)" }}>{preset.slotLabel}</span>
                     <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 7px", borderRadius: 4, background: typeStyle.bg, color: typeStyle.fg }}>{typeStyle.label}</span>
                   </div>
-                  {renderFields()}
+                  {preset.cardType === 'hero' && raw.cardType === 'hero'
+                    ? <HeroCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />
+                    : raw.cardType === 'feature'
+                      ? <FeatureCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />
+                      : null}
                 </div>
               );
             })}
-
-            {showBreakdownPreview && (
-              <div style={{ marginTop: 4 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: "var(--ad-text3)", textTransform: "uppercase", marginBottom: 12 }}>Preview</div>
-                <div className="as-pd-breakdown-bento">
-                  {form.technicalBreakdown.map((item, i) => (
-                    <BentoCard key={i} item={item} staticMetric />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1560,16 +1946,31 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               const processFiles = (files: File[]) => {
                 const slots = MAX - form.galleryImages.length;
                 if (slots <= 0) return;
+                const existingNamesLower = new Set(form.galleryImageNames.map(n => n.toLowerCase()));
+                const duplicates: string[] = [];
                 const valid = files
-                  .filter(f => ALLOWED.has(f.type) && f.size <= 10 * 1024 * 1024)
+                  .filter(f => {
+                    if (!ALLOWED.has(f.type) || f.size > 10 * 1024 * 1024) return false;
+                    if (existingNamesLower.has(f.name.toLowerCase())) {
+                      duplicates.push(f.name);
+                      return false;
+                    }
+                    return true;
+                  })
                   .slice(0, slots);
+                if (duplicates.length > 0) {
+                  setGalleryMsg(`Duplicate name${duplicates.length > 1 ? 's' : ''} skipped: ${duplicates.join(', ')}`);
+                } else {
+                  setGalleryMsg("");
+                }
                 if (valid.length === 0) return;
-                Promise.all(valid.map((f) => compressImageClient(f))).then((compressed) => {
-                  setForm(f => {
-                    const existing = new Set(f.galleryImages);
-                    const deduped = compressed.filter(url => !existing.has(url));
-                    return { ...f, galleryImages: [...f.galleryImages, ...deduped].slice(0, MAX) };
-                  });
+                const newNames = valid.map(f => f.name);
+                Promise.all(valid.map(f => compressImageClient(f))).then((compressed) => {
+                  setForm(f => ({
+                    ...f,
+                    galleryImages: [...f.galleryImages, ...compressed].slice(0, MAX),
+                    galleryImageNames: [...f.galleryImageNames, ...newNames].slice(0, MAX),
+                  }));
                 });
               };
 
@@ -1582,6 +1983,11 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                     {!atMax && <> &mdash; {MAX - form.galleryImages.length} remaining</>}.
                     {" "}Images are compressed automatically.
                   </div>
+                  {galleryMsg && (
+                    <div style={{ fontSize: 12, color: "#f97316", background: "rgba(249,115,22,0.08)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: 6, padding: "7px 12px", marginBottom: 10 }}>
+                      {galleryMsg}
+                    </div>
+                  )}
                   <div
                     className={`ad-image-drop${atMax ? " is-disabled" : ""}`}
                     style={{ marginBottom: 16, minHeight: 72 }}
@@ -1622,8 +2028,17 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                       <div style={{ position: "absolute", top: 2, left: 2, background: isSaved ? "var(--ad-accent)" : "rgba(0,0,0,0.6)", color: "#fff", borderRadius: 3, fontSize: 9, fontWeight: 700, padding: "1px 5px", letterSpacing: "0.04em", pointerEvents: "none" }}>
                         {isSaved ? "SAVED" : "NEW"}
                       </div>
+                      {form.galleryImageNames[i] && (
+                        <div style={{ position: "absolute", bottom: 2, left: 2, right: 22, background: "rgba(0,0,0,0.65)", color: "#ccc", borderRadius: 3, fontSize: 8, padding: "1px 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", pointerEvents: "none" }}>
+                          {form.galleryImageNames[i]}
+                        </div>
+                      )}
                       <button
-                        onClick={() => setField("galleryImages", form.galleryImages.filter((_, j) => j !== i))}
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          galleryImages: f.galleryImages.filter((_, j) => j !== i),
+                          galleryImageNames: f.galleryImageNames.filter((_, j) => j !== i),
+                        }))}
                         style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.7)", border: "none", color: "#fff", borderRadius: 4, width: 20, height: 20, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
                         aria-label="Remove photo"
                       >✕</button>
@@ -1667,9 +2082,27 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
           </div>
         )}
 
-        <div className="ad-form-actions">
-          <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
-        </div>
+            <div className="ad-form-actions">
+              <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Project" : "Create Project"}</button>
+            </div>
+          </div>{/* end left */}
+
+          {/* ── Right: live preview ── */}
+          <div style={{
+            width: 320,
+            flexShrink: 0,
+            borderLeft: "1px solid var(--ad-border)",
+            paddingLeft: 24,
+            position: "sticky",
+            top: 0,
+            alignSelf: "flex-start",
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.09em", textTransform: "uppercase", color: "var(--ad-text3)", marginBottom: 12 }}>
+              Live Preview
+            </div>
+            <ProjectLivePreview form={form} imagePreview={imagePreview} />
+          </div>
+        </div>{/* end flex row */}
       </AdminModal>
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading projects…</div>
@@ -1681,10 +2114,10 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       ) : (
         <div className="ad-table-wrap">
           <table className="ad-table">
-            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th style={{ width: 60, textAlign: "center" }}>Video</th><th>Recent</th><th>Created</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Title</th><th>Category</th><th>System</th><th>Savings</th><th style={{ width: 60, textAlign: "center" }}>Video</th><th>Recent</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
             <tbody>
               {projects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} style={{ opacity: p.isPublished ? 1 : 0.6 }}>
                   <td>
                     <div className="ad-proj-title-cell">
                       {p.imageUrl && <img src={p.imageUrl} alt={p.title} className="ad-proj-thumb" />}
@@ -1695,11 +2128,24 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                   <td>{p.system}</td><td>{p.savings}</td>
                   <td style={{ textAlign: "center" }}>{p.videoUrl ? <span style={{ color: "#22c55e", fontSize: 13 }}>✓</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
                   <td>{p.isRecent ? <span className="ad-badge is-recent">Recent</span> : <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
+                  <td>
+                    <span className={`ad-badge ${p.isPublished ? 'is-published' : 'is-draft'}`}>
+                      {p.isPublished ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
                   <td style={{ fontSize: 12 }}>{new Date(p.createdAt).toLocaleDateString()}</td>
                   <td>
                     <div className="ad-table-actions">
                       <button onClick={() => setPreviewProject(p)} className="ad-btn ad-btn--ghost ad-btn--sm">View</button>
                       <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                      <button
+                        onClick={() => handleTogglePublish(p)}
+                        disabled={publishing === p.id}
+                        className={p.isPublished ? 'ad-btn ad-btn--ghost ad-btn--sm' : 'ad-btn ad-btn--sm'}
+                        style={{ opacity: publishing === p.id ? 0.5 : 1 }}
+                      >
+                        {publishing === p.id ? '…' : p.isPublished ? 'Unpublish' : 'Publish'}
+                      </button>
                       <button onClick={() => setDeleteTarget({ id: p.id, title: p.title })} disabled={deleting === p.id} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>
                         {deleting === p.id ? "…" : "Delete"}
                       </button>

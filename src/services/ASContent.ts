@@ -250,6 +250,12 @@ export async function adminUpdateQuotation(apiKey: string, id: string, data: Rec
 
 export type ProjectCategory = 'Residential' | 'Commercial' | 'Industrial';
 
+export type HeroSystemField = 'loadKw' | 'storageKwh' | 'productionKwp' | 'savings' | 'electricalSystem';
+
+export type HeroCardSource =
+  | { type: 'system'; field: HeroSystemField; label?: string }
+  | { type: 'custom'; value: string; label: string };
+
 export interface ProjectStat {
   value: string;
   label: string;
@@ -263,6 +269,10 @@ export interface PerformanceMetric {
 
 
 
+export type BentoTitleSource =
+  | { type: 'system'; field: HeroSystemField }
+  | { type: 'custom' };
+
 interface BaseBentoCard {
   tag?: string;
   imageUrl?: string;
@@ -271,25 +281,19 @@ interface BaseBentoCard {
 export interface HeroBentoCard extends BaseBentoCard {
   readonly cardType: 'hero';
   title: string;
+  titleSource?: BentoTitleSource;
   badge?: string;
   accent?: string;
-}
-
-export interface StatBentoCard extends BaseBentoCard {
-  readonly cardType: 'stat';
-  statValue: number;
-  statUnit: string;
-  statLabel: string;
-  ringColor?: string;
 }
 
 export interface FeatureBentoCard extends BaseBentoCard {
   readonly cardType: 'feature';
   title: string;
+  titleSource?: BentoTitleSource;
   description?: string;
 }
 
-export type TechBreakdownItem = HeroBentoCard | StatBentoCard | FeatureBentoCard;
+export type TechBreakdownItem = HeroBentoCard | FeatureBentoCard;
 
 export interface ProjectTestimonial {
   clientName: string;
@@ -307,12 +311,15 @@ export interface ApiProject {
   savings: string;
   imageUrl: string;
   videoUrl?: string;
+  isPublished: boolean;
   isRecent: boolean;
   sortOrder: number;
   stats: ProjectStat[];
   performanceMetrics: PerformanceMetric[];
   technicalBreakdown: TechBreakdownItem[];
   galleryImages: string[];
+  galleryImageNames: string[];
+  heroCards: HeroCardSource[];
   testimonial?: ProjectTestimonial | null;
   systemCardSubtext?: string;
   savingsCardSubtext?: string;
@@ -342,6 +349,8 @@ export interface ProjectInput {
   performanceMetrics?: PerformanceMetric[];
   technicalBreakdown?: TechBreakdownItem[];
   galleryImages?: string[];
+  galleryImageNames?: string[];
+  heroCards?: HeroCardSource[];
   testimonial?: ProjectTestimonial | null;
   systemCardSubtext?: string;
   savingsCardSubtext?: string;
@@ -395,6 +404,8 @@ function buildProjectFormData(data: ProjectInput): FormData {
   fd.append('performanceMetrics', JSON.stringify(data.performanceMetrics ?? []));
   fd.append('technicalBreakdown', JSON.stringify(data.technicalBreakdown ?? []));
   fd.append('galleryImages', JSON.stringify(data.galleryImages ?? []));
+  fd.append('galleryImageNames', JSON.stringify(data.galleryImageNames ?? []));
+  fd.append('heroCards', JSON.stringify(data.heroCards ?? []));
   fd.append('testimonial', data.testimonial ? JSON.stringify(data.testimonial) : '');
   if (data.systemCardSubtext  !== undefined) fd.append('systemCardSubtext', data.systemCardSubtext);
   if (data.savingsCardSubtext !== undefined) fd.append('savingsCardSubtext', data.savingsCardSubtext);
@@ -441,6 +452,17 @@ export async function adminDeleteProject(apiKey: string, id: string) {
   });
   if (res.status === 401) throw new Error('Invalid API key.');
   if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function adminPublishProject(apiKey: string, id: string, isPublished: boolean) {
+  const res = await apiFetch(`${API_BASE}/admin/projects/${id}/publish`, {
+    method: 'PATCH',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ isPublished }),
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Publish toggle failed: ${res.status}`);
   return res.json();
 }
 
