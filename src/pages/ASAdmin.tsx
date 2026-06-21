@@ -1137,9 +1137,10 @@ const PREVIEW_ENLARGED_W = 960;
 const PREVIEW_ENLARGED_SCALE = PREVIEW_ENLARGED_W / PREVIEW_INNER_W;
 
 function isEmptyPreviewBento(item: TechBreakdownItem): boolean {
-  if (item.cardType === 'hero')    return !(item as { title?: string }).title?.trim();
-  if (item.cardType === 'stat')    return !(item as { statLabel?: string }).statLabel?.trim();
-  if (item.cardType === 'feature') return !(item as { title?: string }).title?.trim();
+  if (item.cardType === 'hero' || item.cardType === 'feature') {
+    if (item.titleSource?.type === 'system') return false;
+    return !item.title?.trim();
+  }
   return true;
 }
 
