@@ -658,6 +658,7 @@ export default function ASPackages() {
   const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
+  const [loadingMoreGroups, setLoadingMoreGroups] = useState<Record<string, boolean>>({});
   const [selectedPkg, setSelectedPkg] = useState<ApiSolarPackage | null>(null);
   const [selectedSelection, setSelectedSelection] = useState<PackageSelection | null>(null);
   const [inquireOpen, setInquireOpen] = useState(false);
@@ -672,10 +673,14 @@ export default function ASPackages() {
   const groups = groupByType(packages, phase);
 
   const showMore = (label: string, total: number) => {
-    setVisibleCounts((prev) => ({
-      ...prev,
-      [label]: Math.min((prev[label] ?? PAGE_SIZE) + PAGE_SIZE, total),
-    }));
+    setLoadingMoreGroups((prev) => ({ ...prev, [label]: true }));
+    window.setTimeout(() => {
+      setVisibleCounts((prev) => ({
+        ...prev,
+        [label]: Math.min((prev[label] ?? PAGE_SIZE) + PAGE_SIZE, total),
+      }));
+      setLoadingMoreGroups((prev) => ({ ...prev, [label]: false }));
+    }, 350);
   };
 
   const showLess = (label: string) => {
@@ -737,6 +742,8 @@ export default function ASPackages() {
             const visibleCount = visibleCounts[group.label] ?? PAGE_SIZE;
             const visible = group.packages.slice(0, visibleCount);
             const allShown = visibleCount >= total;
+            const isLoadingMore = loadingMoreGroups[group.label] ?? false;
+            const skeletonCount = Math.min(PAGE_SIZE, total - visibleCount);
             return (
               <div key={group.label} className="as-packages-group">
                 <h2 className="as-packages-group-label">{group.label}</h2>
@@ -744,10 +751,14 @@ export default function ASPackages() {
                   {visible.map((pkg) => (
                     <PackageCard key={pkg.id} pkg={pkg} onInquire={(sel) => { setSelectedPkg(pkg); setSelectedSelection(sel); setInquireOpen(true); }} />
                   ))}
+                  {isLoadingMore && Array.from({ length: skeletonCount }).map((_, i) => (
+                    <PkgCardSkeleton key={`more-skeleton-${i}`} />
+                  ))}
                 </div>
                 {total > PAGE_SIZE && (
                   <button
                     className="as-packages-show-more"
+                    disabled={isLoadingMore}
                     onClick={() => allShown ? showLess(group.label) : showMore(group.label, total)}
                   >
                     {allShown ? "Show less" : "Show more"}
