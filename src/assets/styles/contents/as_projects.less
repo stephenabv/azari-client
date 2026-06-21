@@ -112,7 +112,7 @@
   transform: translateY(28px) scale(0.98);
 }
 
-.as-project-card img {
+.as-project-card img:not(.as-img-loader-logo) {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -124,7 +124,7 @@
   transition: transform 600ms ease, filter 600ms ease;
 }
 
-.as-project-card:hover img {
+.as-project-card:hover img:not(.as-img-loader-logo) {
   transform: scale(1.09);
   filter: brightness(0.9);
 }
@@ -255,14 +255,17 @@
 .as-project-skeleton-image {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  background-size: 200% 100%;
-  animation: asProjectSkeletonShimmer 1.6s ease-in-out infinite;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.as-project-skeleton-logo {
+  width: 48px;
+  height: auto;
+  opacity: 0.75;
+  display: block;
 }
 
 .as-project-skeleton-body {
@@ -312,13 +315,7 @@
 }
 
 .light-theme .as-project-skeleton-image {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.04) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
-    rgba(0, 0, 0, 0.04) 100%
-  );
-  background-size: 200% 100%;
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .light-theme .as-project-skeleton-body {

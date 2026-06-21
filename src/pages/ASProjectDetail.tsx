@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import iconPlay from "../assets/icons/icon-play.svg";
 import iconGoBack from "../assets/icons/icon-go-back.svg";
+import logoAnimated from "../assets/animations/logo-animated.svg";
 import {
   fetchProjectById,
   type ASProjectDetailsModel,
@@ -575,7 +576,9 @@ function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }
 function SkeletonLoader() {
   return (
     <div className="as-pd-skeleton">
-      <div className="as-pd-skeleton-hero" />
+      <div className="as-pd-skeleton-hero">
+        <img src={logoAnimated} alt="" className="as-pd-skeleton-hero-logo" />
+      </div>
       <div className="as-pd-container">
         <div className="as-pd-skeleton-line as-pd-skeleton-line--wide" />
         <div className="as-pd-skeleton-perf-grid">

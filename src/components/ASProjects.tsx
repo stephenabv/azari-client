@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import ASImgLoader from "./ASImgLoader";
+import logoAnimated from "../assets/animations/logo-animated.svg";
 
 type ProjectCategory =
   | "All Projects"
@@ -140,7 +141,9 @@ export default function ASProjects() {
         <div className="as-projects-grid">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="as-project-card-skeleton" aria-hidden="true">
-              <div className="as-project-skeleton-image" />
+              <div className="as-project-skeleton-image">
+                <img src={logoAnimated} alt="" className="as-project-skeleton-logo" />
+              </div>
               <div className="as-project-skeleton-body">
                 <div className="as-project-skeleton-line as-project-skeleton-line--short" />
                 <div className="as-project-skeleton-line" />
