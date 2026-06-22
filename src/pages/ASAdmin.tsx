@@ -849,9 +849,9 @@ function isSlotEmpty(raw: Record<string, unknown>): boolean {
 }
 
 function normalizeBreakdownItems(items: TechBreakdownItem[]): TechBreakdownItem[] {
-  const candidates = (items as Array<TechBreakdownItem & Record<string, unknown>>).filter(
-    raw => raw.cardType !== 'stat' && !isSlotEmpty(raw)
-  );
+  const candidates = (items as Array<Record<string, unknown>>).filter(
+    raw => raw['cardType'] !== 'stat' && !isSlotEmpty(raw)
+  ) as Array<TechBreakdownItem & Record<string, unknown>>;
   return reindexSlots(candidates.map((raw, i): TechBreakdownItem => {
     if (i === 0) {
       return {
