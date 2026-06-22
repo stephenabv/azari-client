@@ -822,34 +822,38 @@ type ProjectForm = {
   storageKwh: string;
 };
 
-interface BreakdownPreset {
-  readonly id: string;
-  readonly slotLabel: string;
-  readonly colSpan: 4 | 8;
-  readonly cardType: TechBreakdownItem['cardType'];
-}
-
-const BREAKDOWN_PRESETS: readonly BreakdownPreset[] = [
-  { id: 'hero',      slotLabel: 'Hero Card',       colSpan: 8, cardType: 'hero'    },
-  { id: 'feature-1', slotLabel: 'Feature Card 1', colSpan: 4, cardType: 'feature' },
-  { id: 'feature-2', slotLabel: 'Feature Card 2', colSpan: 4, cardType: 'feature' },
-  { id: 'feature-3', slotLabel: 'Feature Card 3', colSpan: 4, cardType: 'feature' },
-] as const;
-
-function emptyPresetItem(preset: BreakdownPreset): TechBreakdownItem {
-  if (preset.cardType === 'hero') return { cardType: 'hero', title: '', accent: '#c84020' } satisfies HeroBentoCard;
+function emptySlotItem(index: number): TechBreakdownItem {
+  if (index === 0) return { cardType: 'hero', title: '', accent: '#c84020' } satisfies HeroBentoCard;
   return { cardType: 'feature', title: '' } satisfies FeatureBentoCard;
 }
 
-function normalizeToPresets(items: TechBreakdownItem[]): TechBreakdownItem[] {
-  // Strip legacy stat cards so old data remaps cleanly to the new 4-slot layout
-  const nonStat = (items as Array<TechBreakdownItem & Record<string, unknown>>).filter(
-    item => (item as Record<string, unknown>).cardType !== 'stat'
+// Slot 1 is always hero, the rest always feature. Recalculate after any add/remove.
+function reindexSlots(items: TechBreakdownItem[]): TechBreakdownItem[] {
+  return items.map((item, i): TechBreakdownItem => {
+    if (i === 0 && item.cardType !== 'hero') {
+      const f = item as FeatureBentoCard;
+      return { cardType: 'hero', title: f.title, titleSource: f.titleSource, tag: f.tag, imageUrl: f.imageUrl, accent: '#c84020' } satisfies HeroBentoCard;
+    }
+    if (i > 0 && item.cardType !== 'feature') {
+      const h = item as HeroBentoCard;
+      return { cardType: 'feature', title: h.title, titleSource: h.titleSource, tag: h.tag, imageUrl: h.imageUrl } satisfies FeatureBentoCard;
+    }
+    return item;
+  });
+}
+
+function isSlotEmpty(raw: Record<string, unknown>): boolean {
+  const title = String(raw.title ?? '').trim();
+  const hasSystemSource = (raw.titleSource as { type?: string } | undefined)?.type === 'system';
+  return !title && !hasSystemSource && !raw.imageUrl;
+}
+
+function normalizeBreakdownItems(items: TechBreakdownItem[]): TechBreakdownItem[] {
+  const candidates = (items as Array<TechBreakdownItem & Record<string, unknown>>).filter(
+    raw => raw.cardType !== 'stat' && !isSlotEmpty(raw)
   );
-  return BREAKDOWN_PRESETS.map((preset, i): TechBreakdownItem => {
-    const raw = nonStat[i] as (TechBreakdownItem & Record<string, unknown>) | undefined;
-    if (!raw) return emptyPresetItem(preset);
-    if (preset.cardType === 'hero') {
+  return reindexSlots(candidates.map((raw, i): TechBreakdownItem => {
+    if (i === 0) {
       return {
         cardType:    'hero',
         title:       String(raw.title ?? ''),
@@ -857,7 +861,7 @@ function normalizeToPresets(items: TechBreakdownItem[]): TechBreakdownItem[] {
         badge:       raw.badge as string | undefined,
         tag:         raw.tag as string | undefined,
         imageUrl:    raw.imageUrl as string | undefined,
-        accent:      raw.accent as string | undefined ?? '#c84020',
+        accent:      (raw.accent as string | undefined) ?? '#c84020',
       } satisfies HeroBentoCard;
     }
     return {
@@ -868,7 +872,7 @@ function normalizeToPresets(items: TechBreakdownItem[]): TechBreakdownItem[] {
       tag:         raw.tag as string | undefined,
       imageUrl:    raw.imageUrl as string | undefined,
     } satisfies FeatureBentoCard;
-  });
+  }));
 }
 
 function ColorInput({ value, onChange, defaultHex }: {
@@ -950,7 +954,7 @@ function BentoTitleSourcePicker<T extends HeroBentoCard | FeatureBentoCard>({
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <label className="ad-label" style={{ margin: 0, flex: 1 }}>Title</label>
+        <label className="ad-label" style={{ margin: 0, flex: 1 }}>Title <span style={{ color: 'var(--ad-danger, #ef4444)' }}>*</span></label>
         <div style={{ display: 'flex', gap: 4 }}>
           <button
             type="button"
@@ -1027,7 +1031,7 @@ function FeatureCardFields({ item, onPatch, slotIndex }: {
 const EMPTY_PROJECT_FORM: ProjectForm = {
   title: "", subtitle: "", category: "Residential", categoryColor: "",
   system: "", savings: "", videoUrl: "", isRecent: false, sortOrder: 0,
-  stats: [], performanceMetrics: [], technicalBreakdown: normalizeToPresets([]),
+  stats: [], performanceMetrics: [], technicalBreakdown: [],
   galleryImages: [], galleryImageNames: [], heroCards: [], testimonial: null,
   systemCardSubtext: "", savingsCardSubtext: "",
   electricalSystem: "Single-Phase", loadKw: "", productionKwp: "", storageKwh: "",
@@ -1075,7 +1079,9 @@ const SECTION_REGISTRY: IAdminSection[] = [
   {
     id: 'breakdown',
     label: 'Technical Breakdown',
-    isComplete: () => true,
+    isComplete: (f) => f.technicalBreakdown.length === 0 || f.technicalBreakdown.every(
+      item => !!item.title.trim() || item.titleSource?.type === 'system'
+    ),
   },
   {
     id: 'gallery',
@@ -1451,7 +1457,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       sortOrder: p.sortOrder ?? 0,
       stats: (p.stats ?? []) as ProjectStat[],
       performanceMetrics: (p.performanceMetrics ?? []) as PerformanceMetric[],
-      technicalBreakdown: normalizeToPresets((p.technicalBreakdown ?? []) as TechBreakdownItem[]),
+      technicalBreakdown: normalizeBreakdownItems((p.technicalBreakdown ?? []) as TechBreakdownItem[]),
       categoryColor: p.categoryColor ?? "",
       galleryImages: (p.galleryImages ?? []) as string[],
       galleryImageNames: (p.galleryImageNames ?? []) as string[],
@@ -1903,34 +1909,47 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
         {}
         {formSection === "breakdown" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>
-              {BREAKDOWN_PRESETS.length} fixed slots — Hero (col-8) + Feature (col-4) · then two Feature cards (col-6 each). Titles can be pulled from project data or entered manually.
-            </div>
-            {BREAKDOWN_PRESETS.map((preset, i) => {
-              const raw = form.technicalBreakdown[i] ?? emptyPresetItem(preset);
+            {form.technicalBreakdown.length === 0 && (
+              <div style={{ fontSize: 12, color: "var(--ad-text3)", padding: "8px 0" }}>
+                No slots added — the Technical Breakdown section will be hidden on the project page.
+              </div>
+            )}
+            {form.technicalBreakdown.map((item, i) => {
+              const isHero = i === 0;
+              const typeBg = isHero ? "rgba(200,64,32,0.12)" : "rgba(251,191,36,0.12)";
+              const typeFg = isHero ? "#fc7a4a" : "#fbbf24";
+              const typeLabel = isHero ? "Hero" : "Feature";
               const patchItem = (patch: Partial<TechBreakdownItem>) =>
                 setField("technicalBreakdown", form.technicalBreakdown.map((x, j) =>
                   j === i ? { ...x, ...patch } as TechBreakdownItem : x
                 ));
-
-              const typeStyle = preset.cardType === 'hero'
-                ? { bg: "rgba(200,64,32,0.12)", fg: "#fc7a4a", label: i === 0 ? "Hero · col-8" : "Hero" }
-                : { bg: "rgba(251,191,36,0.12)", fg: "#fbbf24", label: i === 1 ? "Feature · col-4" : "Feature · col-6" };
-
               return (
-                <div key={preset.id} style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
+                <div key={i} style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: "14px 16px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)" }}>{preset.slotLabel}</span>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 7px", borderRadius: 4, background: typeStyle.bg, color: typeStyle.fg }}>{typeStyle.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ad-text)" }}>Slot {i + 1}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 7px", borderRadius: 4, background: typeBg, color: typeFg }}>{typeLabel}</span>
+                    <button
+                      type="button"
+                      style={{ marginLeft: "auto", fontSize: 11, color: "var(--ad-danger, #ef4444)", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                      onClick={() => setField("technicalBreakdown", reindexSlots(form.technicalBreakdown.filter((_, j) => j !== i)))}
+                    >Remove</button>
                   </div>
-                  {preset.cardType === 'hero' && raw.cardType === 'hero'
-                    ? <HeroCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />
-                    : raw.cardType === 'feature'
-                      ? <FeatureCardFields item={raw} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />
-                      : null}
+                  {item.cardType === 'hero'
+                    ? <HeroCardFields item={item} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />
+                    : <FeatureCardFields item={item} onPatch={p => patchItem(p as Partial<TechBreakdownItem>)} slotIndex={i} />}
                 </div>
               );
             })}
+            {form.technicalBreakdown.length < 5 && (
+              <button
+                className="ad-btn ad-btn--ghost ad-btn--sm"
+                style={{ alignSelf: "flex-start" }}
+                onClick={() => setField("technicalBreakdown", [
+                  ...form.technicalBreakdown,
+                  emptySlotItem(form.technicalBreakdown.length),
+                ])}
+              >+ Add Slot</button>
+            )}
           </div>
         )}
 

@@ -317,23 +317,23 @@
   // Deterministic column spans — same data always produces the same layout.
   // Rule: no single card occupies more than 2/3 of its row at desktop.
 
+  // Full-width single card — taller min-height so the card isn't a wide flat strip
   &[data-count="1"] {
-    .as-pd-bento-hero    { grid-column: span 12; }
-    .as-pd-bento-feature { grid-column: span 12; }
+    .as-pd-bento-hero    { grid-column: span 12; min-height: 400px; }
+    .as-pd-bento-feature { grid-column: span 12; min-height: 360px; }
   }
 
-  // Equal halves — hero and feature share the row without either dominating
+  // Equal halves — slightly taller than the narrow-card default to stay proportional
   &[data-count="2"] {
-    .as-pd-bento-hero                  { grid-column: span 6; }
-    .as-pd-bento-feature:nth-child(2)  { grid-column: span 6; }
+    .as-pd-bento-hero                  { grid-column: span 6; min-height: 300px; }
+    .as-pd-bento-feature:nth-child(2)  { grid-column: span 6; min-height: 300px; }
   }
 
-  // Row 1: hero (8) + feature-1 (4). Row 2: feature-2 centred at 8 cols
-  // (2 implicit empty cols on each side keep it from spanning full width)
+  // Row 1: hero (8) + feature-1 (4). Row 2: feature-2 full-width — no gap.
   &[data-count="3"] {
     .as-pd-bento-hero                  { grid-column: span 8; }
     .as-pd-bento-feature:nth-child(2)  { grid-column: span 4; }
-    .as-pd-bento-feature:nth-child(3)  { grid-column: 3 / span 8; }
+    .as-pd-bento-feature:nth-child(3)  { grid-column: span 12; min-height: 300px; }
   }
 
   // Row 1: hero (8) + feature-1 (4). Row 2: feature-2 (6) + feature-3 (6)
@@ -342,6 +342,15 @@
     .as-pd-bento-feature:nth-child(2)  { grid-column: span 4; }
     .as-pd-bento-feature:nth-child(3)  { grid-column: span 6; }
     .as-pd-bento-feature:nth-child(4)  { grid-column: span 6; }
+  }
+
+  // Row 1: hero (8) + feature-1 (4). Row 2: feature-2 (3) + feature-3 (3) + feature-4 wider (6)
+  &[data-count="5"] {
+    .as-pd-bento-hero                  { grid-column: span 8; min-height: 280px; }
+    .as-pd-bento-feature:nth-child(2)  { grid-column: span 4; min-height: 280px; }
+    .as-pd-bento-feature:nth-child(3)  { grid-column: span 3; min-height: 240px; }
+    .as-pd-bento-feature:nth-child(4)  { grid-column: span 3; min-height: 240px; }
+    .as-pd-bento-feature:nth-child(5)  { grid-column: span 6; min-height: 240px; }
   }
 }
 
