@@ -225,7 +225,7 @@ export default function ASImpactCalculator() {
   const projectionDescription = formatProjectionDescription(projectionMonths);
 
   const handleGetQuote = () => {
-    navigate("/quotation-engine", {
+    navigate("/solar-calculator", {
       state: {
         monthlyBill,
         electricRate,

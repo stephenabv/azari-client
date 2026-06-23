@@ -7,18 +7,25 @@
     color: #6b7280;
   }
 
-  .as-pkg-phase-btn {
+  .as-packages-phase-toggle {
+    background: rgba(0, 0, 0, 0.04);
     border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .as-pkg-phase-slider {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .as-pkg-phase-btn {
     color: rgba(0, 0, 0, 0.45);
 
     &.is-active {
-      background: rgba(0, 0, 0, 0.06);
-      border-color: rgba(0, 0, 0, 0.2);
       color: #111111;
     }
 
     &:hover:not(.is-active) {
-      border-color: rgba(0, 0, 0, 0.18);
       color: rgba(0, 0, 0, 0.7);
     }
   }

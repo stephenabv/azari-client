@@ -4588,11 +4588,16 @@ const HERO_PAGES = [
   { label: "Home", value: "/" },
   { label: "Projects", value: "/projects" },
   { label: "Packages", value: "/packages" },
-  { label: "Quotation Engine", value: "/quotation-engine" },
+  { label: "Solar Calculator", value: "/solar-calculator" },
 ];
 
+const DEPRECATED_URLS: Record<string, string> = {
+  "/quotation-engine": "/solar-calculator",
+};
+
 function CtaDestinationPicker({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const isSection = value.startsWith("#");
+  const normalised = DEPRECATED_URLS[value] ?? value;
+  const isSection = normalised.startsWith("#");
   const typeOptions = [{ label: "Section (scroll)", value: "section" }, { label: "Page (navigate)", value: "page" }];
   const handleTypeChange = (type: string) => {
     onChange(type === "section" ? HERO_SECTIONS[0].value : HERO_PAGES[0].value);
@@ -4605,11 +4610,11 @@ function CtaDestinationPicker({ label, value, onChange }: { label: string; value
           {typeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         {isSection ? (
-          <select className="ad-input" value={value} onChange={e => onChange(e.target.value)}>
+          <select className="ad-input" value={normalised} onChange={e => onChange(e.target.value)}>
             {HERO_SECTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         ) : (
-          <select className="ad-input" value={value} onChange={e => onChange(e.target.value)}>
+          <select className="ad-input" value={normalised} onChange={e => onChange(e.target.value)}>
             {HERO_PAGES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         )}
@@ -5442,7 +5447,7 @@ function ButtonBlockForm({ block, onPatch }: { block: Extract<ContentBlock, { ty
   return (
     <div className="ad-field-row">
       <input className="ad-input" style={{ flex: 2 }} value={block.label} onChange={e => onPatch({ label: e.target.value })} placeholder="Button label" />
-      <input className="ad-input" style={{ flex: 3 }} value={block.url} onChange={e => onPatch({ url: e.target.value })} placeholder="URL (e.g. /quotation-engine)" />
+      <input className="ad-input" style={{ flex: 3 }} value={block.url} onChange={e => onPatch({ url: e.target.value })} placeholder="URL (e.g. /solar-calculator)" />
       <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--ad-text2)', whiteSpace: 'nowrap' }}>
         <input type="checkbox" checked={block.external} onChange={e => onPatch({ external: e.target.checked })} />
         External

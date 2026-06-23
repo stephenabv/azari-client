@@ -925,7 +925,7 @@ export default function ASQuotationEngine() {
     <section className="as-quote-page">
       <div className="as-quote-container">
         <header className="as-quote-header">
-          <h1>Technical Quotation Engine</h1>
+          <h1>Solar Power System Calculator</h1>
           <p>Configure your institutional-grade solar system.</p>
 
           <div className="as-quote-mode-toggle as-bill-toggle" data-active={hasBill ? 0 : 1}>
@@ -1025,7 +1025,8 @@ export default function ASQuotationEngine() {
           {/* Summary panel */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p>Inverter Specifications</p>
+              <p className="as-summary-title">Recommended System Specifications</p>
+              <p>Inverter Capacity and Types</p>
               <h2>
                 {engineResult
                   ? `${engineResult.inverterKw}kW ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`

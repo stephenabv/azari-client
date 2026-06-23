@@ -71,9 +71,9 @@ export const ASAppRoute = createBrowserRouter([
         ),
       },
       {
-        path: "/quotation-engine",
+        path: "/solar-calculator",
         element: (
-          <RouteSlot context="the quotation engine">
+          <RouteSlot context="the solar calculator">
             <ASQuotationEngine />
           </RouteSlot>
         ),

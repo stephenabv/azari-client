@@ -34,7 +34,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     Projects: "/projects",
     Packages: "/packages",
     "Client Journey": "/client-journey",
-    "System Calculator": "/quotation-engine",
+    "System Calculator": "/solar-calculator",
   };
 
   const updateIndicator = (tab: string) => {

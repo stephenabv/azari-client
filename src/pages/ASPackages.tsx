@@ -598,7 +598,10 @@ type PackageGroup = { label: string; packages: ApiSolarPackage[] };
 function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] {
   const active = packages
     .filter((p) => p.phase === phase && p.isActive)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort((a, b) =>
+      (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0) ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
   const hybrid = active.filter((p) => p.storageKwh > 0);
   const gridTied = active.filter((p) => p.storageKwh === 0);
@@ -708,7 +711,8 @@ export default function ASPackages() {
           <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
-        <div className="as-packages-phase-toggle">
+        <div className={`as-packages-phase-toggle${phase === "three" ? " is-second" : ""}`}>
+          <span className="as-pkg-phase-slider" aria-hidden="true" />
           <button
             className={`as-pkg-phase-btn${phase === "single" ? " is-active" : ""}`}
             onClick={() => handlePhase("single")}
