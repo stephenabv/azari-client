@@ -384,8 +384,11 @@ function PackageCard({
 
       <div className="as-pkg-qty-table">
         <QuantityStepper
-          label={[inverterLine?.component.brand, inverterLine?.component.model].filter(Boolean).join(" ") || "Inverter"}
-          sublabel={inverterLine?.component.loadCapacityKw ? formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" }) : undefined}
+          label="Inverter"
+          sublabel={[
+            [inverterLine?.component.brand, inverterLine?.component.model].filter(Boolean).join(" "),
+            inverterLine?.component.loadCapacityKw ? formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" }) : undefined,
+          ].filter(Boolean).join(" | ") || undefined}
           value={qty.inverter}
           min={bounds.iMin}
           max={bounds.iMax}
@@ -393,8 +396,11 @@ function PackageCard({
         />
         {isHybrid && (
           <QuantityStepper
-            label={[batteryLine?.component.brand, batteryLine?.component.model].filter(Boolean).join(" ") || "Battery"}
-            sublabel={batteryLine?.component.storageCapacityKwh ? formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" }) : undefined}
+            label="Battery"
+            sublabel={[
+              [batteryLine?.component.brand, batteryLine?.component.model].filter(Boolean).join(" "),
+              batteryLine?.component.storageCapacityKwh ? formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" }) : undefined,
+            ].filter(Boolean).join(" | ") || undefined}
             value={qty.batteries}
             min={bounds.bMin}
             max={bounds.bMax}
@@ -402,8 +408,11 @@ function PackageCard({
           />
         )}
         <QuantityStepper
-          label={[panelLine?.component.brand, panelLine?.component.model].filter(Boolean).join(" ") || "Solar Panel"}
-          sublabel={panelLine?.component.productionCapacityKwp ? `${Math.round(panelLine.component.productionCapacityKwp * 1000)}W per panel` : undefined}
+          label="Solar Panel"
+          sublabel={[
+            [panelLine?.component.brand, panelLine?.component.model].filter(Boolean).join(" "),
+            panelLine?.component.productionCapacityKwp ? `${Math.round(panelLine.component.productionCapacityKwp * 1000)}W` : undefined,
+          ].filter(Boolean).join(" | ") || undefined}
           value={qty.panels}
           min={bounds.pMin}
           max={bounds.pMax}
