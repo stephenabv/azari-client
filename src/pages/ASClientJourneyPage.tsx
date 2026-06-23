@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import type {
   ApiJourneyStep, ContentBlock,
   HeadingBlock, ParagraphBlock, BulletListBlock, LinkGroupBlock,
@@ -228,6 +229,11 @@ export function StepContent({ step }: { step: ApiJourneyStep }) {
 }
 
 export default function ASClientJourneyPage() {
+  useSeoMeta({
+    title: "Client Journey",
+    description: "Learn how Azari Solar guides you from initial consultation through installation and beyond — a seamless journey to energy independence.",
+    canonical: "https://azari.solar/client-journey",
+  });
   const [steps, setSteps] = useState<ApiJourneyStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);

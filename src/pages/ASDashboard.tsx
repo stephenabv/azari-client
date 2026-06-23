@@ -1,4 +1,5 @@
 import { useContent } from "../hooks/useContent";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASImpactCalculator from "../components/ASCalculator";
 import ASCallToAction from "../components/ASCallToAction";
@@ -36,6 +37,11 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
 };
 
 export default function ASDashboard() {
+  useSeoMeta({
+    title: "Azari Solar | Clean & Renewable Energy Solutions",
+    description: "Azari Solar provides reliable and sustainable solar energy solutions for homes and businesses. Save on energy costs and switch to clean power today.",
+    canonical: "https://azari.solar/",
+  });
   const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);
 
   return (

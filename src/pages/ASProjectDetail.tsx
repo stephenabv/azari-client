@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import iconPlay from "../assets/icons/icon-play.svg";
@@ -603,6 +604,14 @@ export default function ASProjectDetails() {
   const navigate = useNavigate();
   const [project, setProject] = useState<ASProjectDetailsModel | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useSeoMeta({
+    title: project ? project.title : "Projects",
+    description: project
+      ? `${project.title} — a solar installation by Azari Solar. ${project.subtitle ?? ""}`.trim()
+      : "Browse completed solar installation projects by Azari Solar.",
+    canonical: project ? `https://azari.solar/projects/${id}` : "https://azari.solar/projects",
+  });
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {

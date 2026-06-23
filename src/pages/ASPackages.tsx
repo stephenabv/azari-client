@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type PackageSelection } from "../services/ASContent";
@@ -649,6 +650,11 @@ function PkgCardSkeleton() {
 }
 
 export default function ASPackages() {
+  useSeoMeta({
+    title: "Solar Packages",
+    description: "Explore Azari Solar's residential solar packages — single phase and three phase, hybrid and grid-tied systems designed for your home.",
+    canonical: "https://azari.solar/packages",
+  });
   const navigate = useNavigate();
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
 
