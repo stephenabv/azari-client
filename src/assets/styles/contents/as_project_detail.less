@@ -1212,16 +1212,22 @@
   }
 
   .as-pd-breakdown-bento {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .as-pd-bento-hero,
-  .as-pd-bento-stat {
+  .as-pd-bento-stat,
+  .as-pd-bento-feature {
     grid-column: 1 / -1;
   }
 
-  .as-pd-bento-feature {
-    grid-column: span 1;
+  // data-count span rules have higher specificity than the plain class selectors above,
+  // so match their specificity (attribute + class + nth-child) to force full width
+  // and restore sane min-heights for single-column stacking.
+  .as-pd-breakdown-bento[data-count] {
+    .as-pd-bento-hero:nth-child(n)    { grid-column: 1 / -1; min-height: 240px; }
+    .as-pd-bento-stat:nth-child(n)    { grid-column: 1 / -1; }
+    .as-pd-bento-feature:nth-child(n) { grid-column: 1 / -1; min-height: 200px; }
   }
 
   .as-pd-bento-hero {
@@ -1289,10 +1295,6 @@
 }
 
 @media (max-width: 640px) {
-  .as-pd-breakdown-bento {
-    grid-template-columns: 1fr;
-  }
-
   .as-pd-bento-hero,
   .as-pd-bento-stat,
   .as-pd-bento-feature {
