@@ -589,7 +589,18 @@ function PackageCard({
               {}
               {(() => {
                 const CORE = ["Inverter", "Battery", "Solar Panel"];
-                const otherPcs = (pkg.components ?? []).filter((pc) => !CORE.includes(pc.component.category));
+                const TYPE_ORDER: Record<string, number> = {
+                  'Mounting & Racking': 0,
+                  'Wiring & Protection': 1,
+                  'Monitoring': 2,
+                };
+                const otherPcs = (pkg.components ?? [])
+                  .filter((pc) => !CORE.includes(pc.component.category))
+                  .sort((a, b) => {
+                    const oa = TYPE_ORDER[a.component.category] ?? 3;
+                    const ob = TYPE_ORDER[b.component.category] ?? 3;
+                    return oa - ob;
+                  });
                 if (otherPcs.length === 0) return null;
 
                 if (!showOtherComponents) {
