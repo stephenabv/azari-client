@@ -230,8 +230,8 @@ export function StepContent({ step }: { step: ApiJourneyStep }) {
 
 export default function ASClientJourneyPage() {
   useSeoMeta({
-    title: "Client Journey",
-    description: "Learn how Azari Solar guides you from initial consultation through installation and beyond — a seamless journey to energy independence.",
+    title: "Solar Installation Process in Bohol",
+    description: "Learn how Azari Solar guides you from consultation to installation in Bohol. Transparent process, quality components, and full after-sales support across the Philippines.",
     canonical: "https://azari.solar/client-journey",
   });
   const [steps, setSteps] = useState<ApiJourneyStep[]>([]);

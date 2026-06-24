@@ -310,8 +310,8 @@ function LoadProfileSection({
 
 export default function ASQuotationEngine() {
   useSeoMeta({
-    title: "Solar Calculator",
-    description: "Calculate your solar system size and estimate monthly savings with Azari Solar's free solar calculator. Enter your monthly bill to get started.",
+    title: "Free Solar Savings Calculator — Bohol, Philippines",
+    description: "Estimate your solar system size and monthly savings with our free solar calculator. Enter your electricity bill to find the right package — serving Bohol & the Philippines.",
     canonical: "https://azari.solar/solar-calculator",
   });
   const location = useLocation();

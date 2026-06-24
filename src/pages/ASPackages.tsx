@@ -703,8 +703,8 @@ function PkgCardSkeleton() {
 
 export default function ASPackages() {
   useSeoMeta({
-    title: "Solar Packages",
-    description: "Explore Azari Solar's residential solar packages — single phase and three phase, hybrid and grid-tied systems designed for your home.",
+    title: "Affordable Solar Packages in Bohol, Philippines",
+    description: "Browse affordable residential & commercial solar packages in Bohol. Hybrid, grid-tie & off-grid systems with full installation — single & three phase available.",
     canonical: "https://azari.solar/packages",
   });
   const navigate = useNavigate();

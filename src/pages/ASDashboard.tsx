@@ -38,8 +38,8 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
 
 export default function ASDashboard() {
   useSeoMeta({
-    title: "Azari Solar | Clean & Renewable Energy Solutions",
-    description: "Azari Solar provides reliable and sustainable solar energy solutions for homes and businesses. Save on energy costs and switch to clean power today.",
+    title: "Azari Solar — Solar Panel Installer in Bohol, Philippines",
+    description: "Affordable solar packages and professional installation for homes & businesses in Tagbilaran, Bohol. Hybrid, grid-tie, and off-grid systems. Get a free quote.",
     canonical: "https://azari.solar/",
   });
   const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);

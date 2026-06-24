@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASImgLoader from "./ASImgLoader";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
@@ -54,6 +55,11 @@ function apiToProject(p: ApiProject): Project {
 }
 
 export default function ASProjects() {
+  useSeoMeta({
+    title: "Solar Projects in Bohol, Philippines",
+    description: "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
+    canonical: "https://azari.solar/projects",
+  });
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
