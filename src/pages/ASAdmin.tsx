@@ -36,7 +36,13 @@ import {
   adminGetPackageInquiries,
   adminUpdatePackageInquiry,
   adminDeletePackageInquiry,
+  adminGetIpRatings,
+  adminCreateIpRating,
+  adminUpdateIpRating,
+  adminDeleteIpRating,
   computeMonthlySavings,
+  type ApiIpRating,
+  type IpRatingInput,
   type ApiProject,
   type PackageInquiry,
   type ProjectInput,
@@ -73,7 +79,7 @@ import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
 type Tab =
-  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "sections"
+  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "utilities" | "sections"
   | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
@@ -2252,7 +2258,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, mainFeatures: [], imageUrl: null };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 1, mainFeatures: [], imageUrl: null };
 
 const ACCESSORY_CATEGORIES = ['Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'];
 
@@ -3464,6 +3470,392 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   );
 }
 
+const EMPTY_IP_RATING: IpRatingInput = { code: "", description: "" };
+
+function UtilitiesManager({ apiKey }: { apiKey: string }) {
+  const [ratings, setRatings]         = useState<ApiIpRating[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [form, setForm]               = useState<IpRatingInput>(EMPTY_IP_RATING);
+  const [editingId, setEditingId]     = useState<string | null>(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [deleting, setDeleting]       = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ApiIpRating | null>(null);
+  const [msg, setMsg]                 = useState("");
+  const [formError, setFormError]     = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try { setRatings((await adminGetIpRatings(apiKey)).data); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(""), msg.startsWith("✓") ? 1500 : 3000);
+    return () => clearTimeout(t);
+  }, [msg]);
+
+  const openAdd = () => {
+    setEditingId(null); setForm(EMPTY_IP_RATING); setFormError(""); setShowForm(true);
+  };
+  const openEdit = (r: ApiIpRating) => {
+    setEditingId(r.id); setForm({ code: r.code, description: r.description }); setFormError(""); setShowForm(true);
+  };
+  const closeForm = () => {
+    setShowForm(false); setEditingId(null); setForm(EMPTY_IP_RATING); setFormError("");
+  };
+
+  const handleSave = async () => {
+    if (!form.code.trim()) { setFormError("Code is required (e.g. IP65)"); return; }
+    if (!form.description.trim()) { setFormError("Description is required"); return; }
+    setSaving(true);
+    try {
+      if (editingId) {
+        await adminUpdateIpRating(apiKey, editingId, form);
+        setMsg("✓ IP Rating updated");
+      } else {
+        await adminCreateIpRating(apiKey, form);
+        setMsg("✓ IP Rating added");
+      }
+      await load();
+      closeForm();
+    } catch (e) { setMsg(`Failed: ${(e as Error).message}`); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(deleteTarget.id);
+    try {
+      await adminDeleteIpRating(apiKey, deleteTarget.id);
+      setMsg("✓ IP Rating deleted");
+      await load();
+    } catch { setMsg("Failed to delete IP Rating"); }
+    finally { setDeleting(null); setDeleteTarget(null); }
+  };
+
+  return (
+    <div>
+      <div className="ad-section-header">
+        <div>
+          <div className="ad-section-title">Utilities</div>
+          <div className="ad-section-sub">Manage reference data used across packages and the client-facing site.</div>
+        </div>
+      </div>
+
+      {msg && <Toast msg={msg} />}
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Delete IP Rating "${deleteTarget?.code}"?`}
+        description="Any packages using this rating will lose their badge."
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+        confirming={!!deleting}
+      />
+
+      <div className="ad-card" style={{ marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: showForm ? 16 : 0 }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ad-text)", marginBottom: 2 }}>IP Ratings</div>
+            <div style={{ fontSize: 12, color: "var(--ad-text3)", lineHeight: 1.5 }}>Ingress Protection ratings displayed as badges on package cards in the client frontend. Hover over a badge to see the full description.</div>
+          </div>
+          {!showForm && (
+            <button onClick={openAdd} className="ad-btn ad-btn--sm" style={{ flexShrink: 0, marginLeft: 16 }}>+ Add</button>
+          )}
+        </div>
+
+        {showForm && (
+          <div style={{ background: "var(--ad-surface-raised, var(--ad-surface))", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", marginBottom: 16 }}>
+            {formError && (
+              <div style={{ marginBottom: 10, padding: "7px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 6, fontSize: 12, color: "#ef4444" }}>{formError}</div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Code</div>
+                <input
+                  type="text"
+                  className="ad-input"
+                  placeholder="e.g. IP65"
+                  value={form.code}
+                  onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                  style={{ fontWeight: 600, letterSpacing: "0.04em" }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>Description</div>
+                <input
+                  type="text"
+                  className="ad-input"
+                  placeholder="e.g. Dust-tight; protected against water jets"
+                  value={form.description}
+                  onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => void handleSave()} disabled={saving} className="ad-btn ad-btn--sm">{saving ? "Saving…" : editingId ? "Update" : "Add Rating"}</button>
+              <button onClick={closeForm} className="ad-btn ad-btn--ghost ad-btn--sm">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div style={{ color: "var(--ad-text2)", padding: "16px 0", fontSize: 13 }}>Loading…</div>
+        ) : ratings.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "28px 0", color: "var(--ad-text3)", fontSize: 13 }}>
+            No IP ratings yet.{" "}
+            {!showForm && <button onClick={openAdd} style={{ background: "none", border: "none", color: "var(--ad-accent)", cursor: "pointer", fontSize: 13, textDecoration: "underline", padding: 0 }}>Add the first one.</button>}
+          </div>
+        ) : (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 90 }}>Code</th>
+                  <th>Description</th>
+                  <th style={{ width: 120 }}>Added</th>
+                  <th style={{ width: 120 }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ratings.map(r => (
+                  <tr key={r.id}>
+                    <td>
+                      <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: 6, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", color: "#22c55e", fontSize: 12, fontWeight: 700, letterSpacing: "0.04em" }}>{r.code}</span>
+                    </td>
+                    <td style={{ fontSize: 13, color: "var(--ad-text2)" }}>{r.description}</td>
+                    <td style={{ fontSize: 12, color: "var(--ad-text3)" }}>{new Date(r.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <div className="ad-table-actions">
+                        <button onClick={() => openEdit(r)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm && editingId !== r.id}>Edit</button>
+                        <button onClick={() => setDeleteTarget(r)} disabled={!!deleting} className="ad-btn ad-btn--danger ad-btn--sm">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const PKG_BILL_TIERS: Array<[string, string, (p: ApiSolarPackage) => boolean]> = [
+  ["bill-low",   "Up to ₱5,000/mo",      p => p.billRangeMin < 5000],
+  ["bill-mid",   "₱5,000 – ₱15,000/mo",  p => p.billRangeMin >= 5000 && p.billRangeMin < 15000],
+  ["bill-high",  "₱15,000 – ₱30,000/mo", p => p.billRangeMin >= 15000 && p.billRangeMin < 30000],
+  ["bill-xhigh", "Above ₱30,000/mo",     p => p.billRangeMin >= 30000],
+];
+
+interface PkgPhaseSectionProps {
+  phase: "single" | "three";
+  packages: ApiSolarPackage[];
+  showForm: boolean;
+  peso: (v: number) => string;
+  onPreview: (p: ApiSolarPackage) => void;
+  onEdit: (p: ApiSolarPackage) => void;
+  onDelete: (p: ApiSolarPackage) => void;
+  onToggle: (p: ApiSolarPackage) => void;
+  deleting: string | null;
+  toggling: string | null;
+}
+
+function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, onDelete, onToggle, deleting, toggling }: PkgPhaseSectionProps) {
+  const [search, setSearch]     = useState("");
+  const [showF,  setShowF]      = useState(false);
+  const [fType,  setFType]      = useState(new Set<string>());
+  const [fStatus,setFStatus]    = useState(new Set<string>());
+  const [fBill,  setFBill]      = useState(new Set<string>());
+  const [fRec,   setFRec]       = useState(false);
+
+  const toggleF = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, val: string) =>
+    setter(prev => { const n = new Set(prev); n.has(val) ? n.delete(val) : n.add(val); return n; });
+
+  const clearFilters = () => { setFType(new Set()); setFStatus(new Set()); setFBill(new Set()); setFRec(false); };
+
+  const filterCount = fType.size + fStatus.size + fBill.size + (fRec ? 1 : 0);
+  const isFiltering = search.trim().length > 0 || filterCount > 0;
+  const label       = phase === "single" ? "Single Phase" : "Three Phase";
+  const activeCount = packages.filter(p => p.isActive).length;
+
+  const filtered = (() => {
+    let r = packages;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      r = r.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.components ?? []).some(pc =>
+          pc.component.name.toLowerCase().includes(q) ||
+          pc.component.brand.toLowerCase().includes(q) ||
+          pc.component.model.toLowerCase().includes(q)
+        )
+      );
+    }
+    if (fType.size > 0)   r = r.filter(p => fType.has(p.storageKwh > 0 ? "hybrid" : "grid-tied"));
+    if (fStatus.size > 0) r = r.filter(p => fStatus.has(p.isActive ? "active" : "inactive"));
+    if (fBill.size > 0)   r = r.filter(p => PKG_BILL_TIERS.some(([v, , fn]) => fBill.has(v) && fn(p)));
+    if (fRec)             r = r.filter(p => p.isRecommended);
+    r = [...r].sort((a, b) => (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity));
+    return r;
+  })();
+
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid var(--ad-border)" }}>
+        <span className={`ad-badge ${phase === "single" ? "is-residential" : "is-commercial"}`} style={{ fontSize: 12, padding: "4px 10px" }}>{label}</span>
+        <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>{activeCount} active · {packages.length} total</span>
+      </div>
+
+      {packages.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 240px", minWidth: 180 }}>
+            <input
+              type="text"
+              className="ad-input"
+              placeholder={`Search ${label} packages…`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: 34, paddingTop: 8, paddingBottom: 8 }}
+            />
+            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.35, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            {search && (
+              <button onClick={() => setSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ad-text3)", fontSize: 14, padding: "2px 4px", lineHeight: 1 }}>✕</button>
+            )}
+          </div>
+
+          <div style={{ position: "relative", zIndex: 100 }}>
+            <button
+              className={`ad-btn ad-btn--sm${filterCount === 0 ? " ad-btn--ghost" : ""}`}
+              onClick={() => setShowF(s => !s)}
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filters
+              {filterCount > 0 && (
+                <span style={{ background: "#fc615a", color: "#fff", borderRadius: 999, fontSize: 10, padding: "1px 6px", fontWeight: 700, lineHeight: "14px" }}>{filterCount}</span>
+              )}
+            </button>
+
+            {showF && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowF(false)} />
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", minWidth: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 100 }}>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>System Type</div>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      {[["hybrid", "Hybrid"], ["grid-tied", "Grid-Tied"]].map(([v, l]) => (
+                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                          <input type="checkbox" checked={fType.has(v)} onChange={() => toggleF(setFType, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Visibility</div>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      {[["active", "Active"], ["inactive", "Hidden"]].map(([v, l]) => (
+                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                          <input type="checkbox" checked={fStatus.has(v)} onChange={() => toggleF(setFStatus, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Bill Range</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {PKG_BILL_TIERS.map(([v, l]) => (
+                        <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                          <input type="checkbox" checked={fBill.has(v)} onChange={() => toggleF(setFBill, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 12, marginBottom: filterCount > 0 ? 12 : 0 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
+                      <input type="checkbox" checked={fRec} onChange={(e) => setFRec(e.target.checked)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />
+                      Recommended only
+                    </label>
+                  </div>
+                  {filterCount > 0 && (
+                    <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ width: "100%", marginTop: 4 }} onClick={clearFilters}>Clear all filters</button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {isFiltering && (
+            <span style={{ fontSize: 12, color: "var(--ad-text3)", whiteSpace: "nowrap" }}>
+              {filtered.length} of {packages.length} package{packages.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      )}
+
+      {packages.length === 0 ? (
+        <div className="ad-card" style={{ textAlign: "center", padding: "32px 24px" }}>
+          <div style={{ fontSize: 14, color: "var(--ad-text2)", marginBottom: 6 }}>No {label} packages yet</div>
+          <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>Click <strong>+ Add Package</strong> and set phase to <strong>{label}</strong> to create one.</div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="ad-card" style={{ textAlign: "center", padding: "32px 24px" }}>
+          <div style={{ fontSize: 14, color: "var(--ad-text2)", marginBottom: 6 }}>No packages match</div>
+          <div style={{ fontSize: 12, color: "var(--ad-text3)" }}>Try adjusting your search or filters.{" "}
+            <button onClick={() => { setSearch(""); clearFilters(); }} style={{ background: "none", border: "none", color: "var(--ad-accent)", cursor: "pointer", fontSize: 12, textDecoration: "underline", padding: 0 }}>Clear all</button>
+          </div>
+        </div>
+      ) : (
+        <div className="ad-pkg-mgr-grid">
+          {filtered.map((p) => (
+            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`}>
+              <div className="ad-pkg-mgr-top">
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: 11, color: "var(--ad-text3)", background: "var(--ad-border)", borderRadius: 4, padding: "2px 7px" }}>{p.storageKwh > 0 ? "Hybrid" : "Grid-Tied"}</span>
+                  <span style={{ fontSize: 10, color: "var(--ad-text3)", background: "var(--ad-border)", borderRadius: 4, padding: "2px 6px", fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" }}>#{p.sortOrder ?? '—'}</span>
+                  {(p.isRecommended ?? false) && <span className="ad-badge" style={{ background: "rgba(252,97,90,0.15)", color: "#fc615a", border: "1px solid rgba(252,97,90,0.3)", fontSize: 10 }}>★ Recommended</span>}
+                </div>
+                <label className="ad-toggle-switch" title={p.isActive ? "Active — click to hide" : "Hidden — click to show"}>
+                  <input type="checkbox" checked={p.isActive} disabled={toggling === p.id} onChange={() => onToggle(p)} />
+                  <span className="ad-toggle-track" />
+                </label>
+              </div>
+              <div className="ad-pkg-mgr-name">{p.name}</div>
+              <div className="ad-pkg-mgr-specs">
+                <div className="ad-pkg-mgr-spec"><span>Solar</span><strong>{p.solarKwp} kWp</strong></div>
+                <div className="ad-pkg-mgr-spec"><span>Inverter</span><strong>{p.inverterKw} kW</strong></div>
+                <div className="ad-pkg-mgr-spec"><span>Battery</span><strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong></div>
+              </div>
+              <div className="ad-pkg-mgr-price">
+                {p.totalPrice != null ? peso(p.totalPrice) : <span style={{ fontSize: 11, opacity: 0.5 }}>Price TBD</span>}
+                {(p.components?.length ?? 0) > 0 && <span style={{ fontSize: 10, opacity: 0.4, display: "block" }}>{p.components.length} component{p.components.length !== 1 ? "s" : ""}</span>}
+              </div>
+              <div className="ad-pkg-mgr-bill">For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo</div>
+              <div className="ad-pkg-mgr-footer">
+                <span className="ad-pkg-mgr-order">Created {new Date(p.createdAt).toLocaleDateString()}</span>
+                <div className="ad-table-actions">
+                  <button onClick={() => onPreview(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>View</button>
+                  <button onClick={() => onEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
+                  <button onClick={() => onDelete(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PackagesManager({ apiKey }: { apiKey: string }) {
   const [packages, setPackages]       = useState<ApiSolarPackage[]>([]);
   const [allComponents, setAllComponents] = useState<ApiSolarComponent[]>([]);
@@ -3483,23 +3875,25 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [systemType, setSystemType]   = useState<'hybrid' | 'grid-tied'>('hybrid');
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
   const [pkgImagePreview, setPkgImagePreview] = useState<string>("");
-  const [pkgSearch, setPkgSearch]             = useState("");
-  const [showFilters, setShowFilters]         = useState(false);
-  const [filterPhase, setFilterPhase]         = useState<Set<string>>(new Set());
-  const [filterType, setFilterType]           = useState<Set<string>>(new Set());
-  const [filterStatus, setFilterStatus]       = useState<Set<string>>(new Set());
-  const [filterBillRange, setFilterBillRange] = useState<Set<string>>(new Set());
-  const [filterRecommended, setFilterRecommended] = useState(false);
+  const [allIpRatings, setAllIpRatings]       = useState<ApiIpRating[]>([]);
+  const [sortOrderConflict, setSortOrderConflict] = useState<{ takenBy: ApiSolarPackage; proposed: number; prevValue: number } | null>(null);
+  const [pendingSwap, setPendingSwap]             = useState<{ id: string; name: string; newSortOrder: number } | null>(null);
+  const [isSortOrderManual, setIsSortOrderManual] = useState(false);
+
+  const getNextSortOrder = (ph: 'single' | 'three', excludeId?: string | null) =>
+    Math.max(0, ...packages.filter(p => p.phase === ph && p.id !== excludeId).map(p => p.sortOrder ?? 0)) + 1;
 
   const load = async () => {
     setLoading(true);
     try {
-      const [pkgRes, cmpRes] = await Promise.all([
+      const [pkgRes, cmpRes, ipRes] = await Promise.all([
         adminGetPackages(apiKey),
-        adminGetComponents(apiKey).catch(() => ({ data: [] as ApiSolarComponent[] }))
+        adminGetComponents(apiKey).catch(() => ({ data: [] as ApiSolarComponent[] })),
+        adminGetIpRatings(apiKey).catch(() => ({ data: [] as ApiIpRating[] })),
       ]);
       setPackages(pkgRes.data);
       setAllComponents(cmpRes.data);
+      setAllIpRatings(ipRes.data);
     } finally { setLoading(false); }
   };
 
@@ -3521,9 +3915,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   }, [msg]);
 
   const openAdd = () => {
-    setEditingId(null); setForm(EMPTY_PKG_FORM); setSystemType('hybrid');
+    const nextOrder = getNextSortOrder(EMPTY_PKG_FORM.phase as 'single' | 'three', null);
+    setEditingId(null); setForm({ ...EMPTY_PKG_FORM, sortOrder: nextOrder }); setSystemType('hybrid');
     setNameEdited(false); setCatSearches({}); setMsg("");
     setPkgImageFile(null); setPkgImagePreview("");
+    setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(false);
     setShowForm(true);
     if (allComponents.length === 0) {
       adminGetComponents(apiKey).then(res => setAllComponents(res.data)).catch(() => {});
@@ -3537,10 +3933,13 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       storageKwh: p.storageKwh, phase: p.phase,
       billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax,
       isActive: p.isActive, isRecommended: p.isRecommended ?? false,
+      sortOrder: p.sortOrder ?? 1,
+      ipRatingId: p.ipRatingId ?? null,
       mainFeatures: p.mainFeatures ?? [],
       imageUrl: p.imageUrl ?? null,
       components: (p.components ?? []).map(pc => ({ componentId: pc.componentId, quantity: pc.quantity, baseComponentId: pc.baseComponentId ?? null, multiplier: pc.multiplier ?? 1 })),
     });
+    setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(true);
     setPkgImageFile(null); setPkgImagePreview(p.imageUrl ?? "");
     setNameEdited(true); setCatSearches({}); setMsg(""); setShowForm(true);
     if (allComponents.length === 0) {
@@ -3551,8 +3950,34 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     setShowForm(false); setEditingId(null); setNameEdited(false);
     setCatSearches({}); setMsg(""); setFormError(""); setSystemType('hybrid');
     setPkgImageFile(null); setPkgImagePreview("");
+    setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(false);
   };
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+
+  const handleSortOrderChange = (val: number, currentPhase: 'single' | 'three', currentSortOrder: number) => {
+    const prevValue = currentSortOrder;
+    setIsSortOrderManual(true);
+    setField('sortOrder', val);
+    setPendingSwap(null);
+    const conflict = packages.find(p =>
+      p.phase === currentPhase && (p.sortOrder ?? 0) === val && p.id !== editingId
+    );
+    if (conflict) {
+      setSortOrderConflict({ takenBy: conflict, proposed: val, prevValue });
+    } else {
+      setSortOrderConflict(null);
+    }
+  };
+
+  const handlePhaseChange = (ph: 'single' | 'three') => {
+    setField('phase', ph);
+    setSortOrderConflict(null);
+    setPendingSwap(null);
+    if (!isSortOrderManual) {
+      setField('sortOrder', getNextSortOrder(ph, editingId));
+    }
+  };
+
   const setComponents = (next: PackageComponentLine[]) =>
     setForm(f => ({ ...f, components: recomputeDerivedQtys(next) }));
 
@@ -3633,11 +4058,18 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   };
 
   const handleSave = async () => {
+    if (sortOrderConflict) {
+      setFormError("Resolve the sort order conflict above before saving.");
+      return;
+    }
     const err = validateForm();
     if (err) { setFormError(err); scrollToFirstError(); return; }
     setFormError("");
     setSaving(true); setMsg("");
     try {
+      if (pendingSwap) {
+        await adminUpdatePackage(apiKey, pendingSwap.id, { sortOrder: pendingSwap.newSortOrder });
+      }
       let pkgId: string;
       if (editingId) {
         await adminUpdatePackage(apiKey, editingId, form);
@@ -3691,41 +4123,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const peso = (v: number) => `₱${v.toLocaleString("en-PH")}`;
   const activeCount = packages.filter((p) => p.isActive).length;
 
-  const toggleFilterSet = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, val: string) =>
-    setter(prev => { const n = new Set(prev); n.has(val) ? n.delete(val) : n.add(val); return n; });
-
-  const BILL_TIERS: Array<[string, string, (p: ApiSolarPackage) => boolean]> = [
-    ["bill-low",   "Up to ₱5,000/mo",      p => p.billRangeMin < 5000],
-    ["bill-mid",   "₱5,000 – ₱15,000/mo",  p => p.billRangeMin >= 5000 && p.billRangeMin < 15000],
-    ["bill-high",  "₱15,000 – ₱30,000/mo", p => p.billRangeMin >= 15000 && p.billRangeMin < 30000],
-    ["bill-xhigh", "Above ₱30,000/mo",     p => p.billRangeMin >= 30000],
-  ];
-
-  const clearFilters = () => { setFilterPhase(new Set()); setFilterType(new Set()); setFilterStatus(new Set()); setFilterBillRange(new Set()); setFilterRecommended(false); };
-
-  const filteredPackages = (() => {
-    let r = packages;
-    if (pkgSearch.trim()) {
-      const q = pkgSearch.toLowerCase();
-      r = r.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        (p.components ?? []).some(pc =>
-          pc.component.name.toLowerCase().includes(q) ||
-          pc.component.brand.toLowerCase().includes(q) ||
-          pc.component.model.toLowerCase().includes(q)
-        )
-      );
-    }
-    if (filterPhase.size > 0)     r = r.filter(p => filterPhase.has(p.phase));
-    if (filterType.size > 0)      r = r.filter(p => filterType.has(p.storageKwh > 0 ? "hybrid" : "grid-tied"));
-    if (filterStatus.size > 0)    r = r.filter(p => filterStatus.has(p.isActive ? "active" : "inactive"));
-    if (filterBillRange.size > 0) r = r.filter(p => BILL_TIERS.some(([v, , fn]) => filterBillRange.has(v) && fn(p)));
-    if (filterRecommended)        r = r.filter(p => p.isRecommended);
-    return r;
-  })();
-
-  const activeFilterCount = filterPhase.size + filterType.size + filterStatus.size + filterBillRange.size + (filterRecommended ? 1 : 0);
-  const isFiltering = pkgSearch.trim().length > 0 || activeFilterCount > 0;
+  const singlePkgs = packages.filter(p => p.phase === "single");
+  const threePkgs  = packages.filter(p => p.phase === "three");
 
   return (
     <div>
@@ -3882,8 +4281,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                     <div className="ad-pkg-form-phase">
                       <div className="ad-label">System Phase</div>
                       <div className="ad-pkg-phase-toggle">
-                        <button type="button" className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`} onClick={() => setField("phase", "single")}>Single Phase<span>Residential</span></button>
-                        <button type="button" className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`} onClick={() => setField("phase", "three")}>Three Phase<span>Commercial / Industrial</span></button>
+                        <button type="button" className={`ad-pkg-phase-btn${form.phase === "single" ? " is-active" : ""}`} onClick={() => handlePhaseChange("single")}>Single Phase<span>Residential</span></button>
+                        <button type="button" className={`ad-pkg-phase-btn${form.phase === "three" ? " is-active" : ""}`} onClick={() => handlePhaseChange("three")}>Three Phase<span>Commercial / Industrial</span></button>
                       </div>
                     </div>
 
@@ -4325,6 +4724,101 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                     </div>
 
                     {}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>IP Rating Badge</div>
+                      <select
+                        className="ad-input"
+                        value={form.ipRatingId ?? ""}
+                        onChange={(e) => setField("ipRatingId", e.target.value || null)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <option value="">— None —</option>
+                        {allIpRatings.map(r => (
+                          <option key={r.id} value={r.id}>{r.code} — {r.description}</option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)", lineHeight: 1.45 }}>
+                        Shown as a hoverable badge on the package card in the client frontend.{" "}
+                        {allIpRatings.length === 0 && <span style={{ color: "var(--ad-accent)" }}>No ratings yet — add them in Utilities.</span>}
+                      </div>
+                    </div>
+
+                    {}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Display Order</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={form.sortOrder ?? 1}
+                          onChange={(e) => {
+                            const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                            handleSortOrderChange(val, form.phase, form.sortOrder ?? 1);
+                          }}
+                          className="ad-input"
+                          style={{ width: 72, textAlign: "center", padding: "6px 8px" }}
+                        />
+                        <span style={{ fontSize: 12, color: "var(--ad-text3)" }}>
+                          {form.phase === "single"
+                            ? `of ${singlePkgs.length} Single Phase`
+                            : `of ${threePkgs.length} Three Phase`} packages
+                          {!isSortOrderManual && <span style={{ marginLeft: 6, opacity: 0.55 }}>(auto)</span>}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--ad-text3)", lineHeight: 1.45 }}>
+                        Recommended packages always appear first on the client frontend — this order applies within each group.
+                      </div>
+                      {sortOrderConflict && (() => {
+                        const bumpTo = Math.max(0, ...packages
+                          .filter(p => p.phase === form.phase && p.id !== editingId && p.id !== sortOrderConflict.takenBy.id)
+                          .map(p => p.sortOrder ?? 0)
+                        ) + 1;
+                        return (
+                          <div style={{ background: "rgba(252,97,90,0.08)", border: "1px solid rgba(252,97,90,0.25)", borderRadius: 8, padding: "10px 12px" }}>
+                            <div style={{ fontSize: 12, color: "#fc615a", fontWeight: 600, marginBottom: 8 }}>
+                              Order #{sortOrderConflict.proposed} is already used by "{sortOrderConflict.takenBy.name}"
+                            </div>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                type="button"
+                                className="ad-btn ad-btn--sm"
+                                onClick={() => {
+                                  setPendingSwap({ id: sortOrderConflict.takenBy.id, name: sortOrderConflict.takenBy.name, newSortOrder: bumpTo });
+                                  setSortOrderConflict(null);
+                                }}
+                              >
+                                Swap — move it to #{bumpTo}
+                              </button>
+                              <button
+                                type="button"
+                                className="ad-btn ad-btn--ghost ad-btn--sm"
+                                onClick={() => {
+                                  setField('sortOrder', sortOrderConflict.prevValue);
+                                  setSortOrderConflict(null);
+                                  setPendingSwap(null);
+                                }}
+                              >
+                                Revert to #{sortOrderConflict.prevValue}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {pendingSwap && (
+                        <div style={{ background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, padding: "6px 10px", fontSize: 11, color: "#22c55e" }}>
+                          ✓ On save: "{pendingSwap.name}" will move to #{pendingSwap.newSortOrder}
+                          <button
+                            type="button"
+                            onClick={() => setPendingSwap(null)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#22c55e", fontSize: 11, marginLeft: 8, textDecoration: "underline", padding: 0 }}
+                          >
+                            Undo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {}
                     <div className="ad-form-actions" style={{ paddingTop: 4 }}>
                       <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
                       <button onClick={closeForm} className="ad-btn ad-btn--ghost">Cancel</button>
@@ -4338,120 +4832,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
         </>
       )}
       {}
-      {showFilters && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowFilters(false)} />}
-
-      {}
-      {!loading && packages.length > 0 && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          {}
-          <div style={{ position: "relative", flex: "1 1 240px", minWidth: 180 }}>
-            <input
-              type="text"
-              className="ad-input"
-              placeholder="Search by package name, inverter, battery, panel…"
-              value={pkgSearch}
-              onChange={(e) => setPkgSearch(e.target.value)}
-              style={{ paddingLeft: 34, paddingTop: 8, paddingBottom: 8 }}
-            />
-            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.35, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            {pkgSearch && (
-              <button onClick={() => setPkgSearch("")} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ad-text3)", fontSize: 14, padding: "2px 4px", lineHeight: 1 }}>✕</button>
-            )}
-          </div>
-
-          {}
-          <div style={{ position: "relative", zIndex: 100 }}>
-            <button
-              className={`ad-btn ad-btn--sm${activeFilterCount === 0 ? " ad-btn--ghost" : ""}`}
-              onClick={() => setShowFilters(s => !s)}
-              style={{ display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-              </svg>
-              Filters
-              {activeFilterCount > 0 && (
-                <span style={{ background: "#fc615a", color: "#fff", borderRadius: 999, fontSize: 10, padding: "1px 6px", fontWeight: 700, lineHeight: "14px" }}>{activeFilterCount}</span>
-              )}
-            </button>
-
-            {showFilters && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", minWidth: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.25)" }}>
-
-                {}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Phase</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                    {[["single", "Single Phase"], ["three", "Three Phase"]] .map(([v, l]) => (
-                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
-                        <input type="checkbox" checked={filterPhase.has(v)} onChange={() => toggleFilterSet(setFilterPhase, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>System Type</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                    {[["hybrid", "Hybrid"], ["grid-tied", "Grid-Tied"]].map(([v, l]) => (
-                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
-                        <input type="checkbox" checked={filterType.has(v)} onChange={() => toggleFilterSet(setFilterType, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Visibility</div>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                    {[["active", "Active"], ["inactive", "Hidden"]].map(([v, l]) => (
-                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
-                        <input type="checkbox" checked={filterStatus.has(v)} onChange={() => toggleFilterSet(setFilterStatus, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {}
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Bill Range</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                    {BILL_TIERS.map(([v, l]) => (
-                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
-                        <input type="checkbox" checked={filterBillRange.has(v)} onChange={() => toggleFilterSet(setFilterBillRange, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {}
-                <div style={{ borderTop: "1px solid var(--ad-border)", paddingTop: 12, marginBottom: activeFilterCount > 0 ? 12 : 0 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
-                    <input type="checkbox" checked={filterRecommended} onChange={(e) => setFilterRecommended(e.target.checked)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />
-                    Recommended only
-                  </label>
-                </div>
-
-                {activeFilterCount > 0 && (
-                  <button className="ad-btn ad-btn--ghost ad-btn--sm" style={{ width: "100%" }} onClick={clearFilters}>Clear all filters</button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {}
-          {isFiltering && (
-            <span style={{ fontSize: 12, color: "var(--ad-text3)", whiteSpace: "nowrap" }}>
-              {filteredPackages.length} of {packages.length} package{packages.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-      )}
-
       {loading ? (
         <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading packages…</div>
       ) : packages.length === 0 ? (
@@ -4459,49 +4839,33 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 8 }}>No packages yet</div>
           <div style={{ fontSize: 13, color: "var(--ad-text3)", maxWidth: 450, margin: "0 auto" }}>Click <strong>+ Add Package</strong> to build a new solar package. Choose components from your <strong>Inventory</strong> tab, and the system will auto-calculate your system specs and total price. Active packages appear on the public <strong>/packages</strong> page.</div>
         </div>
-      ) : filteredPackages.length === 0 ? (
-        <div className="ad-card" style={{ textAlign: "center", padding: "40px 24px" }}>
-          <div style={{ fontSize: 15, color: "var(--ad-text2)", marginBottom: 6 }}>No packages match</div>
-          <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>Try adjusting your search or filters.{" "}
-            <button onClick={() => { setPkgSearch(""); clearFilters(); }} style={{ background: "none", border: "none", color: "var(--ad-accent)", cursor: "pointer", fontSize: 13, textDecoration: "underline", padding: 0 }}>Clear all</button>
-          </div>
-        </div>
       ) : (
-        <div className="ad-pkg-mgr-grid">
-          {filteredPackages.map((p) => (
-            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`}>
-              <div className="ad-pkg-mgr-top">
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  <span className={`ad-badge ${p.phase === "single" ? "is-residential" : "is-commercial"}`}>{p.phase === "single" ? "Single Phase" : "Three Phase"}</span>
-                  {(p.isRecommended ?? false) && <span className="ad-badge" style={{ background: "rgba(252,97,90,0.15)", color: "#fc615a", border: "1px solid rgba(252,97,90,0.3)", fontSize: 10 }}>★ Recommended</span>}
-                </div>
-                <label className="ad-toggle-switch" title={p.isActive ? "Active — click to hide" : "Hidden — click to show"}>
-                  <input type="checkbox" checked={p.isActive} disabled={toggling === p.id} onChange={() => void handleToggleActive(p)} />
-                  <span className="ad-toggle-track" />
-                </label>
-              </div>
-              <div className="ad-pkg-mgr-name">{p.name}</div>
-              <div className="ad-pkg-mgr-specs">
-                <div className="ad-pkg-mgr-spec"><span>Solar</span><strong>{p.solarKwp} kWp</strong></div>
-                <div className="ad-pkg-mgr-spec"><span>Inverter</span><strong>{p.inverterKw} kW</strong></div>
-                <div className="ad-pkg-mgr-spec"><span>Battery</span><strong>{p.storageKwh > 0 ? `${p.storageKwh} kWh` : "None"}</strong></div>
-              </div>
-              <div className="ad-pkg-mgr-price">
-                {p.totalPrice != null ? peso(p.totalPrice) : <span style={{ fontSize: 11, opacity: 0.5 }}>Price TBD</span>}
-                {(p.components?.length ?? 0) > 0 && <span style={{ fontSize: 10, opacity: 0.4, display: "block" }}>{p.components.length} component{p.components.length !== 1 ? "s" : ""}</span>}
-              </div>
-              <div className="ad-pkg-mgr-bill">For bills {peso(p.billRangeMin)}–{peso(p.billRangeMax)}/mo</div>
-              <div className="ad-pkg-mgr-footer">
-                <span className="ad-pkg-mgr-order">Created {new Date(p.createdAt).toLocaleDateString()}</span>
-                <div className="ad-table-actions">
-                  <button onClick={() => setPreviewPackage(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>View</button>
-                  <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
-                  <button onClick={() => setDeleteTarget(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <>
+          <PkgPhaseSection
+            phase="single"
+            packages={singlePkgs}
+            showForm={showForm}
+            peso={peso}
+            onPreview={setPreviewPackage}
+            onEdit={openEdit}
+            onDelete={setDeleteTarget}
+            onToggle={(p) => void handleToggleActive(p)}
+            deleting={deleting}
+            toggling={toggling}
+          />
+          <PkgPhaseSection
+            phase="three"
+            packages={threePkgs}
+            showForm={showForm}
+            peso={peso}
+            onPreview={setPreviewPackage}
+            onEdit={openEdit}
+            onDelete={setDeleteTarget}
+            onToggle={(p) => void handleToggleActive(p)}
+            deleting={deleting}
+            toggling={toggling}
+          />
+        </>
       )}
     </div>
   );
@@ -6223,9 +6587,10 @@ export default function ASAdmin() {
     {
       label: "Products",
       items: [
-        { id: "inventory", label: "Inventory", icon: <NavIcon><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
-        { id: "packages",  label: "Packages",  icon: <NavIcon><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
-        { id: "projects",  label: "Projects",  icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></NavIcon> },
+        { id: "inventory",  label: "Inventory",  icon: <NavIcon><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
+        { id: "packages",   label: "Packages",   icon: <NavIcon><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
+        { id: "projects",   label: "Projects",   icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></NavIcon> },
+        { id: "utilities",  label: "Utilities",  icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></NavIcon> },
       ],
     },
     {
@@ -6308,6 +6673,7 @@ export default function ASAdmin() {
           {tab === "inventory"         && <ComponentsManager apiKey={apiKey} onGoToPackages={() => navigate("packages")} />}
           {tab === "packages"          && <PackagesManager apiKey={apiKey} />}
           {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
+          {tab === "utilities"         && <UtilitiesManager apiKey={apiKey} />}
           {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
           {tab === "hero"              && <HeroEditor apiKey={apiKey} />}
           {tab === "metrics"           && <MetricsEditor apiKey={apiKey} />}

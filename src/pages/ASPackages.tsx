@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type PackageSelection } from "../services/ASContent";
+import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
 import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
@@ -203,12 +203,51 @@ function QuantityStepper({
   );
 }
 
+function IpRatingBadge({ code, description, offset }: { code: string; description: string; offset?: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+
+  const handleMouseEnter = () => {
+    if (badgeRef.current) {
+      const rect = badgeRef.current.getBoundingClientRect();
+      setTooltipPos({ top: rect.bottom, left: rect.left + rect.width / 2 });
+    }
+    setVisible(true);
+  };
+
+  return (
+    <div className={`as-pkg-ip-wrap${offset ? " is-offset" : ""}`}>
+      <span
+        ref={badgeRef}
+        className="as-pkg-ip-badge"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={() => setVisible(false)}
+      >
+        {code}
+      </span>
+      {visible && createPortal(
+        <div
+          className="as-pkg-ip-tooltip"
+          style={{ top: tooltipPos.top, left: tooltipPos.left }}
+          role="tooltip"
+        >
+          <strong>{code}</strong> — {description}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 function PackageCard({
   pkg,
   onInquire,
+  ipRating,
 }: {
   pkg: ApiSolarPackage;
   onInquire: (sel: PackageSelection) => void;
+  ipRating?: ApiIpRating | null;
 }) {
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
@@ -356,6 +395,7 @@ function PackageCard({
   return (
     <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`}>
       {pkg.isRecommended && <div className="as-pkg-recommended-badge">Recommended</div>}
+      {ipRating && <IpRatingBadge code={ipRating.code} description={ipRating.description} offset={!!pkg.isRecommended} />}
 
       <div className="as-pkg-top">
         <div className="as-pkg-name">{displayName}</div>
@@ -610,6 +650,7 @@ function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] 
     .filter((p) => p.phase === phase && p.isActive)
     .sort((a, b) =>
       (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0) ||
+      (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) ||
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
@@ -684,7 +725,7 @@ export default function ASPackages() {
 
   useEffect(() => {
     fetchPublicPackages()
-      .then((data) => setPackages(data))
+      .then(setPackages)
       .finally(() => setLoading(false));
   }, []);
 
@@ -768,7 +809,7 @@ export default function ASPackages() {
                 <h2 className="as-packages-group-label">{group.label}</h2>
                 <div className="as-packages-grid">
                   {visible.map((pkg) => (
-                    <PackageCard key={pkg.id} pkg={pkg} onInquire={(sel) => { setSelectedPkg(pkg); setSelectedSelection(sel); setInquireOpen(true); }} />
+                    <PackageCard key={pkg.id} pkg={pkg} onInquire={(sel) => { setSelectedPkg(pkg); setSelectedSelection(sel); setInquireOpen(true); }} ipRating={pkg.ipRating ?? null} />
                   ))}
                   {isLoadingMore && Array.from({ length: skeletonCount }).map((_, i) => (
                     <PkgCardSkeleton key={`more-skeleton-${i}`} />

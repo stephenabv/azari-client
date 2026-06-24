@@ -535,6 +535,19 @@ export interface ApiPackageComponent {
 
 
 
+export interface ApiIpRating {
+  id: string;
+  code: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IpRatingInput {
+  code: string;
+  description: string;
+}
+
 export interface ApiSolarPackage {
   id: string;
   name: string;
@@ -548,6 +561,8 @@ export interface ApiSolarPackage {
   isActive: boolean;
   isRecommended: boolean;
   sortOrder: number;
+  ipRatingId?: string | null;
+  ipRating?: ApiIpRating | null;
   imageUrl?: string | null;
   mainFeatures: string[];
   components: ApiPackageComponent[];
@@ -579,6 +594,8 @@ export interface PackageInput {
   billRangeMax: number;
   isActive: boolean;
   isRecommended: boolean;
+  sortOrder?: number;
+  ipRatingId?: string | null;
   mainFeatures?: string[];
   imageUrl?: string | null;
   components?: PackageComponentLine[];
@@ -822,6 +839,64 @@ export async function adminUpdatePackageInquiry(apiKey: string, id: string, data
 
 export async function adminDeletePackageInquiry(apiKey: string, id: string) {
   const res = await apiFetch(`${API_BASE}/admin/packages/inquiries/${id}`, {
+    method: 'DELETE',
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchPublicIpRatings(): Promise<ApiIpRating[]> {
+  try {
+    const res = await apiFetch(`${API_BASE}/ip-ratings`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success: boolean; data: ApiIpRating[] };
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function adminGetIpRatings(apiKey: string) {
+  const res = await apiFetch(`${API_BASE}/admin/ip-ratings`, {
+    headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) throw new Error(`Failed to load IP ratings: ${res.status}`);
+  return (await res.json()) as { success: boolean; data: ApiIpRating[] };
+}
+
+export async function adminCreateIpRating(apiKey: string, data: IpRatingInput) {
+  const res = await apiFetch(`${API_BASE}/admin/ip-ratings`, {
+    method: 'POST',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminUpdateIpRating(apiKey: string, id: string, data: IpRatingInput) {
+  const res = await apiFetch(`${API_BASE}/admin/ip-ratings/${id}`, {
+    method: 'PUT',
+    headers: { 'x-admin-api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (res.status === 401) throw new Error('Invalid API key.');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: 'Unknown error' })) as { message?: string };
+    throw new Error(body.message ?? `Update failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function adminDeleteIpRating(apiKey: string, id: string) {
+  const res = await apiFetch(`${API_BASE}/admin/ip-ratings/${id}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
