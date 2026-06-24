@@ -389,7 +389,7 @@
 
 .as-pkg-ip-tooltip {
   position: fixed;
-  transform: translate(-50%, 10px);
+  transform: translateY(10px);
   min-width: 200px;
   max-width: 280px;
   background: #1c1c1c;
@@ -410,7 +410,7 @@
     content: "";
     position: absolute;
     bottom: 100%;
-    left: 50%;
+    left: var(--ip-arrow-x, 50%);
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-bottom-color: rgba(255, 255, 255, 0.1);
@@ -420,7 +420,7 @@
     content: "";
     position: absolute;
     bottom: calc(100% - 1px);
-    left: 50%;
+    left: var(--ip-arrow-x, 50%);
     transform: translateX(-50%);
     border: 5px solid transparent;
     border-bottom-color: #1c1c1c;

@@ -203,15 +203,23 @@ function QuantityStepper({
   );
 }
 
+const TOOLTIP_MAX_W = 280;
+const TOOLTIP_MARGIN = 8;
+
 function IpRatingBadge({ code, description, offset }: { code: string; description: string; offset?: boolean }) {
   const [visible, setVisible] = useState(false);
   const badgeRef = useRef<HTMLSpanElement>(null);
-  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0, arrowLeft: TOOLTIP_MAX_W / 2 });
 
   const handleMouseEnter = () => {
     if (badgeRef.current) {
       const rect = badgeRef.current.getBoundingClientRect();
-      setTooltipPos({ top: rect.bottom, left: rect.left + rect.width / 2 });
+      const badgeCenterX = rect.left + rect.width / 2;
+      const vw = window.innerWidth;
+      const idealLeft = badgeCenterX - TOOLTIP_MAX_W / 2;
+      const clampedLeft = Math.max(TOOLTIP_MARGIN, Math.min(idealLeft, vw - TOOLTIP_MAX_W - TOOLTIP_MARGIN));
+      const arrowLeft = Math.max(12, Math.min(badgeCenterX - clampedLeft, TOOLTIP_MAX_W - 12));
+      setTooltipPos({ top: rect.bottom, left: clampedLeft, arrowLeft });
     }
     setVisible(true);
   };
@@ -229,7 +237,7 @@ function IpRatingBadge({ code, description, offset }: { code: string; descriptio
       {visible && createPortal(
         <div
           className="as-pkg-ip-tooltip"
-          style={{ top: tooltipPos.top, left: tooltipPos.left }}
+          style={{ top: tooltipPos.top, left: tooltipPos.left, ['--ip-arrow-x' as string]: `${tooltipPos.arrowLeft}px` } as React.CSSProperties}
           role="tooltip"
         >
           <strong>{code}</strong> — {description}
