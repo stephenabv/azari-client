@@ -54,14 +54,15 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf '%s' "${{ secrets.VM_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-
+          # Populate known_hosts; for higher assurance store the verified host
+          # fingerprint as VM_HOST_KEY secret and use that instead.
           ssh-keyscan -p ${{ secrets.VM_PORT || '22' }} ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Test SSH Connection
         run: |
-          ssh -o StrictHostKeyChecking=no \
+          ssh -i ~/.ssh/id_rsa \
             -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "echo 'SSH Connection Successful'"
@@ -69,11 +70,11 @@ jobs:
       - name: Deploy build artifacts
         run: |
           rsync -avz --delete \
-            -e "ssh -p ${{ secrets.VM_PORT || '22' }}" \
+            -e "ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }}" \
             build/ \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/build/
 
-          scp -P ${{ secrets.VM_PORT || '22' }} \
+          scp -i ~/.ssh/id_rsa -P ${{ secrets.VM_PORT || '22' }} \
             ecosystem.config.cjs \
             package.json \
             package-lock.json \
@@ -81,13 +82,25 @@ jobs:
 
       - name: Install runtime dependencies on VM
         run: |
-          ssh -p ${{ secrets.VM_PORT || '22' }} \
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "cd /var/www/azari && npm ci --omit=dev"
 
+      - name: Deploy nginx config
+        run: |
+          scp -i ~/.ssh/id_rsa -P ${{ secrets.VM_PORT || '22' }} \
+            nginx.conf \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/azari-nginx.conf
+
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }} \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "sudo nginx -t -c /tmp/azari-nginx.conf && \
+             sudo cp /tmp/azari-nginx.conf /etc/nginx/sites-available/azari && \
+             sudo nginx -s reload"
+
       - name: Restart SSR server
         run: |
-          ssh -p ${{ secrets.VM_PORT || '22' }} \
+          ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "cd /var/www/azari && \
              pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
