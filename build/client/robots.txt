@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /ops-console-
-
-Sitemap: https://azari.solar/sitemap.xml
