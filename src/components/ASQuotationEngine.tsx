@@ -607,6 +607,13 @@ export default function ASQuotationEngine() {
         return;
       }
 
+      // Rate-limit banner is already showing; close the proposal modal so the
+      // user can see the countdown without a system-error dialog on top of it.
+      if (result.rateLimited) {
+        closeModal();
+        return;
+      }
+
       setModal("system-error");
     } finally {
       setIsSubmitting(false);

@@ -106,7 +106,12 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
       });
       setSuccess(true);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      // apiFetch throws "rate_limited:<sec>" when it gets 429 and fires the
+      // global banner. Suppress the in-form error so only the banner shows.
+      const msg = err instanceof Error ? err.message : "";
+      if (!msg.startsWith("rate_limited")) {
+        setSubmitError(msg || "Something went wrong. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

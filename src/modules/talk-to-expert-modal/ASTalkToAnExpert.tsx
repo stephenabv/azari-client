@@ -11,6 +11,7 @@ import {
   type TalkInquiryType,
   type TalkToExpertFormData,
 } from "../../models/talk-to-expert";
+import { handleRateLimitResponse } from "../../services/ASContent";
 
 type ASTalkToAnExpertProps = {
   isOpen: boolean;
@@ -167,6 +168,13 @@ export default function ASTalkToAnExpert({
           buildTalkToExpertPayload(form, selectedProvince, selectedCity)
         ),
       });
+
+      if (handleRateLimitResponse(response)) {
+        // Rate-limit banner is now visible with a countdown; close the modal
+        // so the user can see it without a system-error dialog on top.
+        handleClose();
+        return;
+      }
 
       const data = await response.json().catch(() => null);
 

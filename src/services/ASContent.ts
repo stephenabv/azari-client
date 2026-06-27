@@ -11,10 +11,26 @@ export function subscribeRateLimit(fn: (info: RateLimitInfo) => void): () => voi
   return () => _rlSubs.delete(fn);
 }
 
-function notifyRateLimit(res: Response): never {
+function dispatchRateLimit(res: Response): number {
   const sec = parseInt(res.headers.get('Retry-After') ?? '60', 10);
   _rlSubs.forEach(fn => fn({ retryAfterSec: sec, resetAt: Date.now() + sec * 1000 }));
+  return sec;
+}
+
+function notifyRateLimit(res: Response): never {
+  const sec = dispatchRateLimit(res);
   throw new Error(`rate_limited:${sec}`);
+}
+
+/**
+ * Call this after any raw `fetch()` that may hit a rate limit.
+ * If the response is 429, fires the global rate-limit banner and returns true.
+ * Returns false for any other status so callers can handle errors normally.
+ */
+export function handleRateLimitResponse(res: Response): boolean {
+  if (res.status !== 429) return false;
+  dispatchRateLimit(res);
+  return true;
 }
 
 
