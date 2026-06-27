@@ -94,9 +94,16 @@ jobs:
 
           ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "sudo nginx -t -c /tmp/azari-nginx.conf && \
+            "sudo cp /etc/nginx/sites-available/azari /tmp/azari-nginx.conf.bak 2>/dev/null || true && \
              sudo cp /tmp/azari-nginx.conf /etc/nginx/sites-available/azari && \
-             sudo nginx -s reload"
+             if sudo nginx -t; then \
+               sudo nginx -s reload; \
+             else \
+               sudo cp /tmp/azari-nginx.conf.bak /etc/nginx/sites-available/azari; \
+               sudo nginx -s reload; \
+               echo 'nginx config failed validation — rolled back to previous'; \
+               exit 1; \
+             fi"
 
       - name: Restart SSR server
         run: |
