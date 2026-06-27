@@ -2,7 +2,6 @@ export function loader() {
   const content = [
     "User-agent: *",
     "Allow: /",
-    "Disallow: /admin",
     "",
     "Sitemap: https://azari.solar/sitemap.xml",
   ].join("\n");

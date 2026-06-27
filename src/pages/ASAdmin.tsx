@@ -6528,11 +6528,15 @@ function NavIcon({ children }: { children: React.ReactNode }) {
 }
 
 export default function ASAdmin() {
-  const [apiKey, setApiKey] = useState<string>(() => sessionStorage.getItem("azari_admin_key") ?? "");
+  const [apiKey, setApiKey] = useState<string>(() =>
+    typeof window !== "undefined" ? (sessionStorage.getItem("azari_admin_key") ?? "") : ""
+  );
   const [authError, setAuthError] = useState("");
   const [tab, setTab] = useState<Tab>("overview");
   const [stats, setStats] = useState<Stats | null>(null);
-  const [isLight, setIsLight] = useState<boolean>(() => localStorage.getItem("azari-admin-theme") === "light");
+  const [isLight, setIsLight] = useState<boolean>(() =>
+    typeof window !== "undefined" ? localStorage.getItem("azari-admin-theme") === "light" : false
+  );
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
