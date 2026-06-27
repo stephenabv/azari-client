@@ -5127,7 +5127,7 @@ function BenefitsEditor({ apiKey }: { apiKey: string }) {
 type TropicsForm = { header: string; subtext: string; performanceRating: number };
 const DEFAULT_TROPICS_FORM: TropicsForm = {
   header: "Solar Energy for the Tropics",
-  subtext: "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+  subtext: "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At Azari Solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
   performanceRating: 87,
 };
 

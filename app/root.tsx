@@ -40,6 +40,7 @@ const SITE_JSONLD = JSON.stringify({
       "@type": "WebSite",
       "@id": "https://azari.solar/#website",
       name: "Azari Solar",
+      alternateName: "azari.solar",
       url: "https://azari.solar/",
     },
     {

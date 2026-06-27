@@ -150,6 +150,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
         className="nav-logo"
         onClick={() => { setActiveTab("Home"); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
         role="button"
+        aria-label="Azari Solar"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {

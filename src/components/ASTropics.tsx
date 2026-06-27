@@ -15,7 +15,7 @@ type MetricsContent = {
 const DEFAULT_TROPICS: TropicsContent = {
   header: "Solar Energy for the Tropics",
   subtext:
-    "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+    "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At Azari Solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
   performanceRating: 87,
 };
 
@@ -41,11 +41,12 @@ export default function ASTropicsSection() {
   const headerTop = headerParts[0] ?? "Solar Energy for the";
   const headerBottom = headerParts[1] ?? "Tropics";
 
-  const brandedSubtext = tropics.subtext.includes("azari.solar")
-    ? tropics.subtext
-    : "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.";
-
-  const [subtextBeforeBrand, subtextAfterBrand] = brandedSubtext.split("azari.solar");
+  // Normalize domain form ("azari.solar") to brand name wherever it appears as company name
+  const normalizedSubtext = tropics.subtext.replace(/azari\.solar/gi, "Azari Solar");
+  const brandIdx = normalizedSubtext.indexOf("Azari Solar");
+  const subtextBeforeBrand = brandIdx >= 0 ? normalizedSubtext.slice(0, brandIdx) : normalizedSubtext;
+  const subtextAfterBrand = brandIdx >= 0 ? normalizedSubtext.slice(brandIdx + "Azari Solar".length) : "";
+  const hasBrand = brandIdx >= 0;
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -93,7 +94,7 @@ export default function ASTropicsSection() {
 
         <p className="subtext">
           {subtextBeforeBrand}
-          <span>azari.solar</span>
+          {hasBrand && <span>Azari Solar</span>}
           {subtextAfterBrand}
         </p>
       </div>
