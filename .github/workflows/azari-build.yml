@@ -63,15 +63,22 @@ jobs:
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "echo 'SSH Connection Successful'"
 
-      - name: Deploy via rsync
+      - name: Deploy build artifacts
         run: |
           rsync -avz --delete \
             -e "ssh -p ${{ secrets.VM_PORT || '22' }}" \
-            dist/ \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/dist/
+            build/ \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/build/
 
-      - name: Restart Nginx
+          scp -P ${{ secrets.VM_PORT || '22' }} \
+            ecosystem.config.cjs \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/ecosystem.config.cjs
+
+      - name: Restart SSR server and Nginx
         run: |
           ssh -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "sudo systemctl restart nginx"
+            "cd /var/www/azari && \
+             pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
+             (pm2 start ecosystem.config.cjs && pm2 save) && \
+             sudo systemctl restart nginx"

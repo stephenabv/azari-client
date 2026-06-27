@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router";
 import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import { useContent } from "../hooks/useContent";

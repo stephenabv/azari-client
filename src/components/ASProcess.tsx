@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import { useContent } from "../hooks/useContent";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 type ProcessStep = {
   number: string;

@@ -1,0 +1,1 @@
+import{Y as e,q as t}from"./jsx-runtime-CU655D_Z.js";import{q as n}from"./ASContent-D-3bArIT.js";var r=e(t(),1);function i(e,t){let[i,a]=(0,r.useState)(t);return(0,r.useEffect)(()=>{let t=!1;return n(e).then(e=>{!t&&e!=null&&a(e)}),()=>{t=!0}},[e]),i}export{i as t};

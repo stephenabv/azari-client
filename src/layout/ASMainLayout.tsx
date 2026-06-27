@@ -1,16 +1,9 @@
 import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router";
 import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
-
-const getSystemTheme = (): "light-theme" | "dark-theme" => {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark-theme"
-    : "light-theme";
-};
-
 
 export default function ASMainLayout() {
   const location = useLocation();
@@ -18,14 +11,16 @@ export default function ASMainLayout() {
   const isHeroPage = location.pathname === "/";
   const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
 
-  const [theme, setTheme] = useState<"light-theme" | "dark-theme">(() => {
-    const savedTheme = localStorage.getItem("theme") as
-      | "light-theme"
-      | "dark-theme"
-      | null;
+  // SSR-safe: default to dark-theme; anti-flash script in <body> handles the visual side
+  const [theme, setTheme] = useState<"light-theme" | "dark-theme">("dark-theme");
 
-    return savedTheme ?? getSystemTheme();
-  });
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light-theme" | "dark-theme" | null;
+    const system = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark-theme"
+      : "light-theme";
+    setTheme(saved ?? system);
+  }, []);
 
   useEffect(() => {
     document.body.classList.remove("light-theme", "dark-theme");

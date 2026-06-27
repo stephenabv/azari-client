@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";

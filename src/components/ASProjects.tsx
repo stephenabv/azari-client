@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASImgLoader from "./ASImgLoader";

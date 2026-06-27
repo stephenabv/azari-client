@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import type {
   ApiJourneyStep, ContentBlock,

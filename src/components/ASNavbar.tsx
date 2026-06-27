@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { useContent } from "../hooks/useContent";
 
 import lightModeToggle from "../assets/images/light-toggle-v2.png";

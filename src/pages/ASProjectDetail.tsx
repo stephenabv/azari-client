@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import iconPlay from "../assets/icons/icon-play.svg";
 import iconGoBack from "../assets/icons/icon-go-back.svg";
 import logoAnimated from "../assets/animations/logo-animated.svg";
