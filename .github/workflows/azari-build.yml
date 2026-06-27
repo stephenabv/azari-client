@@ -40,6 +40,9 @@ jobs:
           echo "VITE_ADMIN_ROUTE=$VITE_ADMIN_ROUTE" >> $GITHUB_ENV
           echo "Admin route set to: $VITE_ADMIN_ROUTE"
 
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
       - name: Install dependencies
         run: npm ci
 
