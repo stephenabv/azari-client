@@ -41,7 +41,7 @@ jobs:
           echo "Admin route set to: $VITE_ADMIN_ROUTE"
 
       - name: Install dependencies
-        run: npm install --no-package-lock
+        run: npm ci
 
       - name: Build project
         run: npm run build
@@ -72,13 +72,20 @@ jobs:
 
           scp -P ${{ secrets.VM_PORT || '22' }} \
             ecosystem.config.cjs \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/ecosystem.config.cjs
+            package.json \
+            package-lock.json \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/var/www/azari/
 
-      - name: Restart SSR server and Nginx
+      - name: Install runtime dependencies on VM
+        run: |
+          ssh -p ${{ secrets.VM_PORT || '22' }} \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "cd /var/www/azari && npm ci --omit=dev"
+
+      - name: Restart SSR server
         run: |
           ssh -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "cd /var/www/azari && \
              pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
-             (pm2 start ecosystem.config.cjs && pm2 save) && \
-             sudo systemctl restart nginx"
+             (pm2 start ecosystem.config.cjs && pm2 save)"
