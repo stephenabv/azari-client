@@ -526,9 +526,6 @@ export default function ASQuotationEngine() {
     if (systemPurpose === "monthly-savings") {
       if (savingsTarget.num <= 0) return "Please enter a monthly savings target.";
       if (electricRateMS.num <= 0) return "Please enter a valid electricity rate.";
-      if (systemType === "hybrid" && appliances.length === 0) {
-        return "Add your appliances so we can size the battery for your night loads.";
-      }
     }
 
     if (systemPurpose === "peak-shaving") {
@@ -691,7 +688,6 @@ export default function ASQuotationEngine() {
 
       <LoadProfileSection
         label="06"
-        required={systemType === "hybrid"}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
         onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
@@ -889,7 +885,6 @@ export default function ASQuotationEngine() {
 
       <LoadProfileSection
         label={hasBill ? "05" : "03"}
-        required={!hasBill}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
         onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
