@@ -3891,6 +3891,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [sortOrderConflict, setSortOrderConflict] = useState<{ takenBy: ApiSolarPackage; proposed: number; prevValue: number } | null>(null);
   const [pendingSwap, setPendingSwap]             = useState<{ id: string; name: string; newSortOrder: number } | null>(null);
   const [isSortOrderManual, setIsSortOrderManual] = useState(false);
+  const [sortOrderStr, setSortOrderStr]           = useState(String(EMPTY_PKG_FORM.sortOrder ?? 1));
 
   const getNextSortOrder = (ph: 'single' | 'three', excludeId?: string | null) =>
     Math.max(0, ...packages.filter(p => p.phase === ph && p.id !== excludeId).map(p => p.sortOrder ?? 0)) + 1;
@@ -3925,6 +3926,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     const timeout = setTimeout(() => setMsg(""), isSuccess ? 1500 : 3000);
     return () => clearTimeout(timeout);
   }, [msg]);
+
+  useEffect(() => {
+    setSortOrderStr(String(form.sortOrder ?? 1));
+  }, [form.sortOrder]);
 
   const openAdd = () => {
     const nextOrder = getNextSortOrder(EMPTY_PKG_FORM.phase as 'single' | 'three', null);
@@ -4760,11 +4765,20 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Display Order</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <input
-                          type="number"
-                          min={1}
-                          value={form.sortOrder ?? 1}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={sortOrderStr}
                           onChange={(e) => {
-                            const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            setSortOrderStr(raw);
+                            if (!raw) return;
+                            const num = parseInt(raw, 10);
+                            if (num >= 1) handleSortOrderChange(num, form.phase, form.sortOrder ?? 1);
+                          }}
+                          onBlur={() => {
+                            const num = parseInt(sortOrderStr, 10);
+                            const val = !num || num < 1 ? 1 : num;
                             handleSortOrderChange(val, form.phase, form.sortOrder ?? 1);
                           }}
                           className="ad-input"

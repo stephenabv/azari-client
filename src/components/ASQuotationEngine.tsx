@@ -204,8 +204,8 @@ function ElectricRateField({
               onChange={(e) => handleTextChange(e.target.value)}
               onBlur={handleBlur}
             />
+            <small>/ kWh</small>
           </div>
-          <small>/ kWh</small>
         </div>
       </div>
       {error && <p className="as-rate-error">{error}</p>}
