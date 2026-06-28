@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
+import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
 import { useContent } from "../hooks/useContent";
 import { useNavigate } from "react-router";
 
@@ -166,14 +167,16 @@ export default function ASProcessSection() {
       <div className={`as-process-footer ${showFooter ? "is-shown" : ""}`}>
         <div className="as-process-video">
           <video
-            src={lightBg}
             autoPlay
             muted
             loop
             playsInline
             preload="none"
             aria-hidden="true"
-          />
+          >
+            <source src={lightBgWebm} type="video/webm" />
+            <source src={lightBg} type="video/mp4" />
+          </video>
         </div>
 
         <div className="as-process-cta">

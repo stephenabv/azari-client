@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import benefitVideoOverlay from "../assets/videos/solar_light.mp4";
+import benefitVideoWebm from "../assets/videos/solar_light.webm";
 import iconDurability from "../assets/icons/icon-durability.svg";
 import iconBulb from "../assets/icons/icon-bulb.svg";
 import iconLeaf from "../assets/icons/icon-leaf.svg";
@@ -112,6 +113,7 @@ export default function ASBenefitsBanner() {
         playsInline
         preload="none"
       >
+        <source src={benefitVideoWebm} type="video/webm" />
         <source src={benefitVideoOverlay} type="video/mp4" />
       </video>
 

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router";
 import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
+import darkBgWebm from "../assets/videos/bg_hero_section_dark.webm";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
+import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
 import { useContent } from "../hooks/useContent";
 
 type LayoutContext = {
@@ -61,10 +63,8 @@ export default function ASHero() {
     <section className="ASHero">
       <div className={`hero_video ${show ? "animate-video" : ""}`}>
         <video key={theme} autoPlay muted loop playsInline preload="none" poster="/preview.jpg">
-          <source
-            src={theme === "light-theme" ? lightBg : darkBg}
-            type="video/mp4"
-          />
+          <source src={theme === "light-theme" ? lightBgWebm : darkBgWebm} type="video/webm" />
+          <source src={theme === "light-theme" ? lightBg : darkBg} type="video/mp4" />
         </video>
       </div>
 

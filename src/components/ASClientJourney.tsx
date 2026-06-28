@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { geoMercator, geoPath } from "d3-geo";
-import { feature } from "topojson-client";
-import type { GeometryCollection, Topology } from "topojson-specification";
+import type { Feature, Geometry } from "geojson";
 import iconSolar from "../assets/icons/icon-solar.svg";
 import iconHighlight from "../assets/icons/icon-highlight.svg";
 import iconPrev from "../assets/icons/icon-prev.svg";
@@ -56,20 +55,9 @@ function usePhilippinesMap() {
   useEffect(() => {
     if (_cachedPathD && _cachedProj) return;
 
-    fetch("/data/countries-50m.json")
+    fetch("/data/philippines.json")
       .then(r => r.json())
-      .then((world: Topology) => {
-        const countries = feature(
-          world,
-          world.objects.countries as GeometryCollection
-        );
-
-        const ph = (countries as any).features.find(
-
-          (f: any) => String(f.id) === "608"
-        );
-        if (!ph) return;
-
+      .then((ph: Feature<Geometry>) => {
         const proj = geoMercator().fitExtent(
           [[18, 18], [SVG_W - 18, SVG_H - 18]],
           ph
