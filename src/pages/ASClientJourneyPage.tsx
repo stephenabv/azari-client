@@ -316,25 +316,30 @@ export default function ASClientJourneyPage() {
     }
 
     let raf: number;
+    let rafId: number;
     raf = requestAnimationFrame(() => {
       const panelEl = document.getElementById(`cjp-panel-${openId}`);
       const stepEl = document.getElementById(`cjp-step-${openId}`);
       if (!panelEl || !stepEl) return;
 
       const update = () => {
-        const rowH = stepEl.offsetHeight;
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          const rowH = stepEl.offsetHeight;
 
-        let topOffset = 0;
-        const colEl = stepsColRef.current;
-        if (colEl) {
-          for (const row of colEl.querySelectorAll<HTMLElement>('.as-cjp-step-row')) {
-            if (row.id === `cjp-step-${openId}`) break;
-            topOffset += row.offsetHeight;
+          let topOffset = 0;
+          const colEl = stepsColRef.current;
+          if (colEl) {
+            for (const row of colEl.querySelectorAll<HTMLElement>('.as-cjp-step-row')) {
+              if (row.id === `cjp-step-${openId}`) break;
+              topOffset += row.offsetHeight;
+            }
           }
-        }
 
-        setPanelTopOffset(topOffset);
-        setSpacerHeight(Math.max(0, panelEl.offsetHeight - rowH));
+          const panelH = panelEl.offsetHeight;
+          setPanelTopOffset(topOffset);
+          setSpacerHeight(Math.max(0, panelH - rowH));
+        });
       };
 
       update();
@@ -345,6 +350,7 @@ export default function ASClientJourneyPage() {
 
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(rafId);
       alignRO.current?.disconnect();
       alignRO.current = null;
     };
@@ -357,14 +363,18 @@ export default function ASClientJourneyPage() {
 
     const lastId = steps[steps.length - 1].id;
 
+    let rafId: number;
     const update = () => {
-      const colEl = stepsColRef.current;
-      const lastEl = document.getElementById(`cjp-step-${lastId}`);
-      if (!colEl || !lastEl) return;
-      const colRect = colEl.getBoundingClientRect();
-      const lastRect = lastEl.getBoundingClientRect();
-      const iconCenterFromTop = (lastRect.top - colRect.top) + 34; // 14px padding-top + 20px half icon
-      setConnectorBottom(Math.max(0, colEl.offsetHeight - iconCenterFromTop));
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const colEl = stepsColRef.current;
+        const lastEl = document.getElementById(`cjp-step-${lastId}`);
+        if (!colEl || !lastEl) return;
+        const colRect = colEl.getBoundingClientRect();
+        const lastRect = lastEl.getBoundingClientRect();
+        const iconCenterFromTop = (lastRect.top - colRect.top) + 34; // 14px padding-top + 20px half icon
+        setConnectorBottom(Math.max(0, colEl.offsetHeight - iconCenterFromTop));
+      });
     };
 
     const ro = new ResizeObserver(update);
@@ -373,7 +383,7 @@ export default function ASClientJourneyPage() {
       if (stepsColRef.current) { ro.observe(stepsColRef.current); update(); }
     });
 
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); connectorRO.current = null; };
+    return () => { cancelAnimationFrame(raf); cancelAnimationFrame(rafId); ro.disconnect(); connectorRO.current = null; };
   }, [steps]);
 
   const toggle = (id: string) => setOpenId(prev => {

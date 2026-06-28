@@ -23,6 +23,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const location = useLocation();
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const indicatorRafRef = useRef<number>(0);
 
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
   const showPackages = pageVis.packages !== false;
@@ -39,23 +40,25 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
 
   const updateIndicator = (tab: string) => {
     if (!tab) return;
+    cancelAnimationFrame(indicatorRafRef.current);
+    indicatorRafRef.current = requestAnimationFrame(() => {
+      const activeEl = tabRefs.current[tab];
+      const menuEl = navMenuRef.current;
 
-    const activeEl = tabRefs.current[tab];
-    const menuEl = navMenuRef.current;
+      if (activeEl && menuEl) {
+        const menuRect = menuEl.getBoundingClientRect();
+        const activeRect = activeEl.getBoundingClientRect();
 
-    if (activeEl && menuEl) {
-      const menuRect = menuEl.getBoundingClientRect();
-      const activeRect = activeEl.getBoundingClientRect();
+        const sidePadding = 2;
+        const width = activeRect.width + sidePadding * 2;
+        const center = activeRect.left - menuRect.left + activeRect.width / 2;
 
-      const sidePadding = 2;
-      const width = activeRect.width + sidePadding * 2;
-      const center = activeRect.left - menuRect.left + activeRect.width / 2;
-
-      setIndicatorStyle({
-        left: center - width / 2,
-        width,
-      });
-    }
+        setIndicatorStyle({
+          left: center - width / 2,
+          width,
+        });
+      }
+    });
   };
 
   useEffect(() => {
@@ -89,7 +92,10 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     };
 
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(indicatorRafRef.current);
+    };
   }, [activeTab]);
 
   useEffect(() => {
@@ -139,23 +145,21 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const handleTabClick = (tab: string) => {
     setIsMobileMenuOpen(false);
     setActiveTab(tab);
-
     navigate(tabRoutes[tab]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
     <nav className="ASNavbar" ref={navbarRef}>
       <div
         className="nav-logo"
-        onClick={() => { setActiveTab("Home"); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+        onClick={() => { setActiveTab("Home"); navigate("/"); }}
         role="button"
         aria-label="Azari Solar"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            setActiveTab("Home"); navigate("/"); window.scrollTo({ top: 0, behavior: "smooth" });
+            setActiveTab("Home"); navigate("/");
           }
         }}
       />

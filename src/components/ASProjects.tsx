@@ -76,6 +76,7 @@ export default function ASProjects() {
   const activeIndex = filters.indexOf(activeFilter);
 
   const filterRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const filterRafRef = useRef<number>(0);
   const [indicatorStyle, setIndicatorStyle] = useState({
     width: 0,
     x: 0,
@@ -84,10 +85,13 @@ export default function ASProjects() {
   useEffect(() => {
     const activeButton = filterRefs.current[activeIndex];
     if (!activeButton) return;
-    setIndicatorStyle({
-      width: activeButton.offsetWidth,
-      x: activeButton.offsetLeft,
+    cancelAnimationFrame(filterRafRef.current);
+    filterRafRef.current = requestAnimationFrame(() => {
+      const w = activeButton.offsetWidth;
+      const x = activeButton.offsetLeft;
+      setIndicatorStyle({ width: w, x });
     });
+    return () => cancelAnimationFrame(filterRafRef.current);
   }, [activeIndex]);
 
   const filteredProjects = useMemo(() => {

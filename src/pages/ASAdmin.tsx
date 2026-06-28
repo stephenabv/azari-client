@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
@@ -1171,25 +1171,37 @@ function ProjectLivePreview({ form, imagePreview }: { form: ProjectForm; imagePr
   const hasGallery = form.galleryImages.length > 0;
   const hasTestimonial = form.testimonial !== null && !!(form.testimonial?.quote || form.testimonial?.clientName);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const el = scalerRef.current;
     if (!el) return;
-    const update = () => setOuterHeight(el.scrollHeight * PREVIEW_SCALE);
+    let rafId: number;
+    const update = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setOuterHeight(el.scrollHeight * PREVIEW_SCALE);
+      });
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); cancelAnimationFrame(rafId); };
   }, [form, imagePreview]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!enlarged) return;
     const el = enlargedScalerRef.current;
     if (!el) return;
-    const update = () => setEnlargedHeight(el.scrollHeight * PREVIEW_ENLARGED_SCALE);
+    let rafId: number;
+    const update = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setEnlargedHeight(el.scrollHeight * PREVIEW_ENLARGED_SCALE);
+      });
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); cancelAnimationFrame(rafId); };
   }, [enlarged, form, imagePreview]);
 
   useEffect(() => {
