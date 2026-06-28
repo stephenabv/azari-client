@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import { useSeoMeta } from "../hooks/useSeoMeta";
@@ -81,11 +81,9 @@ export default function ASProjects() {
     x: 0,
   });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const activeButton = filterRefs.current[activeIndex];
-
     if (!activeButton) return;
-
     setIndicatorStyle({
       width: activeButton.offsetWidth,
       x: activeButton.offsetLeft,

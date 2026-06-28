@@ -28,15 +28,12 @@
 }
 
 @keyframes heroVideoFade {
-  0% {
+  from {
     opacity: 0;
-    visibility: visible;
     transform: scale(1.05);
   }
-
-  100% {
+  to {
     opacity: 1;
-    visibility: visible;
     transform: scale(1);
   }
 }
@@ -143,6 +140,7 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(40px);
+  will-change: transform, opacity;
 }
 
 .animate-in {
@@ -163,15 +161,12 @@
 }
 
 @keyframes heroFadeUp {
-  0% {
+  from {
     opacity: 0;
-    visibility: visible;
     transform: translateY(40px);
   }
-
-  100% {
+  to {
     opacity: 1;
-    visibility: visible;
     transform: translateY(0);
   }
 }
@@ -222,10 +217,6 @@
     min-height: 100svh;
     height: auto;
     background: linear-gradient(160deg, #0b1322 0%, #111827 60%, #0f172a 100%);
-  }
-
-  .hero_video {
-    display: none;
   }
 
   .hero_banner_overlay {
