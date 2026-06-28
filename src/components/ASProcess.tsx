@@ -171,7 +171,7 @@ export default function ASProcessSection() {
             muted
             loop
             playsInline
-            preload="auto"
+            preload="none"
             aria-hidden="true"
           />
         </div>

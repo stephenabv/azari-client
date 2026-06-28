@@ -24,14 +24,13 @@ export const links: LinksFunction = () => [
     href: "https://fonts.gstatic.com",
     crossOrigin: "anonymous",
   },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@100..900&display=swap",
-  },
 ];
 
 // Applied before React hydration to prevent a dark/light flash
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark-theme':'light-theme');document.body.classList.add(t);}catch(e){}})();`;
+
+// Loads Google Fonts asynchronously so it never blocks first paint
+const FONT_LOADER_SCRIPT = `!function(){var l=document.createElement("link");l.rel="preload";l.as="style";l.crossOrigin="anonymous";l.href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Outfit:wght@100..900&display=swap";l.onload=function(){l.rel="stylesheet";l.onload=null};document.head.appendChild(l)}()`;
 
 const SITE_JSONLD = JSON.stringify({
   "@context": "https://schema.org",
@@ -184,6 +183,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
         {/* Anti-flash: applies saved theme class before React hydrates */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Async font loader: avoids render-blocking Google Fonts stylesheet */}
+        <script dangerouslySetInnerHTML={{ __html: FONT_LOADER_SCRIPT }} />
       </head>
       <body suppressHydrationWarning>
         {children}

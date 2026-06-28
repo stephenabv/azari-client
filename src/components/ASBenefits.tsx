@@ -110,6 +110,7 @@ export default function ASBenefitsBanner() {
         muted
         loop
         playsInline
+        preload="none"
       >
         <source src={benefitVideoOverlay} type="video/mp4" />
       </video>
@@ -124,7 +125,7 @@ export default function ASBenefitsBanner() {
               }`}
           >
             <div className="as-benefit-icon">
-              <img src={item.icon} alt={item.title} />
+              <img src={item.icon} alt={item.title} width={32} height={32} />
             </div>
 
             <div className="as-benefit-text">

@@ -200,6 +200,8 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
             src={theme === "dark-theme" ? darkModeToggle : lightModeToggle}
             alt="Theme toggle"
             className="theme-toggle-img"
+            width={84}
+            height={76}
           />
         </button>
 

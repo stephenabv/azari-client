@@ -72,19 +72,19 @@ export default function ASHero() {
 
       <div className="hero_banner_overlay">
         <div className="hero_text">
-          <p className={`hero_header_text ${show ? "animate-in delay-1" : ""}`}>
+          <p className={`hero_header_text ${show ? "animate-in" : ""}`}>
             {renderHighlighted(
               `${hero.headerPart1} ${hero.headerPart2}`,
               hero.highlightWords ?? hero.headerPart1
             )}
           </p>
 
-          <p className={`hero_subtext ${show ? "animate-in delay-2" : ""}`}>
+          <p className={`hero_subtext ${show ? "animate-in delay-1" : ""}`}>
             {hero.subtext}
           </p>
 
           <div
-            className={`hero_action_buttons ${show ? "animate-in delay-3" : ""
+            className={`hero_action_buttons ${show ? "animate-in delay-2" : ""
               }`}
           >
             <button
