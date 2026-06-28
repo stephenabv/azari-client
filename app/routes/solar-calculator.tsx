@@ -1,4 +1,5 @@
 import type { MetaFunction } from "react-router";
+import "../../src/assets/styles/contents/as_calculator.less";
 import ASQuotationEngine from "../../src/components/ASQuotationEngine";
 
 export const meta: MetaFunction = () => [

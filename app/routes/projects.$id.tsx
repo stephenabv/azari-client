@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import "../../src/assets/styles/contents/as_project_detail.less";
 import ASProjectDetails from "../../src/pages/ASProjectDetail";
 
 const API_BASE = process.env["API_URL"] ?? "http://localhost:4000";

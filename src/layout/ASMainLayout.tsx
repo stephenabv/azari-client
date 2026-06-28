@@ -29,10 +29,6 @@ export default function ASMainLayout() {
   }, [theme]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
-
-  useEffect(() => {
     trackPageView(location.pathname);
   }, [location.pathname]);
 

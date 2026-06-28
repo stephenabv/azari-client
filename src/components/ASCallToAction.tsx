@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
+
+const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import { useContent } from "../hooks/useContent";
 
 type CtaContent = {
@@ -92,10 +93,12 @@ export default function ASCallToAction() {
         </div>
       </section>
 
-      <ASTalkToAnExpert
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      <Suspense fallback={null}>
+        <ASTalkToAnExpert
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      </Suspense>
     </>
   );
 }

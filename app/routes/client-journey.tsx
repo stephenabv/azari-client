@@ -1,4 +1,5 @@
 import type { MetaFunction } from "react-router";
+import "../../src/assets/styles/contents/as_client_journey_page.less";
 import ASClientJourneyPage from "../../src/pages/ASClientJourneyPage";
 
 export const meta: MetaFunction = () => [

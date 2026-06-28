@@ -1,4 +1,7 @@
 import type { MetaFunction } from "react-router";
+import "../../src/assets/styles/contents/as_packages.less";
+import "../../src/assets/styles/contents/as_package_inquiry.less";
+import "../../src/assets/styles/contents/as_quotation.less";
 import ASPackages from "../../src/pages/ASPackages";
 
 export const meta: MetaFunction = () => [

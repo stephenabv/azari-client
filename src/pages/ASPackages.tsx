@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { useContent } from "../hooks/useContent";
-import ASTalkToAnExpert from "../modules/talk-to-expert-modal/ASTalkToAnExpert";
+
+const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
 import checkBullet from "../assets/logos/packages/check-bullet.svg";
 
@@ -881,7 +882,9 @@ export default function ASPackages() {
         selection={selectedSelection}
         onClose={() => { setInquireOpen(false); setSelectedPkg(null); setSelectedSelection(null); }}
       />
-      <ASTalkToAnExpert isOpen={ctaModalOpen} onClose={() => setCtaModalOpen(false)} />
+      <Suspense fallback={null}>
+        <ASTalkToAnExpert isOpen={ctaModalOpen} onClose={() => setCtaModalOpen(false)} />
+      </Suspense>
     </div>
   );
 }
