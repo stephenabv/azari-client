@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import climateDark from "../assets/images/dark/climate_bg_dark.png";
-import assetsDeployed from "../assets/images/dark/assets_deployed_dark.png";
+import climateDark from "../assets/images/dark/climate_bg_dark.webp";
+import assetsDeployed from "../assets/images/dark/assets_deployed_dark.webp";
 
 type ASTropicsCardsProps = {
   isVisible: boolean;

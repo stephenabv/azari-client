@@ -56,7 +56,7 @@ function usePhilippinesMap() {
   useEffect(() => {
     if (_cachedPathD && _cachedProj) return;
 
-    fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json")
+    fetch("/data/countries-50m.json")
       .then(r => r.json())
       .then((world: Topology) => {
         const countries = feature(

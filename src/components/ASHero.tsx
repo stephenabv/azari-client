@@ -43,18 +43,10 @@ function renderHighlighted(text: string, highlights: string): React.ReactNode {
 }
 
 export default function ASHero() {
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
   const navigate = useNavigate();
   const { theme } = useOutletContext<LayoutContext>();
   const hero = useContent<HeroContent>("hero", DEFAULT_HERO);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setShow(true);
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, []);
 
   const handleCtaClick = (url: string) => {
     if (url.startsWith("#")) {
@@ -68,7 +60,7 @@ export default function ASHero() {
   return (
     <section className="ASHero">
       <div className={`hero_video ${show ? "animate-video" : ""}`}>
-        <video key={theme} autoPlay muted loop playsInline preload="auto">
+        <video key={theme} autoPlay muted loop playsInline preload="none" poster="/preview.jpg">
           <source
             src={theme === "light-theme" ? lightBg : darkBg}
             type="video/mp4"

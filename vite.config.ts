@@ -11,4 +11,15 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("d3-geo") || id.includes("topojson")) {
+            return "vendor-geo";
+          }
+        },
+      },
+    },
+  },
 });
