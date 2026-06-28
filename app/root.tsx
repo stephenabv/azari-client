@@ -18,7 +18,9 @@ export const links: LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
   { rel: "manifest", href: "/site.webmanifest" },
+  { rel: "preload", href: "/fonts/inter-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/inter-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+  { rel: "preload", href: "/fonts/outfit-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/outfit-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
 ];
 
