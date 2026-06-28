@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router";
 import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
@@ -7,6 +7,7 @@ import ASRateLimitBanner from "../components/ASRateLimitBanner";
 
 export default function ASMainLayout() {
   const location = useLocation();
+  const analyticsReady = useRef(false);
 
   const isHeroPage = location.pathname === "/";
   const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
@@ -29,6 +30,18 @@ export default function ASMainLayout() {
   }, [theme]);
 
   useEffect(() => {
+    if (!analyticsReady.current) {
+      const fire = () => {
+        analyticsReady.current = true;
+        trackPageView(location.pathname);
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        const id = requestIdleCallback(fire, { timeout: 5000 });
+        return () => cancelIdleCallback(id);
+      }
+      const id = setTimeout(fire, 2000);
+      return () => clearTimeout(id);
+    }
     trackPageView(location.pathname);
   }, [location.pathname]);
 
