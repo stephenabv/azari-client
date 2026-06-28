@@ -18,6 +18,10 @@ export const links: LinksFunction = () => [
   { rel: "icon", href: "/favicon.ico", sizes: "any" },
   { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png" },
   { rel: "manifest", href: "/site.webmanifest" },
+  // Resolve DNS for Firebase Analytics before it lazily initialises
+  { rel: "dns-prefetch", href: "//www.google-analytics.com" },
+  { rel: "dns-prefetch", href: "//www.googletagmanager.com" },
+  { rel: "dns-prefetch", href: "//firebaselogging.googleapis.com" },
   { rel: "preload", href: "/fonts/inter-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/inter-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/outfit-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },

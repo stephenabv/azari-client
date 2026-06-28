@@ -12,11 +12,18 @@ export default defineConfig({
     },
   },
   build: {
+    target: "esnext",
+    cssCodeSplit: true,
+    assetsInlineLimit: 8192,
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("d3-geo") || id.includes("topojson")) {
             return "vendor-geo";
+          }
+          if (id.includes("node_modules/firebase")) {
+            return "vendor-firebase";
           }
         },
       },
