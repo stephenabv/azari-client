@@ -62,7 +62,7 @@ export default function ASHero() {
   return (
     <section className="ASHero">
       <div className={`hero_video ${show ? "animate-video" : ""}`}>
-        <video key={theme} autoPlay muted loop playsInline preload="metadata" poster="/preview.jpg">
+        <video key={theme} autoPlay muted loop playsInline preload="metadata" poster="/preview.jpg" fetchPriority="high">
           <source src={theme === "light-theme" ? lightBgWebm : darkBgWebm} type="video/webm" />
           <source src={theme === "light-theme" ? lightBg : darkBg} type="video/mp4" />
         </video>

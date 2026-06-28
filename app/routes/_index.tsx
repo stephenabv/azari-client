@@ -1,5 +1,16 @@
-import type { MetaFunction } from "react-router";
+import type { LinksFunction, MetaFunction } from "react-router";
 import ASDashboard from "../../src/pages/ASDashboard";
+
+// Preload the hero video poster so the browser's preload scanner can fetch it
+// immediately from the initial HTML, before JS hydrates and the <video> renders.
+export const links: LinksFunction = () => [
+  {
+    rel: "preload",
+    href: "/preview.jpg",
+    as: "image",
+    fetchPriority: "high",
+  } as ReturnType<LinksFunction>[number],
+];
 
 export const meta: MetaFunction = () => [
   {
