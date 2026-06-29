@@ -73,6 +73,7 @@ import {
   type BulletItem,
   type JourneyStepInput,
 } from "../services/ASContent";
+import { ELECTRIC_RATE_CONFIG } from "../models/calculation";
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 import { BentoCard } from "../components/ASBentoCard";
@@ -1518,8 +1519,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       storageKwh: String(pkg.storageKwh),
       system: buildSystemString(String(pkg.solarKwp), String(pkg.storageKwh), es),
     }));
-    const { savings } = computeMonthlySavings(pkg.solarKwp);
-    setField('savings', `₱${(savings * 120).toLocaleString('en-PH')}`);
+    const { monthlyKwh } = computeMonthlySavings(pkg.solarKwp);
+    setField('savings', `₱${Math.round(monthlyKwh * ELECTRIC_RATE_CONFIG.defaultValue * 120).toLocaleString('en-PH')}`);
   };
 
   const handleSave = async () => {

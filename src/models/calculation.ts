@@ -2,7 +2,7 @@
 
 // Base scalars — every production and sizing formula derives from these two.
 const _PSH = 5;    // peak sun hours per day (Philippines tropical average)
-const _ETA = 0.8;  // system efficiency / performance ratio (wiring, temp, inverter losses)
+const _ETA = 0.8;  // derate factor / Performance Ratio (PR) — accounts for wiring, temperature, and inverter losses
 const _DPM = 30;   // days per month
 
 export const SOLAR_CONSTANTS = {
@@ -21,7 +21,7 @@ export const SOLAR_CONSTANTS = {
 
   projectionMonths: 144,
 
-  systemEfficiency: _ETA,    // 0.8
+  systemEfficiency: _ETA,    // 0.8 — derate factor / Performance Ratio (PR)
 
   peakSunHours: _PSH,        // 5
 
