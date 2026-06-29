@@ -212,6 +212,13 @@ function IpRatingBadge({ code, description, offset }: { code: string; descriptio
   const badgeRef = useRef<HTMLSpanElement>(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0, arrowLeft: TOOLTIP_MAX_W / 2 });
 
+  useEffect(() => {
+    if (!visible) return;
+    const hide = () => setVisible(false);
+    window.addEventListener('scroll', hide, { passive: true, capture: true });
+    return () => window.removeEventListener('scroll', hide, { capture: true });
+  }, [visible]);
+
   const handleMouseEnter = () => {
     if (badgeRef.current) {
       const rect = badgeRef.current.getBoundingClientRect();
