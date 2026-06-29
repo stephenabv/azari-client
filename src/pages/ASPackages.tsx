@@ -649,6 +649,11 @@ function PackageCard({
                         );
                       })}
                     </div>
+                    <div className="as-pkg-modal-see-more">
+                      <button className="as-pkg-modal-see-more-btn" onClick={() => setShowOtherComponents(false)}>
+                        See less details
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
