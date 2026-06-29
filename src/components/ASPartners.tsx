@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
 
 type PartnerItem = {
@@ -19,11 +19,17 @@ const DEFAULT_PARTNERS_CONTENT: PartnersContent = {
   items: [],
 };
 
-function trackDensity(count: number): string {
-  if (count <= 3) return ' density-few';
-  if (count <= 6) return ' density-medium';
-  if (count <= 9) return ' density-many';
-  return '';
+// Gap scales with both how many logos are shown and how wide the container actually is.
+// Called from a ResizeObserver so it always reflects the real rendered width.
+function computeDynamicGap(containerWidth: number, count: number): number {
+  const base = count <= 3 ? 80 : count <= 6 ? 64 : count <= 9 ? 48 : 36;
+  const scale =
+    containerWidth >= 1400 ? 1.30 :
+    containerWidth >= 1100 ? 1.10 :
+    containerWidth >= 800  ? 1.00 :
+    containerWidth >= 640  ? 0.78 :
+    containerWidth >= 480  ? 0.58 : 0.48;
+  return Math.round(base * scale);
 }
 
 function PartnerLogo({ item }: { item: PartnerItem }) {
@@ -43,6 +49,7 @@ function PartnerLogo({ item }: { item: PartnerItem }) {
 
 export default function ASPartners() {
   const [visible, setVisible] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   const content = useContent<PartnersContent>("partners", DEFAULT_PARTNERS_CONTENT);
 
@@ -50,10 +57,34 @@ export default function ASPartners() {
     .filter((item) => item?.name)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+  // Fade-in on mount — fires before first paint so no flash of invisible content
   useEffect(() => {
     const frame = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // ResizeObserver writes --dynamic-gap directly onto the element.
+  // RAF-debounced so at most one DOM write per animation frame.
+  // No React state → no re-renders on resize.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || !items.length) return;
+
+    let raf = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const gap = computeDynamicGap(entry.contentRect.width, items.length);
+        el.style.setProperty("--dynamic-gap", `${gap}px`);
+      });
+    });
+
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(raf);
+    };
+  }, [items.length]);
 
   if (!items.length) return null;
 
@@ -61,7 +92,7 @@ export default function ASPartners() {
     <section className={`as-partners${visible ? " is-visible" : ""}`}>
       <p className="as-partners-label">{content.title}</p>
 
-      <div className={`as-partners-track${trackDensity(items.length)}`} aria-label="Partner logos">
+      <div ref={trackRef} className="as-partners-track" aria-label="Partner logos">
         {items.map((item) => (
           <div key={item.id} className="as-partners-item">
             {item.websiteUrl ? (
