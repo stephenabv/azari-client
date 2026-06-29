@@ -36,7 +36,6 @@ function PartnerLogo({ item }: { item: PartnerItem }) {
 
 export default function ASPartners() {
   const [visible, setVisible] = useState(false);
-  const [paused, setPaused] = useState(false);
 
   const content = useContent<PartnersContent>("partners", DEFAULT_PARTNERS_CONTENT);
 
@@ -51,48 +50,28 @@ export default function ASPartners() {
 
   if (!items.length) return null;
 
-  // Duplicate 3× so the seamless loop holds even at large viewport widths
-  const loopItems = [...items, ...items, ...items];
-
   return (
     <section className={`as-partners${visible ? " is-visible" : ""}`}>
       <p className="as-partners-label">{content.title}</p>
 
-      <div
-        className="as-partners-viewport"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onTouchStart={() => setPaused(true)}
-        onTouchEnd={() => {
-          // Small delay so a quick swipe-tap doesn't feel sticky
-          window.setTimeout(() => setPaused(false), 600);
-        }}
-        aria-label="Partner logos"
-      >
-        <div className={`as-partners-track${paused ? " is-paused" : ""}`}>
-          {loopItems.map((item, i) => (
-            <div
-              key={`${item.id}-${i}`}
-              className="as-partners-item"
-              aria-hidden={i >= items.length ? "true" : undefined}
-            >
-              {item.websiteUrl ? (
-                <a
-                  href={item.websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="as-partners-link"
-                  tabIndex={i >= items.length ? -1 : 0}
-                  aria-label={item.name}
-                >
-                  <PartnerLogo item={item} />
-                </a>
-              ) : (
+      <div className="as-partners-track" aria-label="Partner logos">
+        {items.map((item) => (
+          <div key={item.id} className="as-partners-item">
+            {item.websiteUrl ? (
+              <a
+                href={item.websiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="as-partners-link"
+                aria-label={item.name}
+              >
                 <PartnerLogo item={item} />
-              )}
-            </div>
-          ))}
-        </div>
+              </a>
+            ) : (
+              <PartnerLogo item={item} />
+            )}
+          </div>
+        ))}
       </div>
     </section>
   );

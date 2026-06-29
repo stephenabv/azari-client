@@ -1,4 +1,4 @@
-// Partners marquee strip — sits between metrics and benefits
+// Partners strip — centered row of logos between metrics and benefits
 
 .as-partners {
   width: 100%;
@@ -27,48 +27,19 @@
   padding: 0 24px;
 }
 
-// Viewport clips the scrolling track and adds fade edges via mask
-.as-partners-viewport {
-  width: 100%;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 10%,
-    black 90%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 10%,
-    black 90%,
-    transparent 100%
-  );
-}
-
-// Scrolling track — 3 copies of items, animate -33.333% for seamless loop
 .as-partners-track {
   display: flex;
   align-items: center;
-  width: max-content;
-  animation: partners-marquee 36s linear infinite;
-
-  &.is-paused {
-    animation-play-state: paused;
-  }
-}
-
-@keyframes partners-marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-33.3334%); }
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 40px;
+  padding: 0 24px;
 }
 
 .as-partners-item {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 52px;
   flex-shrink: 0;
 }
 
@@ -88,8 +59,6 @@
 
 // Logos: max-height caps all logos at the same visual ceiling; width/height: auto
 // preserves the natural aspect ratio regardless of how wide or tall the source is.
-// (Using a fixed `height` + `max-width` together would clamp one dimension while
-//  leaving the other fixed, which distorts the image.)
 .as-partners-logo {
   max-height: 40px;
   height: auto;
@@ -127,8 +96,8 @@
     padding: 24px 0 28px;
   }
 
-  .as-partners-item {
-    padding: 0 36px;
+  .as-partners-track {
+    gap: 8px 28px;
   }
 
   .as-partners-logo {
@@ -138,23 +107,6 @@
   .as-partners-name {
     font-size: 15px;
   }
-
-  .as-partners-viewport {
-    -webkit-mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 8%,
-      black 92%,
-      transparent 100%
-    );
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 8%,
-      black 92%,
-      transparent 100%
-    );
-  }
 }
 
 @media (max-width: 480px) {
@@ -162,8 +114,8 @@
     padding: 20px 0 24px;
   }
 
-  .as-partners-item {
-    padding: 0 24px;
+  .as-partners-track {
+    gap: 8px 20px;
   }
 
   .as-partners-logo {
@@ -175,23 +127,11 @@
   }
 }
 
-// Honour reduced-motion: stop the loop, show a scrollable row instead
+// Honour reduced-motion: transition off, keep visible
 @media (prefers-reduced-motion: reduce) {
   .as-partners {
     transition: none;
     opacity: 1;
     transform: none;
-  }
-
-  .as-partners-track {
-    animation: none;
-    flex-wrap: wrap;
-    justify-content: center;
-    width: 100%;
-  }
-
-  .as-partners-viewport {
-    -webkit-mask-image: none;
-    mask-image: none;
   }
 }
