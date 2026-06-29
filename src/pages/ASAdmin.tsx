@@ -5124,37 +5124,60 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
   const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } =
     useSectionEditor(apiKey, "partners", DEFAULT_PARTNERS_FORM);
 
-  const [logoUploading, setLogoUploading] = useState<string | null>(null);
+  type ModalDraft = Omit<PartnerItem, "id">;
+  const EMPTY_DRAFT: ModalDraft = { name: "", logoUrl: "", websiteUrl: "", order: 1 };
 
-  const updateItem = <K extends keyof PartnerItem>(idx: number, key: K, val: PartnerItem[K]) =>
-    setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<ModalDraft>(EMPTY_DRAFT);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const addItem = () => {
-    const newId = String(Date.now());
+  const openAdd = () => {
     const maxOrder = form.items.reduce((m, it) => Math.max(m, it.order), 0);
-    setForm((f) => ({ ...f, items: [...f.items, { id: newId, name: "", logoUrl: "", websiteUrl: "", order: maxOrder + 1 }] }));
+    setDraft({ ...EMPTY_DRAFT, order: maxOrder + 1 });
+    setEditingId(null);
+    setModalOpen(true);
   };
 
-  const removeItem = (idx: number) =>
-    setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
-
-  const handleLogoUpload = async (idx: number, file: File) => {
-    setLogoUploading(String(idx));
-    try {
-      const compressed = await compressImageClient(file, 400, 160, 0.88);
-      updateItem(idx, "logoUrl", compressed);
-    } finally {
-      setLogoUploading(null);
-    }
+  const openEdit = (item: PartnerItem) => {
+    setDraft({ name: item.name, logoUrl: item.logoUrl, websiteUrl: item.websiteUrl, order: item.order });
+    setEditingId(item.id);
+    setModalOpen(true);
   };
 
-  const pickLogo = (idx: number) => {
+  const closeModal = () => { setModalOpen(false); setEditingId(null); };
+
+  const handleModalSave = async () => {
+    const newItems = editingId
+      ? form.items.map((it) => it.id === editingId ? { ...it, ...draft } : it)
+      : [...form.items, { id: String(Date.now()), ...draft }];
+    const newForm: PartnersForm = { ...form, items: newItems };
+    setForm(() => newForm);
+    closeModal();
+    await save(newForm);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const newForm: PartnersForm = { ...form, items: form.items.filter((it) => it.id !== deleteTarget) };
+    setForm(() => newForm);
+    setDeleteTarget(null);
+    await save(newForm);
+  };
+
+  const pickLogo = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/jpeg,image/png,image/webp,image/svg+xml";
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) await handleLogoUpload(idx, file);
+      if (!file) return;
+      setLogoUploading(true);
+      try {
+        const compressed = await compressImageClient(file, 400, 160, 0.88);
+        setDraft((d) => ({ ...d, logoUrl: compressed }));
+      } finally { setLogoUploading(false); }
     };
     input.click();
   };
@@ -5168,6 +5191,94 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
       <SectionEditorHeader title="Partners / Logos" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
       <Toast msg={msg} />
 
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title="Remove partner?"
+        description="This partner will be removed from the homepage carousel."
+        onConfirm={() => void handleDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <AdminModal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editingId ? "Edit Partner" : "Add Partner"}
+        maxWidth={560}
+      >
+        <div className="ad-form-grid">
+          <div className="ad-form-full">
+            <label className="ad-label">Logo</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div className="ad-partner-logo-box" onClick={pickLogo} style={{ cursor: "pointer", flexShrink: 0 }} title="Click to upload logo">
+                {logoUploading ? (
+                  <span className="ad-partner-logo-hint">Uploading…</span>
+                ) : draft.logoUrl ? (
+                  <img src={draft.logoUrl} alt={draft.name} className="ad-partner-logo-preview" />
+                ) : draft.name ? (
+                  <span className="ad-partner-logo-name-fallback">{draft.name}</span>
+                ) : (
+                  <span className="ad-partner-logo-hint">Click to upload</span>
+                )}
+              </div>
+              <div>
+                <p style={{ fontSize: 12, color: "var(--ad-text2)", margin: "0 0 6px" }}>
+                  JPEG, PNG, WebP or SVG. Displayed at 40 px height on the homepage strip. If left blank the partner name is shown as text.
+                </p>
+                {draft.logoUrl && (
+                  <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setDraft((d) => ({ ...d, logoUrl: "" }))}>
+                    Remove logo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="ad-label">Partner Name</label>
+            <input
+              className="ad-input"
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder="e.g. JinkoSolar"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="ad-label">Website URL</label>
+            <input
+              className="ad-input"
+              type="url"
+              value={draft.websiteUrl}
+              onChange={(e) => setDraft((d) => ({ ...d, websiteUrl: e.target.value }))}
+              placeholder="https://example.com"
+            />
+          </div>
+
+          <div style={{ maxWidth: 100 }}>
+            <label className="ad-label">Display Order</label>
+            <EditableNumber
+              value={draft.order}
+              min={1}
+              onChange={(n) => setDraft((d) => ({ ...d, order: n }))}
+              className="ad-input"
+              style={{ textAlign: "center" }}
+            />
+          </div>
+        </div>
+
+        <div className="ad-form-actions" style={{ marginTop: 24 }}>
+          <button onClick={closeModal} className="ad-btn ad-btn--ghost">Cancel</button>
+          <button
+            onClick={() => void handleModalSave()}
+            disabled={saving || !draft.name.trim()}
+            className="ad-btn"
+          >
+            {saving ? "Saving…" : editingId ? "Save Changes" : "Add Partner"}
+          </button>
+        </div>
+      </AdminModal>
+
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <label className="ad-label">Section Label</label>
         <input
@@ -5177,98 +5288,64 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
           placeholder="TRUSTED BY INDUSTRY LEADERS & TECHNOLOGY PARTNERS"
         />
         <p className="ad-pkg-hint">Small-caps label shown above the scrolling logo strip.</p>
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">
+            {saving ? "Saving…" : "Save Label"}
+          </button>
+        </div>
       </div>
 
       <div className="ad-card">
-        <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 20 }}>
-          Partners scroll continuously in the homepage strip. Upload a logo or leave it blank to display the name as text.
-          Logos are displayed at a uniform 40 px height.
-        </p>
-
-        {sorted.map((item) => {
-          const realIdx = form.items.indexOf(item);
-          return (
-            <div key={item.id} className="ad-partner-row">
-              <div className="ad-partner-logo-cell">
-                <div
-                  className="ad-partner-logo-box"
-                  onClick={() => pickLogo(realIdx)}
-                  title="Click to upload logo"
-                >
-                  {logoUploading === String(realIdx) ? (
-                    <span className="ad-partner-logo-hint">Uploading…</span>
-                  ) : item.logoUrl ? (
-                    <img src={item.logoUrl} alt={item.name} className="ad-partner-logo-preview" />
-                  ) : item.name ? (
-                    <span className="ad-partner-logo-name-fallback">{item.name}</span>
-                  ) : (
-                    <span className="ad-partner-logo-hint">Click to upload</span>
-                  )}
-                </div>
-                {item.logoUrl && (
-                  <button
-                    className="ad-btn ad-btn--ghost ad-btn--sm"
-                    onClick={() => updateItem(realIdx, "logoUrl", "")}
-                    style={{ marginTop: 6, fontSize: 11 }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-
-              <div className="ad-partner-fields">
-                <div>
-                  <label className="ad-label">Name</label>
-                  <input
-                    className="ad-input"
-                    value={item.name}
-                    onChange={(e) => updateItem(realIdx, "name", e.target.value)}
-                    placeholder="e.g. JinkoSolar"
-                  />
-                </div>
-                <div>
-                  <label className="ad-label">Website URL</label>
-                  <input
-                    className="ad-input"
-                    type="url"
-                    value={item.websiteUrl}
-                    onChange={(e) => updateItem(realIdx, "websiteUrl", e.target.value)}
-                    placeholder="https://example.com"
-                  />
-                </div>
-                <div style={{ maxWidth: 80 }}>
-                  <label className="ad-label">Order</label>
-                  <EditableNumber
-                    value={item.order}
-                    min={1}
-                    onChange={(n) => updateItem(realIdx, "order", n)}
-                    className="ad-input"
-                    style={{ textAlign: "center" }}
-                  />
-                </div>
-              </div>
-
-              <button
-                className="ad-btn ad-btn--danger ad-btn--sm"
-                onClick={() => removeItem(realIdx)}
-                style={{ alignSelf: "center", flexShrink: 0 }}
-                title="Remove partner"
-              >
-                ✕
-              </button>
-            </div>
-          );
-        })}
-
-        <button onClick={addItem} className="ad-btn ad-btn--ghost" style={{ marginTop: 12, width: "100%" }}>
-          + Add Partner
-        </button>
-
-        <div className="ad-form-actions">
-          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <p style={{ fontSize: 13, color: "var(--ad-text2)", margin: 0 }}>
+            {sorted.length === 0 ? "No partners added yet." : `${sorted.length} partner${sorted.length !== 1 ? "s" : ""}`}
+          </p>
+          <button onClick={openAdd} className="ad-btn">+ Add Partner</button>
         </div>
+
+        {sorted.length > 0 && (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Name</th>
+                  <th>Website</th>
+                  <th style={{ textAlign: "center" }}>Order</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="ad-partner-table-logo">
+                        {item.logoUrl ? (
+                          <img src={item.logoUrl} alt={item.name} className="ad-partner-logo-preview" />
+                        ) : (
+                          <span className="ad-partner-logo-name-fallback">{item.name || "—"}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 500 }}>{item.name || <span style={{ color: "var(--ad-text3)" }}>—</span>}</td>
+                    <td>
+                      {item.websiteUrl
+                        ? <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: "var(--ad-accent, #4f8ef7)", fontSize: 12, wordBreak: "break-all" }}>{item.websiteUrl}</a>
+                        : <span style={{ color: "var(--ad-text3)" }}>—</span>}
+                    </td>
+                    <td style={{ textAlign: "center" }}>{item.order}</td>
+                    <td>
+                      <div className="ad-table-actions">
+                        <button onClick={() => openEdit(item)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                        <button onClick={() => setDeleteTarget(item.id)} className="ad-btn ad-btn--danger ad-btn--sm">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

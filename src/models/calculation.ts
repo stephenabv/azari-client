@@ -1,8 +1,19 @@
 
 
+// Base scalars — every production and sizing formula derives from these two.
+const _PSH = 5;    // peak sun hours per day (Philippines tropical average)
+const _ETA = 0.8;  // system efficiency / performance ratio (wiring, temp, inverter losses)
+const _DPM = 30;   // days per month
+
 export const SOLAR_CONSTANTS = {
 
-  averageSolarProductionPerKwp: 120,
+  // kWh a 1 kWp system yields per day: PSH × η = 5 × 0.8 = 4.0
+  // Used as the denominator in ALL panel-sizing formulas:
+  //   systemKwp = dailyTarget (kWh) / dailyYieldPerKwp
+  dailyYieldPerKwp: _PSH * _ETA,                        // 4.0
+
+  // kWh a 1 kWp system yields per month: dailyYield × 30 = 120
+  averageSolarProductionPerKwp: _PSH * _ETA * _DPM,    // 120
 
   estimatedSavingsRate: 0.87,
 
@@ -10,13 +21,11 @@ export const SOLAR_CONSTANTS = {
 
   projectionMonths: 144,
 
-  systemEfficiency: 0.9,
+  systemEfficiency: _ETA,    // 0.8
 
-  inverterSafetyFactor: 1.25,
+  peakSunHours: _PSH,        // 5
 
-  peakSunHours: 4,
-
-  daysPerMonth: 30,
+  daysPerMonth: _DPM,        // 30
 
   zeroBillStorageRatio: 3,
 
@@ -175,6 +184,7 @@ export function calculateSolarEstimate({
         : 0
       : (totalDailyUsageWh * SOLAR_CONSTANTS.daysPerMonth) / 1000;
 
+  // systemSize = monthlyKwh / (PSH × η × 30) = monthlyKwh / averageSolarProductionPerKwp
   const rawSystemSize =
     formula.averageSolarProductionPerKwp > 0
       ? monthlyKwh / formula.averageSolarProductionPerKwp
@@ -224,19 +234,27 @@ export function computeDpt(amountPhp: number, electricRate: number): number {
   return amountPhp / electricRate / SOLAR_CONSTANTS.daysPerMonth;
 }
 
+// kWp needed to cover a daily energy target (kWh/day).
+// Formula: kWp = dailyTarget / (PSH × η) = dailyTarget / dailyYieldPerKwp
 function solarFromDpt(dpt: number): number {
-  return Math.round((dpt / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  return Math.round((dpt / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
 }
 
 export function calculateMonthlySavingsHybrid(dpt: number, duec = 0): EngineResult {
-  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : solarFromDpt(Math.max(dpt, duec));
-  const storageKwh = dpt < duec ? roundStorageCapacity(0) : roundStorageCapacity((dpt - duec) / SOLAR_CONSTANTS.systemEfficiency);
+  const solarKwp = dpt < duec
+    ? dpt / SOLAR_CONSTANTS.dailyYieldPerKwp
+    : solarFromDpt(Math.max(dpt, duec));
+  const storageKwh = dpt < duec
+    ? roundStorageCapacity(0)
+    : roundStorageCapacity((dpt - duec) / SOLAR_CONSTANTS.systemEfficiency);
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
 export function calculateMonthlySavingsGridTied(dpt: number, duec = 0): EngineResult {
-  const solarKwp = dpt < duec ? dpt / SOLAR_CONSTANTS.peakSunHours : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.peakSunHours);
+  const solarKwp = dpt < duec
+    ? dpt / SOLAR_CONSTANTS.dailyYieldPerKwp
+    : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.dailyYieldPerKwp);
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh: 0, systemType: "grid-tied" };
 }
@@ -246,13 +264,13 @@ export function calculatePeakShaving(
   allowedGridPower: number,
   peakDuration: number
 ): EngineResult {
-  const rawInverter = SOLAR_CONSTANTS.inverterSafetyFactor * (peakPower - allowedGridPower);
+  const rawInverter = peakPower - allowedGridPower;
   const inverterKw = roundInverterSize(rawInverter);
   const storageKwh = roundStorageCapacity(
     (inverterKw * peakDuration) / SOLAR_CONSTANTS.systemEfficiency
   );
-  const solarKwp = Math.round((storageKwh / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
-
+  // kWp needed to recharge storage within one solar day
+  const solarKwp = Math.round((storageKwh / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
@@ -274,14 +292,16 @@ export function calculateZeroBillWithLoadProfile(
 ): EngineResult {
   const dpt = computeDpt(monthlyBill, electricRate);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
-  const solarKwp = dpt >= storageKwh ? solarFromDpt(Math.max(dpt, nwec)) : storageKwh / SOLAR_CONSTANTS.peakSunHours;
+  const solarKwp = dpt >= storageKwh
+    ? solarFromDpt(Math.max(dpt, nwec))
+    : storageKwh / SOLAR_CONSTANTS.dailyYieldPerKwp;
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
 export function calculateZeroBillLoadOnly(duec: number, nwec: number): EngineResult {
   const totalDaily = duec + nwec;
-  const solarKwp = Math.round((totalDaily / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  const solarKwp = Math.round((totalDaily / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
   const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };

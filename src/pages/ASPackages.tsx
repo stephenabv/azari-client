@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
+import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
@@ -149,7 +150,7 @@ function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: numbe
 
   if (pkg.mainFeatures?.length) return pkg.mainFeatures;
 
-  const dailyKwh = Math.round(solarKwp * 4 * 0.80 * 10) / 10;
+  const dailyKwh = Math.round(solarKwp * SOLAR_CONSTANTS.dailyYieldPerKwp * 10) / 10;
   const list = [
     `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
     "Mobile Device Monitoring",
@@ -256,6 +257,34 @@ function IpRatingBadge({ code, description, offset }: { code: string; descriptio
   );
 }
 
+// Rolls a number from 0 (first appearance) or from its last value (on change)
+// to the new target. Returns null while the target itself is null.
+function useRollingNumber(target: number | null, duration = 700): number | null {
+  const [value, setValue] = useState<number | null>(null);
+  const frameRef = useRef<number | null>(null);
+  const prevRef = useRef<number | null>(null); // null = not yet seen → start from 0
+
+  useEffect(() => {
+    if (target === null) { setValue(null); prevRef.current = null; return; }
+    const start = prevRef.current ?? 0;
+    prevRef.current = target;
+    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    const diff = target - start;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(Math.round(start + diff * eased));
+      if (p < 1) { frameRef.current = requestAnimationFrame(tick); }
+      else { setValue(target); frameRef.current = null; }
+    };
+    frameRef.current = requestAnimationFrame(tick);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+  }, [target, duration]);
+
+  return value;
+}
+
 function PackageCard({
   pkg,
   onInquire,
@@ -270,7 +299,6 @@ function PackageCard({
   const [showModal, setShowModal] = useState(false);
   const [isClosingModal, setIsClosingModal] = useState(false);
   const [showOtherComponents, setShowOtherComponents] = useState(false);
-  const [displayPrice, setDisplayPrice] = useState<number | null>(null);
 
   const handleCloseModal = useCallback(() => {
     setIsClosingModal(true);
@@ -369,25 +397,13 @@ function PackageCard({
 
   const { price: dynamicPrice } = calcPrice();
 
+  const animatedPrice = useRollingNumber(dynamicPrice, 700);
+  const animatedSavingsMin = useRollingNumber(savings.min, 700);
+  const animatedSavingsMax = useRollingNumber(savings.max, 700);
 
-  useEffect(() => {
-    if (dynamicPrice === null) { setDisplayPrice(null); return; }
-    const start = displayPrice ?? (pkg.totalPrice ?? dynamicPrice);
-    const diff = dynamicPrice - start;
-    const duration = 500;
-    const t0 = Date.now();
-    const tick = () => {
-      const p = Math.min((Date.now() - t0) / duration, 1);
-      const ease = 1 - Math.pow(1 - p, 3);
-      setDisplayPrice(Math.round(start + diff * ease));
-      if (p < 1) requestAnimationFrame(tick);
-      else setDisplayPrice(dynamicPrice);
-    };
-    requestAnimationFrame(tick);
-
-  }, [dynamicPrice]);
-
-  const priceToDisplay = displayPrice ?? dynamicPrice ?? pkg.totalPrice;
+  const priceToDisplay = animatedPrice ?? dynamicPrice ?? pkg.totalPrice;
+  const displaySavingsMin = animatedSavingsMin ?? savings.min;
+  const displaySavingsMax = animatedSavingsMax ?? savings.max;
 
   const buildSelection = (): PackageSelection => ({
     qty,
@@ -417,7 +433,7 @@ function PackageCard({
         <div className="as-pkg-name">{displayName}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
         <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} System</div>
-        <div className="as-pkg-savings">Approx. Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+        <div className="as-pkg-savings">Approx. Monthly Saving: ₱{displaySavingsMin.toLocaleString()} – ₱{displaySavingsMax.toLocaleString()}</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
           onClick={() => onInquire(buildSelection())}
@@ -504,7 +520,7 @@ function PackageCard({
                   {formatCapacity(liveInverterKw, "power", { unit: "kW" })} System
                 </div>
                 <div className="as-pkg-modal-hero-savings">
-                  Approx. Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}
+                  Approx. Monthly Saving: ₱{displaySavingsMin.toLocaleString()} – ₱{displaySavingsMax.toLocaleString()}
                 </div>
                 <button
                   className="as-pkg-modal-hero-inquire"

@@ -858,26 +858,6 @@ body.is-light {
   }
 }
 
-.ad-partner-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--ad-border);
-
-  &:last-of-type {
-    border-bottom: none;
-  }
-}
-
-.ad-partner-logo-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  width: 120px;
-}
-
 .ad-partner-logo-box {
   width: 120px;
   height: 60px;
@@ -887,7 +867,6 @@ body.is-light {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   transition: border-color 0.2s ease;
   overflow: hidden;
 
@@ -909,8 +888,8 @@ body.is-light {
   padding: 0 8px;
 }
 
-// Shown in the logo box when a name exists but no logo has been uploaded —
-// mirrors what the client-facing carousel will display as the fallback.
+// Shown when a name exists but no logo has been uploaded —
+// mirrors the client-facing text fallback.
 .ad-partner-logo-name-fallback {
   font-size: 12px;
   font-weight: 600;
@@ -921,17 +900,14 @@ body.is-light {
   word-break: break-word;
 }
 
-.ad-partner-fields {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: end;
-  min-width: 0;
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
+// Table cell logo container — fixed size so rows are uniform height
+.ad-partner-table-logo {
+  width: 80px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .ad-section-header {
