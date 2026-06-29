@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useContent } from "../hooks/useContent";
 
 type PartnerItem = {
@@ -35,7 +35,6 @@ function PartnerLogo({ item }: { item: PartnerItem }) {
 }
 
 export default function ASPartners() {
-  const sectionRef = useRef<HTMLElement | null>(null);
   const [visible, setVisible] = useState(false);
   const [paused, setPaused] = useState(false);
 
@@ -46,16 +45,8 @@ export default function ASPartners() {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   useEffect(() => {
-    const el = sectionRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setVisible(true);
-      },
-      { threshold: 0.05 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    const frame = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(frame);
   }, []);
 
   if (!items.length) return null;
@@ -64,10 +55,7 @@ export default function ASPartners() {
   const loopItems = [...items, ...items, ...items];
 
   return (
-    <section
-      ref={sectionRef}
-      className={`as-partners${visible ? " is-visible" : ""}`}
-    >
+    <section className={`as-partners${visible ? " is-visible" : ""}`}>
       <p className="as-partners-label">{content.title}</p>
 
       <div
