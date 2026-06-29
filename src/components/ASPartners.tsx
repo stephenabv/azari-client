@@ -19,6 +19,13 @@ const DEFAULT_PARTNERS_CONTENT: PartnersContent = {
   items: [],
 };
 
+function trackDensity(count: number): string {
+  if (count <= 3) return ' density-few';
+  if (count <= 6) return ' density-medium';
+  if (count <= 9) return ' density-many';
+  return '';
+}
+
 function PartnerLogo({ item }: { item: PartnerItem }) {
   if (item.logoUrl) {
     return (
@@ -54,7 +61,7 @@ export default function ASPartners() {
     <section className={`as-partners${visible ? " is-visible" : ""}`}>
       <p className="as-partners-label">{content.title}</p>
 
-      <div className="as-partners-track" aria-label="Partner logos">
+      <div className={`as-partners-track${trackDensity(items.length)}`} aria-label="Partner logos">
         {items.map((item) => (
           <div key={item.id} className="as-partners-item">
             {item.websiteUrl ? (
