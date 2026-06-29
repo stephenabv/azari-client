@@ -7,12 +7,14 @@ import ASClientJourney from "../components/ASClientJourney";
 import ASEngineeredExcellence from "../components/ASEngineeredExcellence";
 import ASHero from "../components/ASHero";
 import ASMetrics from "../components/ASMetrics";
+import ASPartners from "../components/ASPartners";
 import ASProcessSection from "../components/ASProcess";
 import ASTropicsSection from "../components/ASTropics";
 
 type SectionVisibility = {
   hero: boolean;
   metrics: boolean;
+  partners: boolean;
   benefits: boolean;
   excellence: boolean;
   tropics: boolean;
@@ -26,6 +28,7 @@ type SectionVisibility = {
 const DEFAULT_VISIBILITY: SectionVisibility = {
   hero: true,
   metrics: true,
+  partners: true,
   benefits: true,
   excellence: true,
   tropics: true,
@@ -55,6 +58,12 @@ export default function ASDashboard() {
       {vis.metrics && (
         <section className="_asMetrics" id="metrics">
           <ASMetrics />
+        </section>
+      )}
+
+      {vis.partners && (
+        <section className="_asPartners" id="partners">
+          <ASPartners />
         </section>
       )}
 

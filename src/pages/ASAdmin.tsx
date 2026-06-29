@@ -80,16 +80,16 @@ import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "utilities" | "sections"
-  | "hero" | "metrics" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
+  | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
 
 type SectionVisibility = {
-  hero: boolean; metrics: boolean; benefits: boolean; excellence: boolean;
+  hero: boolean; metrics: boolean; partners: boolean; benefits: boolean; excellence: boolean;
   tropics: boolean; process: boolean; clientJourney: boolean; calculator: boolean; callToAction: boolean;
   packages: boolean;
 };
 
 const DEFAULT_VISIBILITY: SectionVisibility = {
-  hero: true, metrics: true, benefits: true, excellence: true,
+  hero: true, metrics: true, partners: true, benefits: true, excellence: true,
   tropics: true, process: true, clientJourney: true, calculator: true, callToAction: true,
   packages: true,
 };
@@ -2202,6 +2202,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: string }> = [
   { key: "hero",         name: "Hero",                  desc: "Main hero banner with headline" },
   { key: "metrics",      name: "Metrics",               desc: "Stats strip (installs, warranty, savings…)" },
+  { key: "partners",     name: "Partners",              desc: "Scrolling partner / brand logos strip" },
   { key: "benefits",     name: "Benefits",              desc: "Benefits banner row" },
   { key: "excellence",   name: "Engineered Excellence", desc: "Products & quality section" },
   { key: "tropics",      name: "Tropics",               desc: "Designed for the tropics section" },
@@ -5112,6 +5113,167 @@ function MetricsEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
+type PartnerItem = { id: string; name: string; logoUrl: string; websiteUrl: string; order: number };
+type PartnersForm = { title: string; items: PartnerItem[] };
+const DEFAULT_PARTNERS_FORM: PartnersForm = {
+  title: "TRUSTED BY INDUSTRY LEADERS & TECHNOLOGY PARTNERS",
+  items: [],
+};
+
+function PartnersEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } =
+    useSectionEditor(apiKey, "partners", DEFAULT_PARTNERS_FORM);
+
+  const [logoUploading, setLogoUploading] = useState<string | null>(null);
+
+  const updateItem = <K extends keyof PartnerItem>(idx: number, key: K, val: PartnerItem[K]) =>
+    setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
+
+  const addItem = () => {
+    const newId = String(Date.now());
+    const maxOrder = form.items.reduce((m, it) => Math.max(m, it.order), 0);
+    setForm((f) => ({ ...f, items: [...f.items, { id: newId, name: "", logoUrl: "", websiteUrl: "", order: maxOrder + 1 }] }));
+  };
+
+  const removeItem = (idx: number) =>
+    setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
+
+  const handleLogoUpload = async (idx: number, file: File) => {
+    setLogoUploading(String(idx));
+    try {
+      const compressed = await compressImageClient(file, 400, 160, 0.88);
+      updateItem(idx, "logoUrl", compressed);
+    } finally {
+      setLogoUploading(null);
+    }
+  };
+
+  const pickLogo = (idx: number) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp,image/svg+xml";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) await handleLogoUpload(idx, file);
+    };
+    input.click();
+  };
+
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+
+  const sorted = [...form.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  return (
+    <div>
+      <SectionEditorHeader title="Partners / Logos" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <Toast msg={msg} />
+
+      <div className="ad-card" style={{ marginBottom: 16 }}>
+        <label className="ad-label">Section Label</label>
+        <input
+          className="ad-input"
+          value={form.title}
+          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          placeholder="TRUSTED BY INDUSTRY LEADERS & TECHNOLOGY PARTNERS"
+        />
+        <p className="ad-pkg-hint">Small-caps label shown above the scrolling logo strip.</p>
+      </div>
+
+      <div className="ad-card">
+        <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 20 }}>
+          Partners scroll continuously in the homepage strip. Upload a logo or leave it blank to display the name as text.
+          Logos are displayed at a uniform 40 px height.
+        </p>
+
+        {sorted.map((item) => {
+          const realIdx = form.items.indexOf(item);
+          return (
+            <div key={item.id} className="ad-partner-row">
+              <div className="ad-partner-logo-cell">
+                <div
+                  className="ad-partner-logo-box"
+                  onClick={() => pickLogo(realIdx)}
+                  title="Click to upload logo"
+                >
+                  {logoUploading === String(realIdx) ? (
+                    <span className="ad-partner-logo-hint">Uploading…</span>
+                  ) : item.logoUrl ? (
+                    <img src={item.logoUrl} alt={item.name} className="ad-partner-logo-preview" />
+                  ) : item.name ? (
+                    <span className="ad-partner-logo-name-fallback">{item.name}</span>
+                  ) : (
+                    <span className="ad-partner-logo-hint">Click to upload</span>
+                  )}
+                </div>
+                {item.logoUrl && (
+                  <button
+                    className="ad-btn ad-btn--ghost ad-btn--sm"
+                    onClick={() => updateItem(realIdx, "logoUrl", "")}
+                    style={{ marginTop: 6, fontSize: 11 }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <div className="ad-partner-fields">
+                <div>
+                  <label className="ad-label">Name</label>
+                  <input
+                    className="ad-input"
+                    value={item.name}
+                    onChange={(e) => updateItem(realIdx, "name", e.target.value)}
+                    placeholder="e.g. JinkoSolar"
+                  />
+                </div>
+                <div>
+                  <label className="ad-label">Website URL</label>
+                  <input
+                    className="ad-input"
+                    type="url"
+                    value={item.websiteUrl}
+                    onChange={(e) => updateItem(realIdx, "websiteUrl", e.target.value)}
+                    placeholder="https://example.com"
+                  />
+                </div>
+                <div style={{ maxWidth: 80 }}>
+                  <label className="ad-label">Order</label>
+                  <EditableNumber
+                    value={item.order}
+                    min={1}
+                    onChange={(n) => updateItem(realIdx, "order", n)}
+                    className="ad-input"
+                    style={{ textAlign: "center" }}
+                  />
+                </div>
+              </div>
+
+              <button
+                className="ad-btn ad-btn--danger ad-btn--sm"
+                onClick={() => removeItem(realIdx)}
+                style={{ alignSelf: "center", flexShrink: 0 }}
+                title="Remove partner"
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+
+        <button onClick={addItem} className="ad-btn ad-btn--ghost" style={{ marginTop: 12, width: "100%" }}>
+          + Add Partner
+        </button>
+
+        <div className="ad-form-actions">
+          <button onClick={() => void save(form)} disabled={saving} className="ad-btn">
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type BenefitItem = { title: string; description: string; order: number };
 type BenefitsForm = { items: BenefitItem[] };
 const DEFAULT_BENEFITS_FORM: BenefitsForm = {
@@ -6629,6 +6791,7 @@ export default function ASAdmin() {
         { id: "sections",   label: "Visibility",    icon: <NavIcon><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></NavIcon> },
         { id: "hero",       label: "Hero",          icon: <NavIcon><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></NavIcon> },
         { id: "metrics",    label: "Metrics",       icon: <NavIcon><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></NavIcon> },
+        { id: "partners",   label: "Partners",      icon: <NavIcon><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M6 11h2m4 0h6"/></NavIcon> },
         { id: "benefits",   label: "Benefits",      icon: <NavIcon><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></NavIcon> },
         { id: "tropics",    label: "Tropics",       icon: <NavIcon><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></NavIcon> },
         { id: "journey",       label: "Journey",       icon: <NavIcon><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></NavIcon> },
@@ -6707,6 +6870,7 @@ export default function ASAdmin() {
           {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
           {tab === "hero"              && <HeroEditor apiKey={apiKey} />}
           {tab === "metrics"           && <MetricsEditor apiKey={apiKey} />}
+          {tab === "partners"          && <PartnersEditor apiKey={apiKey} />}
           {tab === "benefits"          && <BenefitsEditor apiKey={apiKey} />}
           {tab === "tropics"           && <TropicsEditor apiKey={apiKey} />}
           {tab === "journey"           && <ClientJourneyEditor apiKey={apiKey} />}

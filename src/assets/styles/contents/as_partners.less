@@ -1,0 +1,197 @@
+// Partners marquee strip — sits between metrics and benefits
+
+.as-partners {
+  width: 100%;
+  padding: 48px 0 56px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.75s ease,
+    transform 0.75s ease;
+
+  &.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.as-partners-label {
+  text-align: center;
+  font-family: "Outfit", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+  margin: 0 0 28px;
+  padding: 0 24px;
+}
+
+// Viewport clips the scrolling track and adds fade edges via mask
+.as-partners-viewport {
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+}
+
+// Scrolling track — 3 copies of items, animate -33.333% for seamless loop
+.as-partners-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: partners-marquee 36s linear infinite;
+
+  &.is-paused {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes partners-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-33.3334%); }
+}
+
+.as-partners-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 52px;
+  flex-shrink: 0;
+}
+
+.as-partners-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 0.25s ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    outline: none;
+  }
+}
+
+// Logos: max-height caps all logos at the same visual ceiling; width/height: auto
+// preserves the natural aspect ratio regardless of how wide or tall the source is.
+// (Using a fixed `height` + `max-width` together would clamp one dimension while
+//  leaving the other fixed, which distorts the image.)
+.as-partners-logo {
+  max-height: 40px;
+  height: auto;
+  width: auto;
+  display: block;
+  filter: grayscale(1) brightness(1.2);
+  transition: filter 0.3s ease;
+
+  .as-partners-link:hover &,
+  .as-partners-link:focus-visible & {
+    filter: grayscale(0) brightness(1);
+  }
+}
+
+// Text fallback when no logo is uploaded
+.as-partners-name {
+  font-family: "Outfit", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  transition: color 0.2s ease;
+
+  .as-partners-link:hover &,
+  .as-partners-link:focus-visible & {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+// ─── Responsive ────────────────────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .as-partners {
+    padding: 40px 0 48px;
+  }
+
+  .as-partners-item {
+    padding: 0 36px;
+  }
+
+  .as-partners-logo {
+    max-height: 32px;
+  }
+
+  .as-partners-name {
+    font-size: 15px;
+  }
+
+  .as-partners-viewport {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 8%,
+      black 92%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 8%,
+      black 92%,
+      transparent 100%
+    );
+  }
+}
+
+@media (max-width: 480px) {
+  .as-partners {
+    padding: 32px 0 40px;
+  }
+
+  .as-partners-item {
+    padding: 0 24px;
+  }
+
+  .as-partners-logo {
+    max-height: 26px;
+  }
+
+  .as-partners-name {
+    font-size: 13px;
+  }
+}
+
+// Honour reduced-motion: stop the loop, show a scrollable row instead
+@media (prefers-reduced-motion: reduce) {
+  .as-partners {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .as-partners-track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .as-partners-viewport {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
