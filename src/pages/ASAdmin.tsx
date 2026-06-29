@@ -3226,6 +3226,126 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const fmtDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 
+  const printInquiry = (inq: PackageInquiry) => {
+    const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const refNum = `PKG-${inq.id.slice(0, 8).toUpperCase()}`;
+    const printedOn = new Date().toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+    const submittedOn = new Date(inq.createdAt).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' } as Intl.DateTimeFormatOptions);
+
+    const comps = inq.packageDetails.components ?? [];
+    const CAT_ORDER = ["Solar Panel", "Inverter", "Battery"];
+    const byCategory = comps.reduce<Record<string, typeof comps>>((acc, c) => { (acc[c.category] ??= []).push(c); return acc; }, {});
+    const categories = [...CAT_ORDER.filter(c => byCategory[c]), ...Object.keys(byCategory).filter(c => !CAT_ORDER.includes(c))];
+
+    const specs: [string, string][] = [
+      ["Package",         esc(inq.packageName)],
+      ["Load Capacity",   esc(formatCapacity(inq.packageDetails.inverterKw,  "power",  { unit: "kW" }))],
+      ["Solar Production",esc(formatCapacity(inq.packageDetails.solarKwp,    "power",  { unit: "kWp" }))],
+      ...(inq.packageDetails.storageKwh > 0 ? [["Battery Storage", esc(formatCapacity(inq.packageDetails.storageKwh, "energy", { unit: "kWh" }))]] as [string, string][] : []),
+      ["Phase",           inq.packageDetails.phase === "single" ? "Single Phase" : "Three Phase"],
+      ...(inq.packageDetails.billRangeMin != null ? [[
+        "Monthly Savings",
+        `₱${inq.packageDetails.billRangeMin.toLocaleString("en-PH")} – ₱${(inq.packageDetails.billRangeMax ?? 0).toLocaleString("en-PH")}`,
+      ]] as [string, string][] : []),
+      ["Total Price", inq.packageDetails.totalPrice != null ? `₱${inq.packageDetails.totalPrice.toLocaleString("en-PH")}` : "Price TBD"],
+    ];
+
+    const materialsHtml = categories.length > 0 ? `
+      <section>
+        <h2>Materials List</h2>
+        ${categories.map(cat => `
+          <div class="cat-group">
+            <h3>${esc(cat)}</h3>
+            <table>
+              <thead><tr><th>Qty</th><th>Brand / Model</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+              <tbody>
+                ${byCategory[cat].map(c => {
+                  const line = c.unitPrice != null ? c.unitPrice * c.quantity : null;
+                  return `<tr>
+                    <td class="c">${c.quantity}×</td>
+                    <td>${esc(c.brand)} ${esc(c.name)}</td>
+                    <td class="r">${c.unitPrice != null ? `₱${c.unitPrice.toLocaleString("en-PH")}` : "—"}</td>
+                    <td class="r">${line != null ? `₱${line.toLocaleString("en-PH")}` : "—"}</td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>`).join("")}
+      </section>` : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Inquiry ${refNum} – Azari Solar</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;font-size:13px;color:#111;background:#fff;padding:32px 40px}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:20px}
+  .brand{font-size:22px;font-weight:800;letter-spacing:-.5px}.brand span{color:#d97706}
+  .meta{text-align:right}.meta .type{font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+  .meta .ref{font-size:12px;color:#555;margin-top:2px}.meta .dt{font-size:11px;color:#999;margin-top:2px}
+  .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border:1.5px solid;margin-bottom:18px}
+  .new{border-color:#2563eb;color:#2563eb}.contacted{border-color:#d97706;color:#d97706}.converted{border-color:#16a34a;color:#16a34a}
+  section{margin-bottom:22px}
+  h2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666;border-bottom:1px solid #ddd;padding-bottom:5px;margin-bottom:10px}
+  h3{font-size:12px;font-weight:700;margin:10px 0 5px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .field{background:#f6f6f6;border-radius:6px;padding:7px 10px}
+  .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#999;margin-bottom:2px}
+  .val{font-size:13px;font-weight:500;word-break:break-all}
+  .val.price{color:#d97706;font-weight:700;font-size:14px}
+  .cat-group{margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead tr{background:#f3f3f3}
+  th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:6px 8px;text-align:left;border:1px solid #ddd}
+  td{padding:6px 8px;border:1px solid #ddd;vertical-align:middle}
+  td.c{text-align:center;font-weight:700}td.r{text-align:right}
+  .ftr{margin-top:28px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#bbb;display:flex;justify-content:space-between}
+  @media print{body{padding:0}@page{margin:18mm 16mm}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="brand"><span>Azari</span>.Solar</div>
+  <div class="meta">
+    <div class="type">Package Inquiry</div>
+    <div class="ref">${refNum}</div>
+    <div class="dt">Printed: ${printedOn}</div>
+  </div>
+</div>
+<div class="badge ${esc(inq.status)}">${esc(inq.status)}</div>
+<section>
+  <h2>Contact Information</h2>
+  <div class="grid">
+    <div class="field"><div class="lbl">Full Name</div><div class="val">${esc(inq.name)}</div></div>
+    <div class="field"><div class="lbl">Email</div><div class="val">${esc(inq.email)}</div></div>
+    <div class="field"><div class="lbl">Phone</div><div class="val">${esc(inq.phone)}</div></div>
+    <div class="field"><div class="lbl">Location</div><div class="val">${esc(inq.location)}</div></div>
+  </div>
+</section>
+<section>
+  <h2>System Specifications</h2>
+  <div class="grid">
+    ${specs.map(([label, value]) => `<div class="field"><div class="lbl">${label}</div><div class="val${label === "Total Price" && inq.packageDetails.totalPrice != null ? " price" : ""}">${value}</div></div>`).join("")}
+  </div>
+</section>
+${materialsHtml}
+<div class="ftr">
+  <span>Azari.Solar — Bohol, Philippines</span>
+  <span>Submitted: ${submittedOn}</span>
+</div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=900,height=700");
+    if (!win) { alert("Pop-up blocked. Please allow pop-ups for this site to print."); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 350);
+  };
+
   return (
     <div>
       <div className="ad-section-header">
@@ -3474,7 +3594,10 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
               >
                 {deleting === selectedInquiry.id ? "Deleting…" : "Delete"}
               </button>
-              <button className="ad-btn ad-btn--ghost" onClick={() => setSelectedInquiry(null)}>Close</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="ad-btn" onClick={() => printInquiry(selectedInquiry)}>Print</button>
+                <button className="ad-btn ad-btn--ghost" onClick={() => setSelectedInquiry(null)}>Close</button>
+              </div>
             </div>
           </div>
         </div>,
