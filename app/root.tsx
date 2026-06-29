@@ -174,6 +174,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           name="google-site-verification"
           content="WAIKncjPdupwkR3Gq8LFWOko2B_5dwlGkjAM0xVBbzs"
         />
+        <meta
+          name="google-site-verification"
+          content="c1kBhgFmKOOWKG7D8H0IUfttihFyXZIbAeHP8CNcFWE"
+        />
         <Meta />
         <Links />
         {/* Site-wide structured data */}
