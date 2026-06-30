@@ -374,7 +374,7 @@ export default function AddApplianceModal({
               <>
                 <div className="as-appliance-grid">
                   <label className="as-appliance-field">
-                    <span>Day Time Usage</span>
+                    <span>Day Time Usage <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>(08:00–18:00)</em></span>
                     <div className="as-appliance-input-with-unit">
                       <input
                         type="text"
@@ -391,7 +391,7 @@ export default function AddApplianceModal({
                   </label>
 
                   <label className="as-appliance-field">
-                    <span>Night Time Usage</span>
+                    <span>Night Time Usage <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>(18:00–08:00)</em></span>
                     <div className="as-appliance-input-with-unit">
                       <input
                         type="text"
@@ -408,9 +408,39 @@ export default function AddApplianceModal({
                   </label>
                 </div>
 
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>Quick presets:</span>
+                  <button
+                    type="button"
+                    className="as-add-schedule-btn"
+                    style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
+                    onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("14"); setError(""); }}
+                  >
+                    24h always-on (10h day / 14h night)
+                  </button>
+                  <button
+                    type="button"
+                    className="as-add-schedule-btn"
+                    style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
+                    onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("0"); setError(""); }}
+                  >
+                    Day only (10h)
+                  </button>
+                  <button
+                    type="button"
+                    className="as-add-schedule-btn"
+                    style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
+                    onClick={() => { setDayEstimateHours("0"); setNightEstimateHours("14"); setError(""); }}
+                  >
+                    Night only (14h)
+                  </button>
+                </div>
+
                 {totalHours > 0 && (
                   <div className="as-schedule-summary">
-                    <span>Total Hours: <strong>{totalHours.toFixed(1)}h</strong></span>
+                    <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
+                    <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
+                    <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
                   </div>
                 )}
               </>

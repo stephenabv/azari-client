@@ -681,6 +681,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
               <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
             </div>
           ) : (
+            <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Reference</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontFamily: "monospace" }}>{fmtRef(previewRow.id as string, type)}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Date</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{fmt(previewRow.createdAt as string)}</div></div>
@@ -690,13 +691,120 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Location</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.location as string) || "—"}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Property Classification</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.propertyClassification as string) || "—"}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System Size</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.estimatedSystemSizeDisplayText as string) || "—"}</div></div>
-              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Monthly Bill</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.monthlyBill != null ? `₱${(previewRow.monthlyBill as number).toLocaleString("en-PH")}` : "—"}</div></div>
-              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Estimated Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.estimatedSavings as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Monthly Bill</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.averageMonthlyBillPhp != null ? `₱${Number(previewRow.averageMonthlyBillPhp).toLocaleString("en-PH")}` : "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Est. Monthly Savings</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.estimatedMonthlySavingsPhp != null ? `₱${Number(previewRow.estimatedMonthlySavingsPhp).toLocaleString("en-PH")}` : "—"}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Configuration</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{(previewRow.configuration as string) || "—"}</div></div>
+              <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Electric Rate</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.electricRatePhpPerKwh != null ? `₱${Number(previewRow.electricRatePhpPerKwh).toFixed(2)}/kWh` : "—"}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email Status</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><StatusBadge status={previewRow.status as string} /></div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Project Status</div><div style={{ fontSize: 14, color: PROJECT_STATUS_COLORS[(previewRow.projectStatus as string) ?? "new"] ?? "var(--ad-text)" }}>{PROJECT_STATUS_OPTIONS.find(o => o.value === (previewRow.projectStatus ?? "new"))?.label ?? "New"}</div></div>
               <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
             </div>
+
+            {/* DUE / NUEC Energy Consumption Summary */}
+            {(() => {
+              type LoadEntry = { watts: number; quantity: number; dayHoursPerDay: number; nightHoursPerDay: number; estimatedUsageWhPerDay: number };
+              const raw = previewRow.rawPayload as { solarEstimate?: { totalDayUsageWh?: number; totalNightUsageWh?: number } } | null;
+              const lp = previewRow.loadProfile as LoadEntry[] | null;
+              const dayWh = raw?.solarEstimate?.totalDayUsageWh
+                ?? (lp ? lp.reduce((s, a) => s + a.watts * a.quantity * a.dayHoursPerDay, 0) : 0);
+              const nightWh = raw?.solarEstimate?.totalNightUsageWh
+                ?? (lp ? lp.reduce((s, a) => s + a.watts * a.quantity * a.nightHoursPerDay, 0) : 0);
+              const totalWh = Number(previewRow.totalDailyUsageWh ?? 0) || (lp ? lp.reduce((s, a) => s + a.estimatedUsageWhPerDay, 0) : 0);
+              if (!totalWh && !dayWh) return null;
+              const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid var(--ad-border)" };
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <div style={secLabel}>Energy Consumption — DUE / NUEC</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    <div style={{ background: "rgba(234,179,8,0.07)", border: "1px solid rgba(234,179,8,0.25)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#eab308", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>☀ Day Usage (DUE)</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{(dayWh / 1000).toFixed(2)} kWh</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>Solar hrs · 08:00–18:00</div>
+                    </div>
+                    <div style={{ background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>🌙 Night Usage (NUEC)</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{(nightWh / 1000).toFixed(2)} kWh</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>Battery/grid · 18:00–08:00</div>
+                    </div>
+                    <div style={{ background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>⚡ Total Daily</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{(totalWh / 1000).toFixed(2)} kWh</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>Gross 24h load</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 6 }}>
+                    Effective sizing — DUEC: <strong>{(dayWh * 0.7 / 1000).toFixed(2)} kWh</strong> · NUEC: <strong>{(nightWh * 0.7 / 1000).toFixed(2)} kWh</strong> (×0.7 load factor applied for system sizing)
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Appliance Load Profile with per-appliance DUE / NUEC */}
+            {(() => {
+              type LPEntry = { name: string; watts: number; quantity: number; hoursPerDay: number; dayHoursPerDay: number; nightHoursPerDay: number; schedule: string; usageType: string; estimatedUsageWhPerDay: number };
+              const lp = previewRow.loadProfile as LPEntry[] | null;
+              if (!lp || lp.length === 0) return null;
+              const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid var(--ad-border)" };
+              const thBase: React.CSSProperties = { padding: "5px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ad-text3)", background: "var(--ad-surface)", borderBottom: "1px solid var(--ad-border)", whiteSpace: "nowrap", textAlign: "right" };
+              const tdBase: React.CSSProperties = { padding: "5px 8px", fontSize: 12, textAlign: "right", borderBottom: "1px solid var(--ad-border)", verticalAlign: "top" };
+              const totalDayRaw = lp.reduce((s, a) => s + a.watts * a.quantity * a.dayHoursPerDay, 0);
+              const totalNightRaw = lp.reduce((s, a) => s + a.watts * a.quantity * a.nightHoursPerDay, 0);
+              const totalRaw = lp.reduce((s, a) => s + a.estimatedUsageWhPerDay, 0);
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <div style={secLabel}>Appliance Load Profile</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...thBase, textAlign: "left" }}>Appliance</th>
+                          <th style={thBase}>Watts</th>
+                          <th style={thBase}>Qty</th>
+                          <th style={{ ...thBase, color: "#eab308" }}>Day h</th>
+                          <th style={{ ...thBase, color: "#6366f1" }}>Night h</th>
+                          <th style={{ ...thBase, color: "#eab308" }}>Day Wh</th>
+                          <th style={{ ...thBase, color: "#6366f1" }}>Night Wh</th>
+                          <th style={thBase}>Total Wh</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lp.map((a, i) => {
+                          const dayWh = Math.round(a.watts * a.quantity * a.dayHoursPerDay);
+                          const nightWh = Math.round(a.watts * a.quantity * a.nightHoursPerDay);
+                          const is24h = a.hoursPerDay >= 23.5;
+                          return (
+                            <tr key={i}>
+                              <td style={{ ...tdBase, textAlign: "left" }}>
+                                <span style={{ fontWeight: 500 }}>{a.name}</span>
+                                {is24h && <span style={{ marginLeft: 6, fontSize: 10, background: "rgba(99,102,241,0.15)", color: "#6366f1", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>24h</span>}
+                                <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 1 }}>{a.schedule || a.usageType}</div>
+                              </td>
+                              <td style={{ ...tdBase, fontFamily: "monospace" }}>{a.watts}W</td>
+                              <td style={tdBase}>{a.quantity}</td>
+                              <td style={{ ...tdBase, color: "#eab308" }}>{a.dayHoursPerDay.toFixed(1)}</td>
+                              <td style={{ ...tdBase, color: "#6366f1" }}>{a.nightHoursPerDay.toFixed(1)}</td>
+                              <td style={{ ...tdBase, color: "#eab308", fontWeight: 600 }}>{dayWh.toLocaleString("en-PH")}</td>
+                              <td style={{ ...tdBase, color: "#6366f1", fontWeight: 600 }}>{nightWh.toLocaleString("en-PH")}</td>
+                              <td style={{ ...tdBase, fontWeight: 600 }}>{Math.round(a.estimatedUsageWhPerDay).toLocaleString("en-PH")}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr style={{ background: "var(--ad-surface)", fontWeight: 700 }}>
+                          <td style={{ ...tdBase, textAlign: "left", color: "var(--ad-text)" }} colSpan={5}>Totals</td>
+                          <td style={{ ...tdBase, color: "#eab308", fontWeight: 700 }}>{Math.round(totalDayRaw).toLocaleString("en-PH")}</td>
+                          <td style={{ ...tdBase, color: "#6366f1", fontWeight: 700 }}>{Math.round(totalNightRaw).toLocaleString("en-PH")}</td>
+                          <td style={{ ...tdBase, fontWeight: 700 }}>{Math.round(totalRaw).toLocaleString("en-PH")}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 6 }}>
+                    Day = 08:00–18:00 (10 h solar) · Night = 18:00–08:00 (14 h battery/grid) · Wh/day before 0.7 load derating · 24h badge = always-on appliance
+                  </div>
+                </div>
+              );
+            })()}
+            </>
           )}
         </AdminModal>
       )}
@@ -3580,6 +3688,45 @@ ${materialsHtml}
                         ))}
                       </div>
                     ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* System Performance Estimate */}
+            {(() => {
+              const { solarKwp, inverterKw, storageKwh } = selectedInquiry.packageDetails;
+              const dailyGenKwh = solarKwp * 5 * 0.8;
+              const monthlyGenKwh = solarKwp * 120;
+              const isHybrid = storageKwh > 0;
+              const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8, paddingBottom: 4, borderBottom: "1px solid var(--ad-border)" };
+              return (
+                <div className="ad-inq-modal-section">
+                  <div style={secLabel}>System Performance Estimate</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div style={{ background: "rgba(234,179,8,0.07)", border: "1px solid rgba(234,179,8,0.25)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#eab308", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>☀ Est. Daily Generation</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{dailyGenKwh.toFixed(1)} kWh/day</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>{solarKwp} kWp × 5 PSH × 0.8 PR</div>
+                    </div>
+                    <div style={{ background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#22c55e", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>📅 Monthly Production</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{monthlyGenKwh.toFixed(0)} kWh/mo</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>{solarKwp} kWp × 120 kWh/kWp</div>
+                    </div>
+                    <div style={{ background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>⚡ Inverter Capacity</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{inverterKw} kW</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>Simultaneous load supported</div>
+                    </div>
+                    <div style={{ background: isHybrid ? "rgba(99,102,241,0.07)" : "var(--ad-surface)", border: `1px solid ${isHybrid ? "rgba(99,102,241,0.25)" : "var(--ad-border)"}`, borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: isHybrid ? "#6366f1" : "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>🔋 Battery Storage</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ad-text)" }}>{isHybrid ? `${storageKwh} kWh` : "None"}</div>
+                      <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 2 }}>{isHybrid ? "NUEC / night coverage" : "Grid-tied · no backup"}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--ad-text3)" }}>
+                    Estimates based on 5 peak sun hours/day (PH average) · 0.8 Performance Ratio · Actual output varies by location, shading, and weather
                   </div>
                 </div>
               );
