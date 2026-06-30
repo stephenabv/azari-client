@@ -7,7 +7,7 @@ import {
   ScrollRestoration,
   useRouteError,
 } from "react-router";
-import type { LinksFunction } from "react-router";
+import type { HeadersFunction, LinksFunction } from "react-router";
 
 import "../src/index.css";
 import "../src/assets/styles/main.less";
@@ -28,10 +28,42 @@ export const links: LinksFunction = () => [
   { rel: "preload", href: "/fonts/outfit-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
 ];
 
+// nginx already sets X-Content-Type-Options, X-Frame-Options, Referrer-Policy,
+// Permissions-Policy, COOP, and HSTS for all responses from this server.
+// Only the two headers below are NOT covered by nginx and must be set here.
+export const headers: HeadersFunction = () => ({
+  // Legacy XSS filter hint — checked by security scanners; ignored by modern
+  // browsers that honour CSP instead.
+  'X-XSS-Protection': '1; mode=block',
+  // Content Security Policy — nginx does not set this, so it is owned here.
+  // Notes on directives that need 'unsafe-inline':
+  //   script-src: the anti-flash theme script and JSON-LD block both use
+  //     dangerouslySetInnerHTML and cannot use nonces without an invasive refactor.
+  //   style-src: React applies inline style props that would be blocked otherwise.
+  // connect-src covers same-origin /api/* calls (nginx-proxied) and the network
+  // requests made by the Firebase Analytics SDK bundled into the app.
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.googleapis.com https://*.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.googletagmanager.com https://firebaselogging.googleapis.com",
+    "media-src 'self' https:",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+});
+
 // Applied before React hydration to prevent a dark/light flash
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark-theme':'light-theme');document.body.classList.add(t);}catch(e){}})();`;
 
 
+// JSON.stringify does not escape `<`, so a value containing `</script>` would
+// break out of the inline script tag. < is the safe JSON-encoded form of
+// `<` and is decoded identically by JSON.parse / ld+json consumers.
 const SITE_JSONLD = JSON.stringify({
   "@context": "https://schema.org",
   "@graph": [
@@ -155,7 +187,7 @@ const SITE_JSONLD = JSON.stringify({
       ],
     },
   ],
-});
+}).replace(/</g, '\\u003c');
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (

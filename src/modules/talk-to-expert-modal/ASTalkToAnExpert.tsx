@@ -220,7 +220,7 @@ export default function ASTalkToAnExpert({
         {submitSuccess ? (
           <div className="as-talk-success">
             <div className="as-talk-success-icon">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                 <path d="M7 18.5L14.5 26L29 11" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>

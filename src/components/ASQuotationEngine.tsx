@@ -984,7 +984,7 @@ export default function ASQuotationEngine() {
                       </span>
                       <span className="as-property-check" />
                     </div>
-                    <h3>{item.title}</h3>
+                    <span className="as-card-title">{item.title}</span>
                     <p>{item.description}</p>
                   </button>
                 ))}
@@ -1013,7 +1013,7 @@ export default function ASQuotationEngine() {
                       }}
                     >
                       <span className="as-property-check" />
-                      <h3>{item.label}</h3>
+                      <span className="as-card-title">{item.label}</span>
                       <p>{item.description}</p>
                     </button>
                   ))}
@@ -1035,23 +1035,23 @@ export default function ASQuotationEngine() {
             <div className="as-summary-card">
               <p className="as-summary-title">Recommended System Specifications</p>
               <p>Inverter Capacity and Types</p>
-              <h2>
+              <p className="as-summary-value">
                 {engineResult
                   ? `${engineResult.inverterKw}kW ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
                   : "—"}
-              </h2>
+              </p>
 
               <p>Solar Panel Capacity</p>
-              <h2>
+              <p className="as-summary-value">
                 {engineResult ? `~${engineResult.solarKwp.toFixed(1)} kWp` : "—"}
-              </h2>
+              </p>
 
               <p>Storage Capacity</p>
-              <h2>
+              <p className="as-summary-value">
                 {engineResult
                   ? engineResult.storageKwh > 0 ? `${engineResult.storageKwh} kWh` : "No Battery"
                   : "—"}
-              </h2>
+              </p>
 
               <button
                 type="button"

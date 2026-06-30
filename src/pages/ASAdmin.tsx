@@ -271,7 +271,7 @@ function MiniBarChart({ data, color, label }: { data: Array<{ day: string; count
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ad-text)", marginBottom: 8 }}>{label}</div>
-      <svg width="100%" height="80" viewBox="0 0 380 80" style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: 8, background: "var(--ad-input-bg)" }}>
+      <svg width="100%" height="80" viewBox="0 0 380 80" role="img" aria-label={label} style={{ border: "1px solid var(--ad-border)", borderRadius: 8, padding: 8, background: "var(--ad-input-bg)" }}>
         {data.map((d, i) => {
           const normalizedHeight = (d.count / maxCount) * barHeight;
           const x = i * barWidth + 2;
@@ -1326,7 +1326,7 @@ function ProjectLivePreview({ form, imagePreview }: { form: ProjectForm; imagePr
       {/* ── Hero ── */}
       <div className="as-pd-hero" style={{ height: 700 }}>
         {imagePreview
-          ? <img src={imagePreview} alt="" className="as-pd-hero-img" />
+          ? <img src={imagePreview} alt="Hero image preview" className="as-pd-hero-img" />
           : <div style={{ position: 'absolute', inset: 0, background: '#181818' }} />}
         <div className="as-pd-hero-overlay" />
         <div className="as-pd-hero-bottom is-shown" style={{ padding: '0 200px 56px' }}>
@@ -1391,7 +1391,7 @@ function ProjectLivePreview({ form, imagePreview }: { form: ProjectForm; imagePr
             <div className="as-pd-gallery-grid">
               {form.galleryImages.slice(0, 8).map((src, i) => (
                 <div key={i} className="as-pd-gallery-item is-shown">
-                  <img src={src} alt="" className="as-pd-gallery-img" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <img src={src} alt={`Gallery image ${i + 1}`} className="as-pd-gallery-img" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 </div>
               ))}
             </div>
@@ -4007,7 +4007,7 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: 34, paddingTop: 8, paddingBottom: 8 }}
             />
-            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.35, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.35, pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             {search && (
@@ -4021,7 +4021,7 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
               onClick={() => setShowF(s => !s)}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
               </svg>
               Filters
@@ -6657,7 +6657,7 @@ function StepEditor({ step, onSave, onCancel, saving }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrl && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src={form.iconUrl} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
+                <img src={form.iconUrl} alt="Icon — Normal preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
                 <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrl', null); patchField('iconKey', null); clearErr('iconUrl'); }}>Remove</button>
               </div>
             )}
@@ -6687,7 +6687,7 @@ function StepEditor({ step, onSave, onCancel, saving }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrlHighlighted && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src={form.iconUrlHighlighted} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
+                <img src={form.iconUrlHighlighted} alt="Icon — Highlighted preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: 'var(--ad-surface2)', padding: 4 }} />
                 <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlHighlighted', null); clearErr('iconUrlHighlighted'); }}>Remove</button>
               </div>
             )}
@@ -6717,7 +6717,7 @@ function StepEditor({ step, onSave, onCancel, saving }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrlLight && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src={form.iconUrlLight} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
+                <img src={form.iconUrlLight} alt="Icon — Light Mode preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
                 <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlLight', null); }}>Remove</button>
               </div>
             )}
@@ -6747,7 +6747,7 @@ function StepEditor({ step, onSave, onCancel, saving }: {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {form.iconUrlLightHighlighted && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img src={form.iconUrlLightHighlighted} alt="" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
+                <img src={form.iconUrlLightHighlighted} alt="Icon — Light Highlighted preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 6, border: '1px solid var(--ad-border)', background: '#f5f5f5', padding: 4 }} />
                 <button type="button" className="ad-btn ad-btn--ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => { patchField('iconUrlLightHighlighted', null); }}>Remove</button>
               </div>
             )}
@@ -7168,7 +7168,7 @@ export default function ASAdmin() {
 
       <nav className="ad-topnav">
         <button className="ad-hamburger" onClick={() => setSidebarOpen(s => !s)} aria-label="Toggle navigation">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
           </svg>
         </button>

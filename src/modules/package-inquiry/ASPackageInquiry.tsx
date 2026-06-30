@@ -135,7 +135,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
         {success && pkg ? (
           <div className="as-inq-success">
             <div className="as-inq-success-icon">
-              <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+              <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
                 <path d="M6 17.5L13.5 25L28 10" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
