@@ -1,5 +1,5 @@
 
-import { SOLAR_CONSTANTS, ELECTRIC_RATE_CONFIG } from '../models/calculation';
+import { SOLAR_CONSTANTS } from '../models/calculation';
 
 const API_BASE = '/api';
 
@@ -596,12 +596,13 @@ export interface PackageComponentLine {
 }
 
 
+const AVERAGE_SAVINGS_RATE = 12.5; // flat peso/kWh rate used for the package-card savings estimate
+
 export function computeMonthlySavings(productionKwp: number): { monthlyKwh: number; min: number; max: number } {
-  // Rate-agnostic monthly production; min/max span the configured electricity rate range
-  // so catalogue display reflects the realistic savings band across different customers
   const monthlyKwh = Math.round(productionKwp * SOLAR_CONSTANTS.averageSolarProductionPerKwp * 10) / 10;
-  const min = Math.floor(monthlyKwh * ELECTRIC_RATE_CONFIG.min / 500) * 500;
-  const max = Math.floor(monthlyKwh * ELECTRIC_RATE_CONFIG.max / 500) * 500;
+  const rawSavings = monthlyKwh * AVERAGE_SAVINGS_RATE;
+  const max = Math.ceil(rawSavings / 500) * 500;
+  const min = Math.max(0, max - 2000);
   return { monthlyKwh, min, max };
 }
 
