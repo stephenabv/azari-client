@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { calculateDayNightHours } from "../../models/calculation";
+import { calculateDayNightHours, DAY_BOUNDARY } from "../../models/calculation";
 import type { QuotationAppliance } from "../../models/quotation";
 import iconDropdown from "../../assets/icons/icon-dropdown.svg";
 
@@ -15,7 +15,10 @@ type ScheduleItem = {
 };
 
 type RatingUnit = "W" | "HP" | "Ton";
-type ScheduleType = "scheduled" | "estimate";
+type ScheduleType = "scheduled" | "estimate" | "always-on";
+
+const ALWAYS_ON_DAY_HOURS = (DAY_BOUNDARY.endMinutes - DAY_BOUNDARY.startMinutes) / 60;
+const ALWAYS_ON_NIGHT_HOURS = 24 - ALWAYS_ON_DAY_HOURS;
 
 const RATING_UNITS: { value: RatingUnit; label: string }[] = [
   { value: "W", label: "Watts" },
@@ -78,9 +81,11 @@ export default function AddApplianceModal({
   const [quantity, setQuantity] = useState(() => initial ? String(initial.quantity) : "");
   const [error, setError] = useState("");
 
-  const [scheduleType, setScheduleType] = useState<ScheduleType>(
-    () => initial?.usageType === "Estimated" ? "estimate" : "scheduled"
-  );
+  const [scheduleType, setScheduleType] = useState<ScheduleType>(() => {
+    if (initial?.usageType === "24/7") return "always-on";
+    if (initial?.usageType === "Estimated") return "estimate";
+    return "scheduled";
+  });
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() =>
     initial?.scheduleItems?.length
       ? initial.scheduleItems
@@ -94,6 +99,13 @@ export default function AddApplianceModal({
   );
 
   const { totalHours, totalDayHours, totalNightHours } = useMemo(() => {
+    if (scheduleType === "always-on") {
+      return {
+        totalHours: ALWAYS_ON_DAY_HOURS + ALWAYS_ON_NIGHT_HOURS,
+        totalDayHours: ALWAYS_ON_DAY_HOURS,
+        totalNightHours: ALWAYS_ON_NIGHT_HOURS,
+      };
+    }
     if (scheduleType === "estimate") {
       const dayH = Math.max(0, Number(dayEstimateHours) || 0);
       const nightH = Math.max(0, Number(nightEstimateHours) || 0);
@@ -150,6 +162,21 @@ export default function AddApplianceModal({
     }
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
       setError("Please enter a valid quantity.");
+      return;
+    }
+
+    if (scheduleType === "always-on") {
+      onSubmit({
+        name: cleanName,
+        watts: wattsValue,
+        quantity: quantityValue,
+        hours: Number(totalHours.toFixed(2)),
+        dayHours: Number(totalDayHours.toFixed(2)),
+        nightHours: Number(totalNightHours.toFixed(2)),
+        schedule: "Running 24/7",
+        scheduleItems: [],
+        usageType: "24/7",
+      });
       return;
     }
 
@@ -312,6 +339,15 @@ export default function AddApplianceModal({
                 />
                 <span>Estimate Usage per day</span>
               </label>
+              <label className="as-schedule-type-option">
+                <input
+                  type="radio"
+                  name="scheduleType"
+                  checked={scheduleType === "always-on"}
+                  onChange={() => { setScheduleType("always-on"); setError(""); }}
+                />
+                <span>Running 24/7</span>
+              </label>
             </div>
 
             {scheduleType === "scheduled" ? (
@@ -370,7 +406,7 @@ export default function AddApplianceModal({
                   </div>
                 )}
               </>
-            ) : (
+            ) : scheduleType === "estimate" ? (
               <>
                 <div className="as-appliance-grid">
                   <label className="as-appliance-field">
@@ -414,14 +450,6 @@ export default function AddApplianceModal({
                     type="button"
                     className="as-add-schedule-btn"
                     style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
-                    onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("14"); setError(""); }}
-                  >
-                    24h always-on (10h day / 14h night)
-                  </button>
-                  <button
-                    type="button"
-                    className="as-add-schedule-btn"
-                    style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
                     onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("0"); setError(""); }}
                   >
                     Day only (10h)
@@ -443,6 +471,17 @@ export default function AddApplianceModal({
                     <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
                   </div>
                 )}
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 12, opacity: 0.7, margin: "4px 0 0" }}>
+                  This appliance runs continuously, so usage is fixed at the full day/night split.
+                </p>
+                <div className="as-schedule-summary">
+                  <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
+                  <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
+                  <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
+                </div>
               </>
             )}
           </div>
