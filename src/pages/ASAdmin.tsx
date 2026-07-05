@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import {
   adminGetStats,
@@ -82,6 +83,15 @@ import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "utilities" | "sections"
   | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
+
+const TAB_IDS: readonly Tab[] = [
+  "overview", "inquiries", "quotations", "projects", "inventory", "packages", "package-inquiries", "utilities", "sections",
+  "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "cta", "footer",
+];
+
+function isTab(value: string | null): value is Tab {
+  return !!value && (TAB_IDS as readonly string[]).includes(value);
+}
 
 type SectionVisibility = {
   hero: boolean; metrics: boolean; partners: boolean; benefits: boolean; excellence: boolean;
@@ -7068,7 +7078,19 @@ export default function ASAdmin() {
     typeof window !== "undefined" ? (sessionStorage.getItem("azari_admin_key") ?? "") : ""
   );
   const [authError, setAuthError] = useState("");
-  const [tab, setTab] = useState<Tab>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTabState] = useState<Tab>(() => {
+    const fromUrl = searchParams.get("tab");
+    return isTab(fromUrl) ? fromUrl : "overview";
+  });
+  const setTab = (id: Tab) => {
+    setTabState(id);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", id);
+      return next;
+    }, { replace: true });
+  };
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLight, setIsLight] = useState<boolean>(() =>
     typeof window !== "undefined" ? localStorage.getItem("azari-admin-theme") === "light" : false
