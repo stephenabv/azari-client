@@ -1,0 +1,171 @@
+// Partners strip — centered row of logos between metrics and benefits
+//
+// Gap is driven by --dynamic-gap, set by ResizeObserver in the component.
+// Items-per-row on narrow containers is handled by CSS container queries.
+
+.as-partners {
+  container-type: inline-size;
+  container-name: partners-section;
+  width: 100%;
+  padding: 28px 0 32px;
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 0.75s ease,
+    transform 0.75s ease;
+
+  &.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.as-partners-label {
+  text-align: center;
+  font-family: "Outfit", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+  margin: 0 0 18px;
+  padding: 0 24px;
+}
+
+.as-partners-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  row-gap: 12px;
+  // --dynamic-gap is written by ResizeObserver; fallback covers the gap before first observation
+  column-gap: var(--dynamic-gap, 44px);
+  padding: 0 24px;
+}
+
+.as-partners-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+// ─── Container queries: items per row ──────────────────────────────────────────
+// These respond to the actual rendered width of the section, not the viewport,
+// so they stay correct under zoom changes, sidebar layouts, and window resizing.
+
+@container partners-section (max-width: 420px) {
+  // Narrow portrait phones: one logo per row, centred
+  .as-partners-item {
+    flex: 0 0 100%;
+  }
+}
+
+@container partners-section (min-width: 421px) and (max-width: 640px) {
+  // Wider phones and small landscape: two logos per row
+  // flex-basis accounts for exactly one column-gap between the two items
+  .as-partners-item {
+    flex: 0 0 calc(50% - var(--dynamic-gap, 44px) / 2);
+  }
+}
+
+// ─── Shared elements ───────────────────────────────────────────────────────────
+
+.as-partners-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 0.25s ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+    outline: none;
+  }
+}
+
+// max-height caps all logos at the same visual ceiling; width/height: auto
+// preserves the natural aspect ratio regardless of source dimensions.
+.as-partners-logo {
+  max-height: 40px;
+  height: auto;
+  width: auto;
+  display: block;
+  filter: grayscale(1) brightness(1.2);
+  transition: filter 0.3s ease;
+
+  .as-partners-link:hover &,
+  .as-partners-link:focus-visible & {
+    filter: grayscale(0) brightness(1);
+  }
+}
+
+// Text fallback when no logo is uploaded
+.as-partners-name {
+  font-family: "Outfit", sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  transition: color 0.2s ease;
+
+  .as-partners-link:hover &,
+  .as-partners-link:focus-visible & {
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+// ─── Responsive ────────────────────────────────────────────────────────────────
+// Column gap is NOT overridden here — ResizeObserver already computes the right
+// value for every container width including these breakpoints.
+// These rules only adjust spacing around the section and element dimensions.
+
+@media (max-width: 768px) {
+  .as-partners {
+    padding: 24px 0 28px;
+  }
+
+  .as-partners-track {
+    padding: 0 16px;
+    row-gap: 10px;
+  }
+
+  .as-partners-logo {
+    max-height: 32px;
+  }
+
+  .as-partners-name {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .as-partners {
+    padding: 20px 0 24px;
+  }
+
+  .as-partners-track {
+    padding: 0 12px;
+    row-gap: 8px;
+  }
+
+  .as-partners-logo {
+    max-height: 26px;
+  }
+
+  .as-partners-name {
+    font-size: 13px;
+  }
+}
+
+// Honour reduced-motion: skip entrance animation, always show
+@media (prefers-reduced-motion: reduce) {
+  .as-partners {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}

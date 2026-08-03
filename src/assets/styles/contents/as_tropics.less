@@ -34,7 +34,7 @@ section.as-tropics-section {
   max-width: 560px;
   font-size: 29px;
   font-weight: 400;
-  text-align: justify;
+  text-align: left;
   line-height: 120%;
 }
 
@@ -203,14 +203,17 @@ section.as-tropics-section {
   height: var(--bar-height);
   border-radius: 2px;
   flex-shrink: 0;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.45s ease;
 }
 
-.as-performance-bars.is-animated span {
+.as-performance-bars span.active {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s ease;
+}
+
+.as-performance-bars.is-animated span.active {
   transform: scaleX(1);
-  transition-delay: calc(var(--bar-index) * 0.04s);
+  transition-delay: var(--bar-delay);
 }
 
 .as-performance-percentage {

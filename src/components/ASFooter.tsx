@@ -140,7 +140,7 @@ export default function ASFooter() {
             </a>
 
             <span>
-              © {new Date().getFullYear()} Azari.Solar. All Rights Reserved.
+              © {new Date().getFullYear()} Azari Solar. All Rights Reserved.
             </span>
           </div>
         </div>

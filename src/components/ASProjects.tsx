@@ -1,5 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
+import { useSeoMeta } from "../hooks/useSeoMeta";
+import ASImgLoader from "./ASImgLoader";
+import logoAnimated from "../assets/animations/logo-animated.svg";
 
 type ProjectCategory =
   | "All Projects"
@@ -28,41 +32,66 @@ const filters: ProjectCategory[] = [
   "Industrial Projects",
 ];
 
+function getYouTubeThumbnail(url?: string): string | null {
+  if (!url) return null;
+  const ytWatch = url.match(/youtube\.com\/watch\?.*v=([\w-]+)/);
+  if (ytWatch) return `https://img.youtube.com/vi/${ytWatch[1]}/maxresdefault.jpg`;
+  const ytShort = url.match(/youtu\.be\/([\w-]+)/);
+  if (ytShort) return `https://img.youtube.com/vi/${ytShort[1]}/maxresdefault.jpg`;
+  return null;
+}
+
+function getYouTubeFallbackThumbnail(src: string): string | null {
+  if (!src.includes('img.youtube.com')) return null;
+  if (src.includes('maxresdefault')) return src.replace('maxresdefault', 'mqdefault');
+  return null;
+}
+
 function apiToProject(p: ApiProject): Project {
   const filter: ProjectCategory[] = ["All Projects", `${p.category} Projects` as ProjectCategory];
   if (p.isRecent) filter.push("Recent Projects");
-  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: p.imageUrl, filter };
+  const thumbnail = getYouTubeThumbnail(p.videoUrl);
+  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
 }
 
 export default function ASProjects() {
+  useSeoMeta({
+    title: "Solar Projects in Bohol, Philippines",
+    description: "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
+    canonical: "https://azari.solar/projects",
+  });
+  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProjects().then((data) => {
-      setProjects(data.map(apiToProject));
-    });
+    fetchProjects()
+      .then((data) => setProjects(data.map(apiToProject)))
+      .finally(() => setLoading(false));
   }, []);
 
   const activeIndex = filters.indexOf(activeFilter);
 
   const filterRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const filterRafRef = useRef<number>(0);
   const [indicatorStyle, setIndicatorStyle] = useState({
     width: 0,
     x: 0,
   });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const activeButton = filterRefs.current[activeIndex];
-
     if (!activeButton) return;
-
-    setIndicatorStyle({
-      width: activeButton.offsetWidth,
-      x: activeButton.offsetLeft,
+    cancelAnimationFrame(filterRafRef.current);
+    filterRafRef.current = requestAnimationFrame(() => {
+      const w = activeButton.offsetWidth;
+      const x = activeButton.offsetLeft;
+      setIndicatorStyle({ width: w, x });
     });
+    return () => cancelAnimationFrame(filterRafRef.current);
   }, [activeIndex]);
 
   const filteredProjects = useMemo(() => {
@@ -82,7 +111,7 @@ export default function ASProjects() {
     <section className="as-projects-section">
       <div className="as-projects-header">
         <h2 className="as-projects-title">
-          Our Clients journey to <span>Energy Independence</span>
+          Our Solar Installations Portfolio
         </h2>
 
         <p className="as-projects-description">
@@ -116,21 +145,51 @@ export default function ASProjects() {
         ))}
       </div>
 
-      {filteredProjects.length > 0 ? (
+      {loading ? (
+        <div className="as-projects-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="as-project-card-skeleton" aria-hidden="true">
+              <div className="as-project-skeleton-image">
+                <img src={logoAnimated} alt="" className="as-project-skeleton-logo" />
+              </div>
+              <div className="as-project-skeleton-body">
+                <div className="as-project-skeleton-line as-project-skeleton-line--short" />
+                <div className="as-project-skeleton-line" />
+                <div className="as-project-skeleton-line as-project-skeleton-line--med" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredProjects.length > 0 ? (
         <div className="as-projects-grid">
           {filteredProjects.map((project, index) => (
             <article
               className="as-project-card"
               key={project.id}
-              style={{ animationDelay: `${index * 90}ms` }}
+              style={{ animationDelay: `${index * 90}ms`, cursor: "pointer" }}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(`/projects/${project.id}`)}
+              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/projects/${project.id}`); }}
             >
-              <img src={project.image} alt={project.title} />
+              <ASImgLoader
+                src={project.image}
+                alt={project.title}
+                wrapClassName="as-img-loader-fill"
+                onError={(e) => {
+                  const fallback = getYouTubeFallbackThumbnail(e.currentTarget.src);
+                  if (fallback) e.currentTarget.src = fallback;
+                }}
+              />
               <div className="as-project-card-shade" />
 
               <div className="as-project-card-content">
                 <div className="as-project-card-top">
                   <p>{project.category}</p>
-                  <span className="as-project-arrow">↗</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
+                    <line x1="5" y1="19" x2="19" y2="5" />
+                    <polyline points="5 5 19 5 19 19" />
+                  </svg>
                 </div>
 
                 <h3>{project.title}</h3>

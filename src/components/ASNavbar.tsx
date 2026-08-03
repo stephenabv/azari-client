@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
+import { useContent } from "../hooks/useContent";
 
 import lightModeToggle from "../assets/images/light-toggle-v2.png";
 import darkModeToggle from "../assets/images/dark-toggle-v2.png";
@@ -22,34 +23,42 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const location = useLocation();
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const indicatorRafRef = useRef<number>(0);
 
-  const tabs = ["Home", "Projects", "Technology"];
+  const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
+  const showPackages = pageVis.packages !== false;
+
+  const tabs = ["Home", "Client Journey", "Projects", ...(showPackages ? ["Packages"] : []), "System Calculator"];
 
   const tabRoutes: Record<string, string> = {
     Home: "/",
     Projects: "/projects",
-    Technology: "/technology",
+    Packages: "/packages",
+    "Client Journey": "/client-journey",
+    "System Calculator": "/solar-calculator",
   };
 
   const updateIndicator = (tab: string) => {
     if (!tab) return;
+    cancelAnimationFrame(indicatorRafRef.current);
+    indicatorRafRef.current = requestAnimationFrame(() => {
+      const activeEl = tabRefs.current[tab];
+      const menuEl = navMenuRef.current;
 
-    const activeEl = tabRefs.current[tab];
-    const menuEl = navMenuRef.current;
+      if (activeEl && menuEl) {
+        const menuRect = menuEl.getBoundingClientRect();
+        const activeRect = activeEl.getBoundingClientRect();
 
-    if (activeEl && menuEl) {
-      const menuRect = menuEl.getBoundingClientRect();
-      const activeRect = activeEl.getBoundingClientRect();
+        const sidePadding = 2;
+        const width = activeRect.width + sidePadding * 2;
+        const center = activeRect.left - menuRect.left + activeRect.width / 2;
 
-      const sidePadding = 2;
-      const width = activeRect.width + sidePadding * 2;
-      const center = activeRect.left - menuRect.left + activeRect.width / 2;
-
-      setIndicatorStyle({
-        left: center - width / 2,
-        width,
-      });
-    }
+        setIndicatorStyle({
+          left: center - width / 2,
+          width,
+        });
+      }
+    });
   };
 
   useEffect(() => {
@@ -83,12 +92,15 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     };
 
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(indicatorRafRef.current);
+    };
   }, [activeTab]);
 
   useEffect(() => {
     if (location.pathname === "/" && location.hash === "#calculator") {
-      setActiveTab("Home");
+      setActiveTab("");
 
       setTimeout(() => {
         const calculatorSection = document.getElementById("calculator");
@@ -131,37 +143,23 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   }, []);
 
   const handleTabClick = (tab: string) => {
+    setIsMobileMenuOpen(false);
     setActiveTab(tab);
-    setIsMobileMenuOpen(false);
-
-    if (tab === "Home" && location.pathname === "/") {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-      return;
-    }
-
     navigate(tabRoutes[tab]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleGetQuoteClick = () => {
-    setIsMobileMenuOpen(false);
-    navigate("/quotation-engine");
   };
 
   return (
     <nav className="ASNavbar" ref={navbarRef}>
       <div
         className="nav-logo"
-        onClick={() => handleTabClick("Home")}
+        onClick={() => { setActiveTab("Home"); navigate("/"); }}
         role="button"
+        aria-label="Azari Solar"
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            handleTabClick("Home");
+            setActiveTab("Home"); navigate("/");
           }
         }}
       />
@@ -192,10 +190,6 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
       </ul>
 
       <div className="nav-actions">
-        <button className="getQuote-btn" onClick={handleGetQuoteClick}>
-          Get Quote
-        </button>
-
         <button
           type="button"
           className="theme-toggle-btn"
@@ -210,6 +204,8 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
             src={theme === "dark-theme" ? darkModeToggle : lightModeToggle}
             alt="Theme toggle"
             className="theme-toggle-img"
+            width={84}
+            height={76}
           />
         </button>
 

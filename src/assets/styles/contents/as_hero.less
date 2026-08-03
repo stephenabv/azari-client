@@ -24,19 +24,17 @@
 
 .animate-video {
   visibility: visible;
+  will-change: transform, opacity;
   animation: heroVideoFade 1.2s ease forwards;
 }
 
 @keyframes heroVideoFade {
-  0% {
+  from {
     opacity: 0;
-    visibility: visible;
     transform: scale(1.05);
   }
-
-  100% {
+  to {
     opacity: 1;
-    visibility: visible;
     transform: scale(1);
   }
 }
@@ -143,11 +141,12 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(40px);
+  will-change: transform, opacity;
 }
 
 .animate-in {
   visibility: visible;
-  animation: heroFadeUp 0.9s ease forwards;
+  animation: heroFadeUp 0.6s ease forwards;
 }
 
 .delay-1 {
@@ -163,15 +162,12 @@
 }
 
 @keyframes heroFadeUp {
-  0% {
+  from {
     opacity: 0;
-    visibility: visible;
     transform: translateY(40px);
   }
-
-  100% {
+  to {
     opacity: 1;
-    visibility: visible;
     transform: translateY(0);
   }
 }
@@ -221,6 +217,7 @@
   .ASHero {
     min-height: 100svh;
     height: auto;
+    background: linear-gradient(160deg, #0b1322 0%, #111827 60%, #0f172a 100%);
   }
 
   .hero_banner_overlay {

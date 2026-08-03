@@ -1,0 +1,24 @@
+# Azari Solar
+
+> Azari Solar installs affordable solar panel systems for residential and commercial properties in Bohol and across the Philippines. Based in Tagbilaran City, Bohol.
+
+## Pages
+
+- [Home](https://azari.solar/): Overview of solar services, client testimonials, savings calculator, and project showcase
+- [Packages](https://azari.solar/packages): Solar system packages — Hybrid, Grid-Tie, and Off-Grid — with pricing and specifications
+- [Projects](https://azari.solar/projects): Gallery of completed solar installations across the Philippines
+- [Client Journey](https://azari.solar/client-journey): Map and testimonials from clients who have installed solar with Azari
+- [Solar Calculator](https://azari.solar/solar-calculator): Free tool to estimate solar savings based on monthly electricity bill
+
+## Contact
+
+- Phone: +63-961-618-3465
+- Location: Tagbilaran City, Bohol, Philippines
+- Service area: Bohol, Visayas, and nationwide Philippines
+
+## Services
+
+- Hybrid solar systems (with battery backup)
+- Grid-tied (on-grid) solar systems with Net-Metering
+- Off-grid solar systems
+- 25-year panel warranty, certified PEE engineering, turnkey installation

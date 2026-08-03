@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
+import { useSeoMeta } from "../hooks/useSeoMeta";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
@@ -18,15 +19,19 @@ import {
   ELECTRIC_RATE_CONFIG,
 } from "../models/calculation";
 import type { EngineResult, SystemPurpose, SystemType } from "../models/calculation";
+import { SOLAR_PACKAGES, fetchPackagesFromApi, type SolarPackage } from "../models/packages";
 import type {
   QuotationAppliance,
   UploadedBill,
   ProposalRequestFormData,
 } from "../models/quotation";
 
-import residentialIcon from "../assets/icons/icon-resident.svg";
-import commercialIcon from "../assets/icons/icon-commercial.svg";
-import industrialIcon from "../assets/icons/icon-industrial.svg";
+import residentialIcon from "../assets/logos/quotation-page/residential.svg";
+import residentialSelectedIcon from "../assets/logos/quotation-page/residential-selected.svg";
+import commercialIcon from "../assets/logos/quotation-page/commercial.svg";
+import commercialSelectedIcon from "../assets/logos/quotation-page/commercial-selected.svg";
+import industrialIcon from "../assets/logos/quotation-page/indurstrial.svg";
+import industrialSelectedIcon from "../assets/logos/quotation-page/industrial-selected.svg";
 
 type ModalType =
   | "add-appliance"
@@ -52,21 +57,29 @@ const propertyTypes = [
   {
     title: "Residential",
     icon: residentialIcon,
+    selectedIcon: residentialSelectedIcon,
     description: "Standard detached housing or townhouses. Optimized for rooftop efficiency.",
   },
   {
     title: "Commercial",
     icon: commercialIcon,
+    selectedIcon: commercialSelectedIcon,
     description: "Office buildings, retail spaces, and warehouses. Higher load capacity sizing.",
   },
   {
     title: "Industrial",
     icon: industrialIcon,
+    selectedIcon: industrialSelectedIcon,
     description: "Manufacturing plants and large facilities. High-voltage integration focused.",
   },
 ];
 
 const systemPurposes: Array<{ id: SystemPurpose; label: string; description: string }> = [
+  {
+    id: "zero-bill",
+    label: "Zero Bill / Off-Grid",
+    description: "Eliminate your electricity bill completely. Covers full day and night load with solar and battery.",
+  },
   {
     id: "monthly-savings",
     label: "Monthly Savings",
@@ -77,22 +90,12 @@ const systemPurposes: Array<{ id: SystemPurpose; label: string; description: str
     label: "Peak Shaving",
     description: "Reduce peak demand charges. Battery discharges during peak hours to lower your maximum grid draw.",
   },
-  {
-    id: "zero-bill",
-    label: "Zero Bill / Off-Grid",
-    description: "Eliminate your electricity bill completely. Covers full day and night load with solar and battery.",
-  },
 ];
 
 function formatNumber(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-function formatCompactPeso(value: number) {
-  if (value >= 1_000_000) return `₱${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `₱${Math.round(value / 1_000)}k`;
-  return `₱${formatNumber(value)}`;
-}
 
 function formatFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
@@ -129,9 +132,7 @@ function useNumericInput(initial: number) {
   return { num, str, handleChange, setNum, setStr };
 }
 
-// ─── Module-level sub-components ─────────────────────────────────────────────
-// Defined outside ASQuotationEngine so React never unmounts/remounts them on
-// parent re-renders (avoids re-animation and slider interruptions).
+
 
 function ElectricRateField({
   num,
@@ -203,8 +204,8 @@ function ElectricRateField({
               onChange={(e) => handleTextChange(e.target.value)}
               onBlur={handleBlur}
             />
+            <small>/ kWh</small>
           </div>
-          <small>/ kWh</small>
         </div>
       </div>
       {error && <p className="as-rate-error">{error}</p>}
@@ -308,43 +309,50 @@ function LoadProfileSection({
 }
 
 export default function ASQuotationEngine() {
+  useSeoMeta({
+    title: "Free Solar Savings Calculator — Bohol, Philippines",
+    description: "Estimate your solar system size and monthly savings with our free solar calculator. Enter your electricity bill to find the right package — serving Bohol & the Philippines.",
+    canonical: "https://azari.solar/solar-calculator",
+  });
   const location = useLocation();
   const quoteState = (location.state ?? {}) as QuoteNavigationState;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ─── Bill toggle (global) ─────────────────────────────────────────────────
+
   const [hasBill, setHasBill] = useState(true);
 
-  // ─── System purpose & type ────────────────────────────────────────────────
+
   const [systemPurpose, setSystemPurpose] = useState<SystemPurpose>("monthly-savings");
   const [systemType, setSystemType] = useState<SystemType>("hybrid");
 
-  // ─── Property classification ──────────────────────────────────────────────
+
   const [selectedProperty, setSelectedProperty] = useState("Residential");
 
-  // ─── Modal & UI state ─────────────────────────────────────────────────────
+
   const [modal, setModal] = useState<ModalType>(null);
   const [formError, setFormError] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [peakDurationError, setPeakDurationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState<EngineResult | null>(null);
+  const [packageCatalog, setPackageCatalog] = useState<SolarPackage[]>(SOLAR_PACKAGES);
 
-  // ─── Appliances ───────────────────────────────────────────────────────────
+
   const [appliances, setAppliances] = useState<QuotationAppliance[]>([]);
   const [editingAppliance, setEditingAppliance] = useState<QuotationAppliance | null>(null);
   const [uploadedBill, setUploadedBill] = useState<UploadedBill | null>(null);
 
-  // ─── Monthly Savings inputs ───────────────────────────────────────────────
-  const savingsTarget = useNumericInput(quoteState.estimatedMonthlySavings ?? 0);
-  const electricRateMS = useNumericInput(quoteState.electricRate ?? 0);
 
-  // ─── Peak Shaving inputs ──────────────────────────────────────────────────
+  const savingsTarget = useNumericInput(quoteState.estimatedMonthlySavings ?? 0);
+  const electricRateMS = useNumericInput(quoteState.electricRate ?? ELECTRIC_RATE_CONFIG.min);
+
+
   const peakPower = useNumericInput(0);
   const allowedGridPower = useNumericInput(0);
   const peakDuration = useNumericInput(0);
 
-  // ─── Zero Bill inputs ─────────────────────────────────────────────────────
+
   const monthlyBillZB = useNumericInput(
     quoteState.monthlyBill ?? 5000
   );
@@ -354,14 +362,14 @@ export default function ASQuotationEngine() {
 
   const closeModal = () => setModal(null);
 
-  // Reset zero-bill purpose when non-Residential property is selected
+
   useEffect(() => {
     if (systemPurpose === "zero-bill" && selectedProperty !== "Residential") {
       setSystemPurpose("monthly-savings");
     }
   }, [selectedProperty, systemPurpose]);
 
-  // Lock body scroll when a modal is open
+
   useEffect(() => {
     if (!modal) return;
 
@@ -387,25 +395,28 @@ export default function ASQuotationEngine() {
     };
   }, [modal]);
 
-  // ─── Computed load metrics ────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetchPackagesFromApi().then(setPackageCatalog).catch(() => { });
+  }, []);
+
   const { duec, nwec, totalDailyUsageWh } = useMemo(
     () => computeDailyLoadMetrics(appliances),
     [appliances]
   );
 
-  // ─── Engine result ────────────────────────────────────────────────────────
   const engineResult = useMemo((): EngineResult | null => {
     if (systemPurpose === "monthly-savings") {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
       if (dpt <= 0) return null;
       return systemType === "hybrid"
-        ? calculateMonthlySavingsHybrid(dpt, duec, nwec)
-        : calculateMonthlySavingsGridTied(dpt);
+        ? calculateMonthlySavingsHybrid(dpt, duec)
+        : calculateMonthlySavingsGridTied(dpt, duec);
     }
 
     if (systemPurpose === "peak-shaving") {
       const gap = peakPower.num - allowedGridPower.num;
-      if (peakPower.num <= 0 || gap <= 0 || peakDuration.num <= 0) return null;
+      if (peakPower.num <= 0 || gap <= 0 || peakDuration.num <= 0 || peakDuration.num > 24) return null;
       return calculatePeakShaving(peakPower.num, allowedGridPower.num, peakDuration.num);
     }
 
@@ -419,7 +430,6 @@ export default function ASQuotationEngine() {
         if (monthlyBillZB.num <= 0 || electricRateZB.num <= 0) return null;
         return calculateZeroBillWithLoadProfile(monthlyBillZB.num, electricRateZB.num, nwec);
       }
-      // Load profile only
       if (!hasProfile) return null;
       return calculateZeroBillLoadOnly(duec, nwec);
     }
@@ -433,7 +443,9 @@ export default function ASQuotationEngine() {
     duec, nwec, appliances.length,
   ]);
 
-  // ─── Appliance handlers ───────────────────────────────────────────────────
+
+
+
   const handleApplianceSubmit = (
     item: Omit<QuotationAppliance, "id" | "usage" | "dayUsage" | "nightUsage">
   ) => {
@@ -472,13 +484,11 @@ export default function ASQuotationEngine() {
     closeModal();
   };
 
-  const openAddAppliance = useCallback(() => setModal("add-appliance"), []);
-
   const handleRemoveAppliance = useCallback((id: string) => {
     setAppliances((current) => current.filter((a) => a.id !== id));
   }, []);
 
-  // ─── Bill upload handlers ─────────────────────────────────────────────────
+
   const handleFileUpload = (file?: File) => {
     setUploadError("");
     if (!file) return;
@@ -509,16 +519,13 @@ export default function ASQuotationEngine() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // ─── Validation ───────────────────────────────────────────────────────────
+
   const validateBeforeProposal = (): string => {
     if (!selectedProperty) return "Please select a property classification.";
 
     if (systemPurpose === "monthly-savings") {
       if (savingsTarget.num <= 0) return "Please enter a monthly savings target.";
       if (electricRateMS.num <= 0) return "Please enter a valid electricity rate.";
-      if (systemType === "hybrid" && appliances.length === 0) {
-        return "Add your appliances so we can size the battery for your night loads.";
-      }
     }
 
     if (systemPurpose === "peak-shaving") {
@@ -526,7 +533,7 @@ export default function ASQuotationEngine() {
       if (peakPower.num <= allowedGridPower.num) {
         return "Peak power must be greater than the allowed grid power.";
       }
-      if (peakDuration.num <= 0) return "Please enter a valid peak duration.";
+      if (peakDuration.num <= 0 || peakDuration.num > 24) return "Please enter a valid peak duration (between 0 and 24 hours).";
     }
 
     if (systemPurpose === "zero-bill") {
@@ -597,13 +604,20 @@ export default function ASQuotationEngine() {
         return;
       }
 
+      // Rate-limit banner is already showing; close the proposal modal so the
+      // user can see the countdown without a system-error dialog on top of it.
+      if (result.rateLimited) {
+        closeModal();
+        return;
+      }
+
       setModal("system-error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ─── Section content per purpose ──────────────────────────────────────────
+
 
   const monthlySavingsContent = (
     <>
@@ -613,7 +627,7 @@ export default function ASQuotationEngine() {
           <p>System Type</p>
         </div>
 
-        <div className="as-quote-mode-toggle">
+        <div className="as-quote-mode-toggle" data-active={systemType === "hybrid" ? 0 : 1}>
           <button
             type="button"
             className={systemType === "hybrid" ? "is-active" : ""}
@@ -674,7 +688,6 @@ export default function ASQuotationEngine() {
 
       <LoadProfileSection
         label="06"
-        required={systemType === "hybrid"}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
         onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
@@ -740,23 +753,34 @@ export default function ASQuotationEngine() {
                 onChange={(e) => {
                   peakDuration.handleChange(e.target.value);
                   setFormError("");
+                  setPeakDurationError(
+                    e.target.value === "" || e.target.value === "."
+                      ? ""
+                      : Number(e.target.value) > 24
+                        ? "Maximum is 24 hours."
+                        : Number(e.target.value) <= 0
+                          ? "Must be greater than 0."
+                          : ""
+                  );
+                }}
+                onBlur={() => {
+                  if (peakDuration.num > 24) {
+                    peakDuration.handleChange("24");
+                    setPeakDurationError("");
+                  } else if (peakDuration.num <= 0 && peakDuration.str !== "") {
+                    peakDuration.handleChange("");
+                    setPeakDurationError("");
+                  }
                 }}
               />
               <small>hrs</small>
             </div>
-            <p>How many hours per day peak demand charges apply.</p>
+            <p>Decimals count as minutes (e.g. 1.5 = 1h 30m). Max 24 hrs.</p>
+            {peakDurationError && <p className="as-rate-error">{peakDurationError}</p>}
           </div>
         </div>
       </div>
 
-      <LoadProfileSection
-        label="04"
-        appliances={appliances}
-        totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
-        onRemove={handleRemoveAppliance}
-        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
-      />
     </>
   );
 
@@ -861,7 +885,6 @@ export default function ASQuotationEngine() {
 
       <LoadProfileSection
         label={hasBill ? "05" : "03"}
-        required={!hasBill}
         appliances={appliances}
         totalDailyUsageWh={totalDailyUsageWh}
         onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
@@ -871,70 +894,49 @@ export default function ASQuotationEngine() {
     </>
   );
 
-  // ─── Summary panel ────────────────────────────────────────────────────────
-
-  const recommendedSystemLabel = engineResult
-    ? `~${engineResult.solarKwp.toFixed(1)} kWp ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
-    : "—";
-
-  const batterySizeLabel = engineResult
-    ? engineResult.storageKwh > 0
-      ? `${engineResult.storageKwh} kWh`
-      : "No Battery"
-    : "—";
-
-  const savingsSummaryValue =
-    systemPurpose === "monthly-savings"
-      ? savingsTarget.num
-      : systemPurpose === "zero-bill" && hasBill
-        ? monthlyBillZB.num
-        : null;
-
-  const monthlySavingsLabel =
-    savingsSummaryValue !== null && savingsSummaryValue > 0
-      ? formatCompactPeso(savingsSummaryValue)
-      : "—";
-
-  // ─── Modal layer ──────────────────────────────────────────────────────────
-
   const modalLayer =
     modal && typeof document !== "undefined"
       ? createPortal(
-          <>
-            {modal === "add-appliance" && (
-              <AddApplianceModal
-                onClose={() => { setEditingAppliance(null); closeModal(); }}
-                onSubmit={handleApplianceSubmit}
-                initial={editingAppliance ?? undefined}
-              />
-            )}
+        <>
+          {modal === "add-appliance" && (
+            <AddApplianceModal
+              onClose={() => { setEditingAppliance(null); closeModal(); }}
+              onSubmit={handleApplianceSubmit}
+              initial={editingAppliance ?? undefined}
+            />
+          )}
 
-            {modal === "request-proposal" && (
-              <RequestProposalModal
-                onClose={closeModal}
-                onSubmit={handleSubmitProposal}
-                isSubmitting={isSubmitting}
-              />
-            )}
+          {modal === "request-proposal" && (
+            <RequestProposalModal
+              onClose={closeModal}
+              onSubmit={handleSubmitProposal}
+              isSubmitting={isSubmitting}
+            />
+          )}
 
-            {modal === "submitted" && (
-              <ProposalSubmittedModal onClose={closeModal} engineResult={submittedResult} />
-            )}
+          {modal === "submitted" && (
+            <ProposalSubmittedModal
+              onClose={closeModal}
+              engineResult={submittedResult}
+              propertyType={selectedProperty}
+              catalog={packageCatalog}
+            />
+          )}
 
-            {modal === "system-error" && <ASSystemError onClose={closeModal} />}
-          </>,
-          document.body
-        )
+          {modal === "system-error" && <ASSystemError onClose={closeModal} />}
+        </>,
+        document.body
+      )
       : null;
 
   return (
     <section className="as-quote-page">
       <div className="as-quote-container">
         <header className="as-quote-header">
-          <h1>Technical Quotation Engine</h1>
+          <h1>Solar Power System Calculator</h1>
           <p>Configure your institutional-grade solar system.</p>
 
-          <div className="as-quote-mode-toggle as-bill-toggle">
+          <div className="as-quote-mode-toggle as-bill-toggle" data-active={hasBill ? 0 : 1}>
             <button
               type="button"
               className={hasBill ? "is-active" : ""}
@@ -976,11 +978,13 @@ export default function ASQuotationEngine() {
                       }
                     }}
                   >
-                    <span className="as-property-icon">
-                      <img src={item.icon} alt={item.title} />
-                    </span>
-                    <span className="as-property-check" />
-                    <h3>{item.title}</h3>
+                    <div className="as-property-bg">
+                      <span className="as-property-icon">
+                        <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
+                      </span>
+                      <span className="as-property-check" />
+                    </div>
+                    <span className="as-card-title">{item.title}</span>
                     <p>{item.description}</p>
                   </button>
                 ))}
@@ -995,31 +999,24 @@ export default function ASQuotationEngine() {
               </div>
 
               <div className="as-property-grid">
-                {systemPurposes.map((item) => {
-                  const isZeroBillUnavailable =
-                    item.id === "zero-bill" && selectedProperty !== "Residential";
-                  return (
+                {systemPurposes
+                  .filter((item) => !(item.id === "zero-bill" && selectedProperty !== "Residential"))
+                  .map((item) => (
                     <button
                       key={item.id}
                       type="button"
-                      disabled={isZeroBillUnavailable}
-                      className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""} ${isZeroBillUnavailable ? "is-disabled" : ""}`}
+                      className={`as-property-card ${systemPurpose === item.id ? "is-selected" : ""}`}
                       onClick={() => {
-                        if (isZeroBillUnavailable) return;
                         setSystemPurpose(item.id);
                         setFormError("");
                         setAppliances([]);
                       }}
                     >
                       <span className="as-property-check" />
-                      <h3>{item.label}</h3>
+                      <span className="as-card-title">{item.label}</span>
                       <p>{item.description}</p>
-                      {isZeroBillUnavailable && (
-                        <small className="as-purpose-restricted">Residential only</small>
-                      )}
                     </button>
-                  );
-                })}
+                  ))}
               </div>
             </div>
 
@@ -1036,14 +1033,25 @@ export default function ASQuotationEngine() {
           {/* Summary panel */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p>Recommended System</p>
-              <h2>{recommendedSystemLabel}</h2>
+              <p className="as-summary-title">Recommended System Specifications</p>
+              <p>Inverter Capacity and Types</p>
+              <p className="as-summary-value">
+                {engineResult
+                  ? `${engineResult.inverterKw}kW ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
+                  : "—"}
+              </p>
 
-              <p>Battery Size</p>
-              <h2>{batterySizeLabel}</h2>
+              <p>Solar Panel Capacity</p>
+              <p className="as-summary-value">
+                {engineResult ? `~${engineResult.solarKwp.toFixed(1)} kWp` : "—"}
+              </p>
 
-              <p>Monthly Savings</p>
-              <h2>{monthlySavingsLabel}</h2>
+              <p>Storage Capacity</p>
+              <p className="as-summary-value">
+                {engineResult
+                  ? engineResult.storageKwh > 0 ? `${engineResult.storageKwh} kWh` : "No Battery"
+                  : "—"}
+              </p>
 
               <button
                 type="button"

@@ -1,28 +1,37 @@
-// ─── Business constants ───────────────────────────────────────────────────────
 
-/** Core solar engineering constants shared across the entire app. */
+
+// Base scalars — every production and sizing formula derives from these two.
+const _PSH = 5;    // peak sun hours per day (Philippines tropical average)
+const _ETA = 0.8;  // derate factor / Performance Ratio (PR) — accounts for wiring, temperature, and inverter losses
+const _DPM = 30;   // days per month
+
 export const SOLAR_CONSTANTS = {
-  /** Average monthly solar production per kWp — Metro Manila irradiance baseline (kWh/kWp/month) */
-  averageSolarProductionPerKwp: 120,
-  /** Fraction of electricity bill effectively offset by the system */
+
+  // kWh a 1 kWp system yields per day: PSH × η = 5 × 0.8 = 4.0
+  // Used as the denominator in ALL panel-sizing formulas:
+  //   systemKwp = dailyTarget (kWh) / dailyYieldPerKwp
+  dailyYieldPerKwp: _PSH * _ETA,                        // 4.0
+
+  // kWh a 1 kWp system yields per month: dailyYield × 30 = 120
+  averageSolarProductionPerKwp: _PSH * _ETA * _DPM,    // 120
+
   estimatedSavingsRate: 0.87,
-  /** Projection window used in the quick-calculator display (months) */
+
   calculatorProjectionMonths: 12,
-  /** Full ROI projection window used in quotation payloads — 12 years (months) */
+
   projectionMonths: 144,
-  /** Round-trip storage efficiency / appliance load derating factor */
-  systemEfficiency: 0.9,
-  /** Design safety margin multiplier for peak-shaving inverter sizing */
-  inverterSafetyFactor: 1.25,
-  /** Effective peak sun hours per day used for solar array sizing (hrs/day) */
-  peakSunHours: 4,
-  /** Assumed days per month for monthly kWh estimates */
-  daysPerMonth: 30,
-  /** Storage-to-solar ratio for bill-only zero-bill sizing (kWh battery per kWp solar) */
+
+  systemEfficiency: _ETA,    // 0.8 — derate factor / Performance Ratio (PR)
+
+  peakSunHours: _PSH,        // 5
+
+  daysPerMonth: _DPM,        // 30
+
   zeroBillStorageRatio: 3,
+
+  loadUsageFactor: 0.7,
 };
 
-/** Electricity rate slider / input bounds (₱/kWh). */
 export const ELECTRIC_RATE_CONFIG = {
   min: 8,
   max: 20,
@@ -30,7 +39,6 @@ export const ELECTRIC_RATE_CONFIG = {
   defaultValue: 11.25,
 };
 
-/** Monthly bill slider / input bounds (₱). */
 export const MONTHLY_BILL_CONFIG = {
   min: 3000,
   max: 200_000,
@@ -38,18 +46,13 @@ export const MONTHLY_BILL_CONFIG = {
   defaultValue: 3000,
 };
 
-/** Available discrete inverter sizes (kW). */
 export const INVERTER_STEPS: number[] = [3.6, 5, 6, 8, 10, 12, 16];
 
-/** Day / night boundary window used for load-profile scheduling (minutes from midnight). */
 export const DAY_BOUNDARY = {
-  startMinutes: 8 * 60,    // 08:00 → 480 min
-  endMinutes: 18 * 60,     // 18:00 → 1080 min
+  startMinutes: 8 * 60,
+  endMinutes: 18 * 60,
 };
 
-// ─── Day / night schedule helpers ─────────────────────────────────────────────
-
-/** Minutes of overlap between [startMin, endMin] and the daytime window. */
 export function minutesOverlapWithDay(startMin: number, endMin: number): number {
   return Math.max(
     0,
@@ -57,11 +60,6 @@ export function minutesOverlapWithDay(startMin: number, endMin: number): number 
   );
 }
 
-/**
- * Given an HH:MM from/to pair, returns how many hours fall within the
- * daytime window (08:00–18:00) and how many fall in the nighttime window.
- * Handles schedules that span midnight.
- */
 export function calculateDayNightHours(
   from: string,
   to: string
@@ -74,7 +72,7 @@ export function calculateDayNightHours(
   const fromMin = fh * 60 + fm;
   let toMin = th * 60 + tm;
 
-  if (toMin <= fromMin) toMin += 24 * 60; // spans midnight
+  if (toMin <= fromMin) toMin += 24 * 60;
 
   const totalMin = toMin - fromMin;
   let dayMin: number;
@@ -82,7 +80,7 @@ export function calculateDayNightHours(
   if (toMin <= 1440) {
     dayMin = minutesOverlapWithDay(fromMin, toMin);
   } else {
-    // Spans midnight: check both the pre-midnight and post-midnight segments.
+
     dayMin =
       minutesOverlapWithDay(fromMin, 1440) +
       minutesOverlapWithDay(0, toMin - 1440);
@@ -90,8 +88,6 @@ export function calculateDayNightHours(
 
   return { dayHours: dayMin / 60, nightHours: (totalMin - dayMin) / 60 };
 }
-
-// ─── Appliance load metrics ────────────────────────────────────────────────────
 
 type ApplianceLoadInput = {
   watts: number;
@@ -101,11 +97,6 @@ type ApplianceLoadInput = {
   usage: number;
 };
 
-/**
- * Aggregates an appliance list into daytime energy consumption (duec),
- * nighttime energy consumption (nwec), and raw total daily Wh.
- * The systemEfficiency factor accounts for wiring and conversion losses.
- */
 export function computeDailyLoadMetrics(appliances: ApplianceLoadInput[]): {
   duec: number;
   nwec: number;
@@ -115,19 +106,14 @@ export function computeDailyLoadMetrics(appliances: ApplianceLoadInput[]): {
   let nwec = 0;
   let totalDailyUsageWh = 0;
   for (const a of appliances) {
-    duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
-    nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.systemEfficiency) / 1000;
+
+    duec += (a.watts * a.quantity * a.dayHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
+    nwec += (a.watts * a.quantity * a.nightHours * SOLAR_CONSTANTS.loadUsageFactor) / 1000;
     totalDailyUsageWh += a.usage;
   }
   return { duec, nwec, totalDailyUsageWh };
 }
 
-// ─── System size formatting ────────────────────────────────────────────────────
-
-/**
- * Formats a raw kWp value for display. Automatically switches to MWp above 1 000 kWp.
- * @param precision decimal places for the numeric part (default 1; use 2 for payload data)
- */
 export function formatSystemSize(
   kWp: number,
   precision = 1
@@ -135,8 +121,6 @@ export function formatSystemSize(
   if (kWp >= 1000) return { value: (kWp / 1000).toFixed(precision), unit: "MWp" };
   return { value: kWp.toFixed(precision), unit: "kWp" };
 }
-
-// ─── Legacy types (kept for calculator backward-compat) ───────────────────────
 
 export type CalculationMode = "with-bill" | "no-bill";
 
@@ -200,6 +184,7 @@ export function calculateSolarEstimate({
         : 0
       : (totalDailyUsageWh * SOLAR_CONSTANTS.daysPerMonth) / 1000;
 
+  // systemSize = monthlyKwh / (PSH × η × 30) = monthlyKwh / averageSolarProductionPerKwp
   const rawSystemSize =
     formula.averageSolarProductionPerKwp > 0
       ? monthlyKwh / formula.averageSolarProductionPerKwp
@@ -220,8 +205,6 @@ export function calculateSolarEstimate({
   };
 }
 
-// ─── Engine types ─────────────────────────────────────────────────────────────
-
 export type SystemPurpose = "monthly-savings" | "peak-shaving" | "zero-bill";
 export type SystemType = "hybrid" | "grid-tied";
 
@@ -231,8 +214,6 @@ export type EngineResult = {
   storageKwh: number;
   systemType: SystemType;
 };
-
-// ─── Rounding helpers ─────────────────────────────────────────────────────────
 
 export function roundInverterSize(rawKw: number): number {
   if (rawKw <= 0) return INVERTER_STEPS[0];
@@ -244,54 +225,54 @@ export function roundInverterSize(rawKw: number): number {
 }
 
 export function roundStorageCapacity(rawKwh: number): number {
-  if (rawKwh <= 0) return 0;
+  if (rawKwh <= 0) return 5;
   return Math.ceil(rawKwh / 5) * 5;
 }
 
-// ─── Shared calculation primitives ────────────────────────────────────────────
-
-/** Daily peak time (kWh/day) from a monthly PHP amount and ₱/kWh rate. */
 export function computeDpt(amountPhp: number, electricRate: number): number {
   if (electricRate <= 0) return 0;
   return amountPhp / electricRate / SOLAR_CONSTANTS.daysPerMonth;
 }
 
+// kWp needed to cover a daily energy target (kWh/day).
+// Formula: kWp = dailyTarget / (PSH × η) = dailyTarget / dailyYieldPerKwp
 function solarFromDpt(dpt: number): number {
-  return Math.round((dpt / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  return Math.round((dpt / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
 }
 
-// ─── Monthly Savings path ─────────────────────────────────────────────────────
-
-export function calculateMonthlySavingsHybrid(dpt: number, nwec: number, duec = 0): EngineResult {
-  const solarKwp = solarFromDpt(Math.max(dpt, duec));
+export function calculateMonthlySavingsHybrid(dpt: number, duec = 0): EngineResult {
+  const solarKwp = dpt < duec
+    ? dpt / SOLAR_CONSTANTS.dailyYieldPerKwp
+    : solarFromDpt(Math.max(dpt, duec));
+  const storageKwh = dpt < duec
+    ? roundStorageCapacity(0)
+    : roundStorageCapacity((dpt - duec) / SOLAR_CONSTANTS.systemEfficiency);
   const inverterKw = roundInverterSize(solarKwp);
-  const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
 export function calculateMonthlySavingsGridTied(dpt: number, duec = 0): EngineResult {
-  const solarKwp = solarFromDpt(Math.max(dpt, duec));
+  const solarKwp = dpt < duec
+    ? dpt / SOLAR_CONSTANTS.dailyYieldPerKwp
+    : ((dpt - duec) / 2) + (duec / SOLAR_CONSTANTS.dailyYieldPerKwp);
   const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh: 0, systemType: "grid-tied" };
 }
-
-// ─── Peak Shaving path ────────────────────────────────────────────────────────
 
 export function calculatePeakShaving(
   peakPower: number,
   allowedGridPower: number,
   peakDuration: number
 ): EngineResult {
-  const rawInverter = SOLAR_CONSTANTS.inverterSafetyFactor * (peakPower - allowedGridPower);
+  const rawInverter = peakPower - allowedGridPower;
   const inverterKw = roundInverterSize(rawInverter);
   const storageKwh = roundStorageCapacity(
     (inverterKw * peakDuration) / SOLAR_CONSTANTS.systemEfficiency
   );
-  const solarKwp = Math.round((inverterKw / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  // kWp needed to recharge storage within one solar day
+  const solarKwp = Math.round((storageKwh / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
-
-// ─── Zero Bill paths ──────────────────────────────────────────────────────────
 
 export function calculateZeroBillBillOnly(
   monthlyBill: number,
@@ -310,15 +291,17 @@ export function calculateZeroBillWithLoadProfile(
   nwec: number
 ): EngineResult {
   const dpt = computeDpt(monthlyBill, electricRate);
-  const solarKwp = solarFromDpt(dpt);
-  const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
+  const solarKwp = dpt >= storageKwh
+    ? solarFromDpt(Math.max(dpt, nwec))
+    : storageKwh / SOLAR_CONSTANTS.dailyYieldPerKwp;
+  const inverterKw = roundInverterSize(solarKwp);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };
 }
 
 export function calculateZeroBillLoadOnly(duec: number, nwec: number): EngineResult {
   const totalDaily = duec + nwec;
-  const solarKwp = Math.round((totalDaily / SOLAR_CONSTANTS.peakSunHours) * 100) / 100;
+  const solarKwp = Math.round((totalDaily / SOLAR_CONSTANTS.dailyYieldPerKwp) * 100) / 100;
   const inverterKw = roundInverterSize(solarKwp);
   const storageKwh = roundStorageCapacity(nwec / SOLAR_CONSTANTS.systemEfficiency);
   return { solarKwp, inverterKw, storageKwh, systemType: "hybrid" };

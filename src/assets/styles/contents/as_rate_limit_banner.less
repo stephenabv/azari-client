@@ -1,0 +1,190 @@
+// ─── Rate-limit wall ─────────────────────────────────────────────────────────
+// Full-viewport overlay. Blocks all interaction until the countdown hits zero.
+// The blurred site content remains visible behind — users see what they're
+// locked out of, which motivates them to wait rather than keep retrying.
+
+.as-rl-wall {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+
+  background: rgba(4, 3, 8, 0.86);
+  backdrop-filter: blur(12px) saturate(75%);
+  -webkit-backdrop-filter: blur(12px) saturate(75%);
+
+  animation: rl-wall-in 0.35s ease;
+}
+
+@keyframes rl-wall-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.as-rl-card {
+  background: rgba(10, 8, 12, 0.97);
+  border: 1px solid rgba(252, 97, 90, 0.22);
+  border-radius: 26px;
+  padding: 44px 40px 36px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+
+  box-shadow:
+    0 0 0 1px rgba(252, 97, 90, 0.06),
+    0 40px 100px rgba(0, 0, 0, 0.65),
+    0 0 160px rgba(252, 97, 90, 0.04);
+
+  animation: rl-card-rise 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@keyframes rl-card-rise {
+  from { transform: translateY(28px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0) scale(1);       opacity: 1; }
+}
+
+// Brand wordmark
+.as-rl-logo {
+  font-family: "Outfit", sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.5px;
+  margin: 0 0 34px;
+
+  span { color: #fc615a; }
+}
+
+// Circular ring wrapper
+.as-rl-ring-wrap {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 28px;
+}
+
+.as-rl-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); // start fill from top
+}
+
+.as-rl-ring-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 5;
+}
+
+.as-rl-ring-fill {
+  fill: none;
+  stroke: #fc615a;
+  stroke-width: 5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s linear;
+
+  // subtle glow on the ring
+  filter: drop-shadow(0 0 6px rgba(252, 97, 90, 0.5));
+}
+
+// Countdown text centred in ring
+.as-rl-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.as-rl-ring-count {
+  font-family: "Outfit", sans-serif;
+  font-size: 44px;
+  font-weight: 700;
+  color: #f8fafc;
+  line-height: 1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.as-rl-ring-unit {
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+// Heading
+.as-rl-heading {
+  font-family: "Outfit", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 12px;
+  letter-spacing: -0.4px;
+}
+
+// Body copy
+.as-rl-desc {
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.7;
+  margin: 0 0 26px;
+
+  strong {
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 600;
+  }
+}
+
+// Linear progress bar at bottom
+.as-rl-bar-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.as-rl-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, #fc615a, #ff9254);
+  border-radius: 99px;
+  transition: width 0.5s linear;
+}
+
+// ─── Responsive ──────────────────────────────────────────────────────────────
+
+@media (max-width: 420px) {
+  .as-rl-card {
+    padding: 36px 28px 30px;
+  }
+
+  .as-rl-ring-wrap {
+    width: 128px;
+    height: 128px;
+  }
+
+  .as-rl-ring-count {
+    font-size: 38px;
+  }
+
+  .as-rl-heading {
+    font-size: 19px;
+  }
+}
+
+// ─── Light mode ──────────────────────────────────────────────────────────────
+// Keep the wall dark on light mode — it's a hard stop and needs contrast.
+// Only the overlay tint differs slightly.
+
+.light-theme .as-rl-wall {
+  background: rgba(10, 8, 14, 0.82);
+}

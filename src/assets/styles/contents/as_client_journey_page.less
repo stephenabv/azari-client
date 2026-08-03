@@ -1,0 +1,751 @@
+.as-cjp {
+  width: 100%;
+}
+
+.as-cjp-container {
+  margin: 0 auto;
+  padding: 230px 120px 80px;
+}
+
+
+.as-cjp-header {
+  margin-bottom: 64px;
+}
+
+.as-cjp-title {
+  margin: 0 0 16px;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(36px, 4.5vw, 60px);
+  font-weight: 500;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.as-cjp-subtitle {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(20px, 2.4vw, 29px);
+  font-weight: 400;
+  color: #65696f;
+  line-height: 1.2;
+}
+
+.as-cjp-desktop {
+  display: flex;
+  align-items: flex-start;
+  gap: 48px;
+}
+
+.as-cjp-mobile {
+  display: none;
+}
+
+
+.as-cjp-steps-col {
+  flex: 0 0 48%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+
+.as-cjp-connector {
+  position: absolute;
+  left: 19px; // centred on the icon chip (chip = 40px, left=0)
+  top: 40px;
+  bottom: 10px;
+  width: 2px;
+  z-index: 0;
+}
+
+.as-cjp-connector-track {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+}
+
+.as-cjp-connector-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  background: #fc615a;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(252, 97, 90, 0.45);
+  transition: height 1s ease;
+}
+
+.as-cjp-step-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+
+  // Entrance animation — from above (top-to-bottom cascade)
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+
+  &.is-shown {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible .as-cjp-step-title {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+// ── Icon chip ────────────────────────────────────────────────────────────────
+
+.as-cjp-icon-chip {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 10;
+}
+
+// Icon — small + dim when inactive, pops to full size on active
+.as-cjp-icon-svg {
+  width: 28px;
+  height: 28px;
+  transform: scale(0.78);
+  opacity: 0.38;
+  transition: transform 0.35s ease, opacity 0.35s ease, color 0.35s ease;
+
+  .as-cjp-step-row.is-active & {
+    animation: cjp-icon-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    opacity: 1;
+    color: var(--step-accent, #fc615a);
+  }
+}
+
+.as-cjp-icon-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  transform: scale(0.78);
+  transition: transform 0.35s ease, opacity 0.35s ease, filter 0.35s ease;
+
+  .as-cjp-step-row.is-active & {
+    animation: cjp-icon-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+}
+
+@keyframes cjp-icon-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(1.2);
+  }
+}
+
+.as-cjp-icon-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+
+  rect {
+    fill: rgba(255, 255, 255, 0.12);
+  }
+}
+
+// ── Step index number ─────────────────────────────────────────────────────────
+
+.as-cjp-step-index {
+  font-family: "Outfit", sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.14);
+  min-width: 56px;
+  transition: color 0.3s ease;
+
+  .as-cjp-step-row.is-active & {
+    color: var(--step-accent, #fc615a);
+  }
+
+  .as-cjp-step-row:not(.is-shown) & {
+    color: rgba(255, 255, 255, 0.06);
+  }
+}
+
+// ── Step title ───────────────────────────────────────────────────────────────
+
+.as-cjp-step-title {
+  flex: 1;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(15px, 1.4vw, 18px);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.3s ease;
+
+  .as-cjp-step-row.is-active & {
+    color: var(--step-accent, #fc615a);
+  }
+
+  .as-cjp-step-row:not(.is-shown) & {
+    color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+// ── Toggle (+/−) ─────────────────────────────────────────────────────────────
+
+.as-cjp-toggle {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1;
+  transition: color 0.3s ease, border-color 0.3s ease;
+
+  .as-cjp-step-row.is-active & {
+    color: #fc615a;
+    border-color: rgba(252, 97, 90, 0.45);
+  }
+
+  .as-cjp-step-row:not(.is-shown) & {
+    border-color: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.12);
+  }
+
+  .as-cjp-step-row.is-shown:not(.is-active):hover & {
+    border-color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.55);
+  }
+}
+
+// ── Desktop right panel column ───────────────────────────────────────────────
+
+.as-cjp-panel-col {
+  flex: 1;
+  min-width: 0;
+  align-self: flex-start;
+  transition: margin-top 0.3s ease;
+}
+
+.as-cjp-panel {
+  display: none;
+
+  &.is-active {
+    display: block;
+    animation: cjp-fade-in 0.35s ease forwards;
+  }
+}
+
+@keyframes cjp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.as-cjp-panel-inner {
+  padding: 28px 0;
+}
+
+// ── Panel subheading ─────────────────────────────────────────────────────────
+
+.as-cjp-panel-subheading {
+  margin: 0 0 20px;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(18px, 1.8vw, 22px);
+  font-weight: 600;
+  color: #e8e8e8;
+  line-height: 1.25;
+}
+
+// ── Blocks ───────────────────────────────────────────────────────────────────
+
+.as-cjp-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.as-cjp-block-heading {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e8e8e8;
+}
+
+.as-cjp-block-para {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #65696f;
+
+  a {
+    color: #fc615a;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(252, 97, 90, 0.4);
+
+    &:hover {
+      text-decoration-color: #fc615a;
+    }
+  }
+}
+
+// ── Bullet list ──────────────────────────────────────────────────────────────
+
+.as-cjp-bullet-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &--nested {
+    padding-left: 16px;
+    margin-top: 8px;
+    gap: 6px;
+    border-left: 2px solid rgba(252, 97, 90, 0.2);
+  }
+}
+
+.as-cjp-bullet-item {
+  position: relative;
+  padding-left: 18px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #65696f;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 7px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(252, 97, 90, 0.6);
+  }
+
+  &--nested {
+    padding-left: 12px;
+
+    &::before {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+.as-cjp-bullet-lead {
+  color: #c8ccd4;
+  font-weight: 600;
+}
+
+.as-cjp-inline-link {
+  color: #fc615a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(252, 97, 90, 0.35);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+
+  &:hover {
+    text-decoration-color: #fc615a;
+  }
+}
+
+// ── Link group ───────────────────────────────────────────────────────────────
+
+.as-cjp-link-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.as-cjp-text-link {
+  position: relative;
+  padding-left: 18px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: #fc615a;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  text-align: left;
+  line-height: 1.5;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 7px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(252, 97, 90, 0.6);
+  }
+
+  &:hover {
+    opacity: 0.75;
+  }
+}
+
+// ── CTA button ───────────────────────────────────────────────────────────────
+
+.as-cjp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+
+  &:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &--primary {
+    background: linear-gradient(90deg, #fa8248, #fc5c5c);
+    color: #ffffff;
+  }
+}
+
+// ── Image block ──────────────────────────────────────────────────────────────
+
+.as-cjp-block-figure {
+  margin: 0;
+}
+
+.as-cjp-block-img {
+  width: 100%;
+  max-width: 460px;
+  border-radius: 12px;
+  display: block;
+}
+
+.as-cjp-block-caption {
+  margin-top: 8px;
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  color: #65696f;
+}
+
+// ── Partner grid ─────────────────────────────────────────────────────────────
+
+.as-cjp-partner-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.as-cjp-partner-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  min-width: 90px;
+}
+
+.as-cjp-partner-logo {
+  width: 48px;
+  height: 32px;
+  object-fit: contain;
+  filter: brightness(0.85);
+}
+
+.as-cjp-partner-name {
+  font-family: "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #65696f;
+  text-align: center;
+}
+
+.as-cjp-partner-dl {
+  font-family: "Inter", sans-serif;
+  font-size: 10px;
+  color: #fc615a;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// ── Contact channels ─────────────────────────────────────────────────────────
+
+.as-cjp-contact-channels {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-cjp-channel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.16);
+  }
+
+  &--whatsapp .as-cjp-channel-icon {
+    color: #25d366;
+  }
+
+  &--viber .as-cjp-channel-icon {
+    color: #7360f2;
+  }
+
+  &--facebook .as-cjp-channel-icon {
+    color: #1877f2;
+  }
+
+  &--instagram .as-cjp-channel-icon {
+    color: #e1306c;
+  }
+
+  &--email .as-cjp-channel-icon {
+    color: #fc615a;
+  }
+
+  &--phone .as-cjp-channel-icon {
+    color: #4ade80;
+  }
+}
+
+.as-cjp-channel-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.as-cjp-channel-value {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  color: #c8ccd4;
+}
+
+// ── Divider ──────────────────────────────────────────────────────────────────
+
+.as-cjp-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+// ── Desktop step wrapper & spacer ────────────────────────────────────────────
+
+.as-cjp-step-wrap {
+  display: contents; // transparent to flex layout — children are direct flex items
+}
+
+.as-cjp-row-spacer {
+  pointer-events: none;
+  overflow: hidden;
+  transition: height 0.35s ease;
+  will-change: height;
+}
+
+// ── Mobile accordion ─────────────────────────────────────────────────────────
+
+// Entrance: from below, matching ASProcess mobile animation direction
+.as-cjp-mobile-item {
+  opacity: 0;
+  transform: translateY(45px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+
+  &.is-shown {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// grid-template-rows: 0fr collapses to 0 only when the DIRECT grid child
+// has overflow:hidden (or min-height:0) AND carries no padding itself.
+// .as-cjp-mobile-panel-inner is that zero-padding direct child;
+// .as-cjp-panel-inner inside it holds the actual visual padding.
+.as-cjp-mobile-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s ease;
+
+  &.is-open {
+    grid-template-rows: 1fr;
+  }
+}
+
+.as-cjp-mobile-panel-inner {
+  overflow: hidden; // enables true 0fr collapse — no padding on this element
+  min-height: 0;
+
+  .as-cjp-panel-inner {
+    padding: 8px 0 24px 72px;
+    overflow: visible;
+  }
+}
+
+// ── Loading skeleton ─────────────────────────────────────────────────────────
+
+
+.as-cjp-skeleton-header,
+.as-cjp-skeleton-row {
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.05) 75%);
+  background-size: 200% 100%;
+  animation: cjp-shimmer 1.6s infinite;
+}
+
+.as-cjp-skeleton-header {
+  height: 80px;
+  width: 50%;
+  margin-bottom: 48px;
+}
+
+.as-cjp-skeleton-row {
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+@keyframes cjp-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+// ─── Responsive ───────────────────────────────────────────────────────────────
+
+@media (max-width: 900px) {
+  .as-cjp-container {
+    padding: 140px 40px 64px;
+  }
+
+  .as-cjp-steps-col {
+    flex: 0 0 50%;
+  }
+}
+
+@media (max-width: 768px) {
+  .as-cjp-container {
+    padding: 96px 24px 56px;
+  }
+
+  .as-cjp-header {
+    margin-bottom: 40px;
+  }
+
+  .as-cjp-desktop {
+    display: none;
+  }
+
+  .as-cjp-mobile {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .as-cjp-step-row {
+    padding: 12px 0;
+  }
+
+  .as-cjp-step-index {
+    font-size: 36px;
+    min-width: 44px;
+  }
+
+  .as-cjp-mobile-panel-inner .as-cjp-panel-inner {
+    padding-left: 56px;
+  }
+}
+
+@media (max-width: 576px) {
+  .as-cjp-container {
+    padding: 80px 18px 48px;
+  }
+
+  .as-cjp-step-index {
+    font-size: 28px;
+    min-width: 36px;
+  }
+
+  .as-cjp-step-title {
+    font-size: 14px;
+  }
+
+  .as-cjp-mobile-panel-inner .as-cjp-panel-inner {
+    padding-left: 0;
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 400px) {
+  .as-cjp-container {
+    padding: 72px 14px 40px;
+  }
+}

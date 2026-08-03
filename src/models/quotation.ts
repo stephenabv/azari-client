@@ -128,6 +128,7 @@ export type QuotationBuilderParams = {
 export type QuotationSubmissionResult = {
   success: boolean;
   isRealSuccess: boolean;
+  rateLimited?: boolean;
 };
 
 const blockedEmailDomains = [

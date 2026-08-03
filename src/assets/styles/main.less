@@ -1,32 +1,33 @@
+@import "./fonts.less";
 @import "./mixins/glass.mixin.less";
 @import "./app.less";
 
-// General Styles
-
-// Components
-@import "./contents/as_coming_soon.less";
-
+// Shared layout & nav
 @import "./contents/as_navbar.less";
+@import "./contents/as_footer.less";
+@import "./contents/as_rate_limit_banner.less";
+@import "./contents/as_error_boundary.less";
+@import "./contents/as_img_loader.less";
+
+// Home page sections
 @import "./contents/as_hero.less";
 @import "./contents/as_metrics.less";
+@import "./contents/as_partners.less";
 @import "./contents/as_benefits.less";
 @import "./contents/as_engineered_excellence.less";
 @import "./contents/as_tropics_card.less";
 @import "./contents/as_tropics.less";
 @import "./contents/as_process.less";
 @import "./contents/as_client_journey.less";
-@import "./contents/as_calculator.less";
 @import "./contents/as_call_to_action.less";
-@import "./contents/as_footer.less";
-@import "./contents//as_quotation.less";
-@import "./contents/as_projects.less";
+@import "./contents/as_calculator.less";
 
-// Pages
+// Dashboard section wrapper styles
 @import "./contents/as_dashboard_page.less";
-@import "./contents/as_admin.less";
 
-// Dark Theme
+// Shared component (used by expert modal, calculator, admin)
+@import "./contents/as_location_autocomplete.less";
+
+// Dark / light theme overrides
 @import "./contents/dark/dark_app.less";
-
-// Light Theme
 @import "./contents/light/light_app.less";

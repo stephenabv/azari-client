@@ -3,14 +3,15 @@ import { createPortal } from "react-dom";
 
 import "./as_talktoexpert.less";
 import ASSystemError from "../system-error/ASSystemError";
+import LocationAutocompleteInput, { type NominatimResult } from "../../components/ASLocationAutocomplete";
 import {
   buildTalkToExpertPayload,
   validateTalkToExpertField,
   validateTalkToExpertForm,
-  type AddressConfig,
   type TalkInquiryType,
   type TalkToExpertFormData,
 } from "../../models/talk-to-expert";
+import { handleRateLimitResponse } from "../../services/ASContent";
 
 type ASTalkToAnExpertProps = {
   isOpen: boolean;
@@ -27,22 +28,20 @@ type ASFooterConfig = {
 
 const DEFAULT_CONFIG: ASFooterConfig = {
   contact_email: "sales@azari.solar",
-  headline: "Let’s Connect.",
+  headline: "Let's Connect.",
   intro:
-    "Have questions about solar? Whether you're curious about savings or just want to know if your roof is ready, we’re here to help. No technical jargon, just honest advice.",
+    "Have questions about solar? Whether you're curious about savings or just want to know if your roof is ready, we're here to help. No technical jargon, just honest advice.",
   subheadline: "Simple. Tough. Reliable.",
   subtext:
     "Bringing the power of the sun to every Filipino home. We handle the hard parts—the permits, the engineering, and the utility sync—so you can just enjoy the savings.",
 };
 
-const FALLBACK_ADDRESS: AddressConfig = {
-  provinces: ["Bohol", "Cebu", "Davao del Sur", "Metro Manila"],
-  cities: {
-    Bohol: ["Tagbilaran", "Panglao", "Loboc"],
-    Cebu: ["Cebu City", "Mandaue", "Lapu-Lapu"],
-    "Davao del Sur": ["Davao City"],
-    "Metro Manila": ["Quezon City", "Makati", "Manila"],
-  },
+const EMPTY_FORM: TalkToExpertFormData = {
+  name: "",
+  email: "",
+  phone: "",
+  inquiryType: "general",
+  message: "",
 };
 
 export default function ASTalkToAnExpert({
@@ -50,30 +49,34 @@ export default function ASTalkToAnExpert({
   onClose,
 }: ASTalkToAnExpertProps) {
   const [isClosing, setIsClosing] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const config: ASFooterConfig = DEFAULT_CONFIG;
-  const addressConfig: AddressConfig = FALLBACK_ADDRESS;
 
-  const [selectedProvince, setSelectedProvince] = useState(
-    FALLBACK_ADDRESS.provinces[0]
-  );
+  const [selectedProvince, setSelectedProvince] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
 
-  const [selectedCity, setSelectedCity] = useState(
-    FALLBACK_ADDRESS.cities[FALLBACK_ADDRESS.provinces[0]]?.[0] || ""
-  );
-
-  const [form, setForm] = useState<TalkToExpertFormData>({
-    name: "",
-    email: "",
-    phone: "",
-    inquiryType: "general",
-    message: "",
-  });
+  const [form, setForm] = useState<TalkToExpertFormData>(EMPTY_FORM);
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof TalkToExpertFormData | "province" | "city", string>>
   >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSystemError, setShowSystemError] = useState(false);
+
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setSelectedProvince("");
+    setSelectedCity("");
+    setErrors({});
+    setShowSystemError(false);
+    setSubmitSuccess(false);
+  };
+
+  useEffect(() => {
+    if (isOpen) return;
+    const timer = window.setTimeout(resetForm, 260);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
 
   const handleFieldChange = (
     field: keyof TalkToExpertFormData,
@@ -109,8 +112,6 @@ export default function ASTalkToAnExpert({
 
     return Object.keys(newErrors).length === 0;
   };
-
-  
 
   useEffect(() => {
     if (!isOpen) return;
@@ -148,8 +149,6 @@ export default function ASTalkToAnExpert({
     }, 220);
   };
 
-  const availableCities = addressConfig.cities[selectedProvince] || [];
-
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -170,6 +169,13 @@ export default function ASTalkToAnExpert({
         ),
       });
 
+      if (handleRateLimitResponse(response)) {
+        // Rate-limit banner is now visible with a countdown; close the modal
+        // so the user can see it without a system-error dialog on top.
+        handleClose();
+        return;
+      }
+
       const data = await response.json().catch(() => null);
 
       if (!response.ok || data?.success === false) {
@@ -183,16 +189,8 @@ export default function ASTalkToAnExpert({
         return;
       }
 
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
-        inquiryType: "general",
-        message: "",
-      });
-
-      setErrors({});
-      handleClose();
+      setSubmitSuccess(true);
+      window.setTimeout(() => handleClose(), 4000);
     } catch (error) {
       console.error("System error:", error);
       setShowSystemError(true);
@@ -219,227 +217,246 @@ export default function ASTalkToAnExpert({
           ×
         </button>
 
-        <div className="as-talk-content">
-          <div className="as-talk-info">
-            <div>
-              <h2>
-                {config.headline?.includes("Connect") ? (
-                  <>
-                    {config.headline.replace("Connect", "")}
-                    <span>Connect</span>.
-                  </>
-                ) : (
-                  config.headline
-                )}
-              </h2>
-
-              <p className="as-talk-intro">{config.intro}</p>
-
-              <a
-                href={`mailto:${config.contact_email}`}
-                className="as-talk-email"
-              >
-                {config.contact_email}
-              </a>
+        {submitSuccess ? (
+          <div className="as-talk-success">
+            <div className="as-talk-success-icon">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M7 18.5L14.5 26L29 11" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-
-            <div>
-              <h3>{config.subheadline}</h3>
-              <p className="as-talk-subtext">{config.subtext}</p>
-            </div>
+            <h3>Message Sent!</h3>
+            <p>Thank you for reaching out. Our team will get back to you within 24 hours.</p>
+            <button type="button" className="as-talk-send as-talk-success-btn" onClick={handleClose}>
+              Done
+            </button>
           </div>
-
-          <form className="as-talk-form" onSubmit={handleSubmit} noValidate>
-            <div className="as-talk-row">
-              <label className="as-talk-field">
-                <span>How should we address you?</span>
-
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(event) =>
-                    handleFieldChange("name", event.target.value)
-                  }
-                  className={errors.name ? "has-warning" : ""}
-                />
-
-                {errors.name && (
-                  <small className="as-talk-warning">{errors.name}</small>
-                )}
-              </label>
-
-              <label className="as-talk-field">
-                <span>Email Address</span>
-
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) =>
-                    handleFieldChange("email", event.target.value)
-                  }
-                  className={errors.email ? "has-warning" : ""}
-                />
-
-                {errors.email && (
-                  <small className="as-talk-warning">{errors.email}</small>
-                )}
-              </label>
-            </div>
-
-            <div className="as-talk-row">
-              <label className="as-talk-field">
-                <span>Mobile Number</span>
-
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(event) =>
-                    handleFieldChange("phone", event.target.value)
-                  }
-                  className={errors.phone ? "has-warning" : ""}
-                />
-
-                {errors.phone && (
-                  <small className="as-talk-warning">{errors.phone}</small>
-                )}
-              </label>
-
-              <label className="as-talk-field">
-                <span>Province</span>
-
-                <select
-                  value={selectedProvince}
-                  onChange={(event) => {
-                    const province = event.target.value;
-                    const city = addressConfig.cities[province]?.[0] || "";
-
-                    setSelectedProvince(province);
-                    setSelectedCity(city);
-
-                    setErrors((prev) => ({
-                      ...prev,
-                      province: validateTalkToExpertField(
-                        "province",
-                        "",
-                        province,
-                        city
-                      ),
-                      city: validateTalkToExpertField(
-                        "city",
-                        "",
-                        province,
-                        city
-                      ),
-                    }));
-                  }}
-                  className={errors.province ? "has-warning" : ""}
-                >
-                  {addressConfig.provinces.map((province) => (
-                    <option key={province} value={province}>
-                      {province}
-                    </option>
-                  ))}
-                </select>
-
-                {errors.province && (
-                  <small className="as-talk-warning">{errors.province}</small>
-                )}
-              </label>
-            </div>
-
-            <div className="as-talk-row">
-              <label className="as-talk-field">
-                <span>City</span>
-
-                <select
-                  value={selectedCity}
-                  onChange={(event) => {
-                    const city = event.target.value;
-
-                    setSelectedCity(city);
-
-                    setErrors((prev) => ({
-                      ...prev,
-                      city: validateTalkToExpertField(
-                        "city",
-                        "",
-                        selectedProvince,
-                        city
-                      ),
-                    }));
-                  }}
-                  className={errors.city ? "has-warning" : ""}
-                >
-                  {availableCities.length > 0 ? (
-                    availableCities.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))
+        ) : (
+          <div className="as-talk-content">
+            <div className="as-talk-info">
+              <div>
+                <h2>
+                  {config.headline?.includes("Connect") ? (
+                    <>
+                      {config.headline.replace("Connect", "")}
+                      <span>Connect</span>.
+                    </>
                   ) : (
-                    <option value="">No city available</option>
+                    config.headline
                   )}
-                </select>
+                </h2>
 
-                {errors.city && (
-                  <small className="as-talk-warning">{errors.city}</small>
+                <p className="as-talk-intro">{config.intro}</p>
+
+                <a
+                  href={`mailto:${config.contact_email}`}
+                  className="as-talk-email"
+                >
+                  {config.contact_email}
+                </a>
+              </div>
+
+              <div>
+                <h3>{config.subheadline}</h3>
+                <p className="as-talk-subtext">{config.subtext}</p>
+              </div>
+            </div>
+
+            <form className="as-talk-form" onSubmit={handleSubmit} noValidate>
+              <div className="as-talk-row">
+                <label className="as-talk-field">
+                  <span>How should we address you?</span>
+
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(event) =>
+                      handleFieldChange("name", event.target.value)
+                    }
+                    className={errors.name ? "has-warning" : ""}
+                  />
+
+                  {errors.name && (
+                    <small className="as-talk-warning">{errors.name}</small>
+                  )}
+                </label>
+
+                <label className="as-talk-field">
+                  <span>Email Address</span>
+
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(event) =>
+                      handleFieldChange("email", event.target.value)
+                    }
+                    className={errors.email ? "has-warning" : ""}
+                  />
+
+                  {errors.email && (
+                    <small className="as-talk-warning">{errors.email}</small>
+                  )}
+                </label>
+              </div>
+
+              <div className="as-talk-row">
+                <label className="as-talk-field">
+                  <span>Mobile Number</span>
+
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(event) =>
+                      handleFieldChange("phone", event.target.value)
+                    }
+                    className={errors.phone ? "has-warning" : ""}
+                  />
+
+                  {errors.phone && (
+                    <small className="as-talk-warning">{errors.phone}</small>
+                  )}
+                </label>
+
+                <label className="as-talk-field">
+                  <span>Province</span>
+
+                  <LocationAutocompleteInput
+                    value={selectedProvince}
+                    onChange={(val) => {
+                      setSelectedProvince(val);
+                      setErrors((prev) => ({
+                        ...prev,
+                        province: validateTalkToExpertField("province", "", val, selectedCity),
+                      }));
+                    }}
+                    extractValue={(result) =>
+                      result.address?.county ||
+                      result.address?.state ||
+                      result.address?.province ||
+                      result.display_name.replace(/,\s*Philippines$/i, "").split(",")[0].trim()
+                    }
+                    onSelect={(result: NominatimResult) => {
+                      const city =
+                        result.address?.city ||
+                        result.address?.town ||
+                        result.address?.municipality ||
+                        result.address?.city_district ||
+                        "";
+                      if (city && !selectedCity) {
+                        setSelectedCity(city);
+                        setErrors((prev) => ({
+                          ...prev,
+                          city: validateTalkToExpertField("city", "", selectedProvince, city),
+                        }));
+                      }
+                    }}
+                    placeholder="e.g., Metro Manila"
+                    inputClassName={errors.province ? "has-warning" : ""}
+                  />
+
+                  {errors.province && (
+                    <small className="as-talk-warning">{errors.province}</small>
+                  )}
+                </label>
+              </div>
+
+              <div className="as-talk-row">
+                <label className="as-talk-field">
+                  <span>City</span>
+
+                  <LocationAutocompleteInput
+                    value={selectedCity}
+                    onChange={(val) => {
+                      setSelectedCity(val);
+                      setErrors((prev) => ({
+                        ...prev,
+                        city: validateTalkToExpertField("city", "", selectedProvince, val),
+                      }));
+                    }}
+                    extractValue={(result) =>
+                      result.address?.city ||
+                      result.address?.town ||
+                      result.address?.municipality ||
+                      result.address?.city_district ||
+                      result.display_name.replace(/,\s*Philippines$/i, "").split(",")[0].trim()
+                    }
+                    onSelect={(result: NominatimResult) => {
+                      const province =
+                        result.address?.county ||
+                        result.address?.state ||
+                        result.address?.province ||
+                        "";
+                      if (province && !selectedProvince) {
+                        setSelectedProvince(province);
+                        setErrors((prev) => ({
+                          ...prev,
+                          province: validateTalkToExpertField("province", "", province, selectedCity),
+                        }));
+                      }
+                    }}
+                    placeholder="e.g., Cebu City"
+                    inputClassName={errors.city ? "has-warning" : ""}
+                  />
+
+                  {errors.city && (
+                    <small className="as-talk-warning">{errors.city}</small>
+                  )}
+                </label>
+
+                <label className="as-talk-field">
+                  <span>How can we help?</span>
+
+                  <select
+                    value={form.inquiryType}
+                    onChange={(event) =>
+                      handleFieldChange(
+                        "inquiryType",
+                        event.target.value as TalkInquiryType
+                      )
+                    }
+                  >
+                    <option value="general">General inquiry</option>
+                    <option value="quote">Request quotation</option>
+                    <option value="consultation">Consultation</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="as-talk-field">
+                <span>Message</span>
+
+                <textarea
+                  value={form.message}
+                  onChange={(event) =>
+                    handleFieldChange("message", event.target.value)
+                  }
+                  className={errors.message ? "has-warning" : ""}
+                />
+
+                {errors.message && (
+                  <small className="as-talk-warning">{errors.message}</small>
                 )}
               </label>
 
-              <label className="as-talk-field">
-                <span>How can we help?</span>
-
-                <select
-                  value={form.inquiryType}
-                  onChange={(event) =>
-                    handleFieldChange(
-                      "inquiryType",
-                      event.target.value as TalkInquiryType
-                    )
-                  }
+              <div className="as-talk-actions">
+                <button
+                  type="button"
+                  className="as-talk-cancel"
+                  onClick={handleClose}
                 >
-                  <option value="general">General inquiry</option>
-                  <option value="quote">Request quotation</option>
-                  <option value="consultation">Consultation</option>
-                </select>
-              </label>
-            </div>
+                  Cancel
+                </button>
 
-            <label className="as-talk-field">
-              <span>Message</span>
-
-              <textarea
-                value={form.message}
-                onChange={(event) =>
-                  handleFieldChange("message", event.target.value)
-                }
-                className={errors.message ? "has-warning" : ""}
-              />
-
-              {errors.message && (
-                <small className="as-talk-warning">{errors.message}</small>
-              )}
-            </label>
-
-            <div className="as-talk-actions">
-              <button
-                type="button"
-                className="as-talk-cancel"
-                onClick={handleClose}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                className="as-talk-send"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Sending..." : "Send Message"}
-              </button>
-            </div>
-          </form>
-        </div>
+                <button
+                  type="submit"
+                  className="as-talk-send"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Sending..." : "Send Message"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
 
       {showSystemError && (

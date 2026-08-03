@@ -22,11 +22,6 @@ export type TalkToExpertPayload = {
 
 export type TalkToExpertField = keyof TalkToExpertFormData | "province" | "city";
 
-export type AddressConfig = {
-  provinces: string[];
-  cities: Record<string, string[]>;
-};
-
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const mobileRegex = /^(09|\+639)\d{9}$/;
 

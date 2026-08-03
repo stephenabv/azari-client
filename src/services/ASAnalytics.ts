@@ -1,21 +1,17 @@
-import { logEvent } from "firebase/analytics";
-import { analytics } from "../config/firebase";
+import { getFirebaseAnalytics } from "../config/firebase";
 
 type AnalyticsParams = Record<string, string | number | boolean | null | undefined>;
 
-export function trackPageView(path: string) {
+export async function trackPageView(path: string) {
+  const analytics = await getFirebaseAnalytics();
   if (!analytics) return;
-
-  logEvent(analytics, "page_view", {
-    page_path: path,
-  });
+  const { logEvent } = await import("firebase/analytics");
+  logEvent(analytics, "page_view", { page_path: path });
 }
 
-export function trackEvent(
-  eventName: string,
-  params?: AnalyticsParams
-) {
+export async function trackEvent(eventName: string, params?: AnalyticsParams) {
+  const analytics = await getFirebaseAnalytics();
   if (!analytics) return;
-
+  const { logEvent } = await import("firebase/analytics");
   logEvent(analytics, eventName, params);
 }

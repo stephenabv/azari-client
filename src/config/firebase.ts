@@ -1,27 +1,28 @@
-import { initializeApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
-import type { Analytics } from "firebase/analytics";
-
 const firebaseConfig = {
-  apiKey: "AIzaSyCkIW5knpnf4h0wBZg5EKeVHsoeJT2xJ-w",
-  authDomain: "azari-solar.firebaseapp.com",
-  projectId: "azari-solar",
-  storageBucket: "azari-solar.firebasestorage.app",
-  messagingSenderId: "117381532618",
-  appId: "1:117381532618:web:1e154ada09687dcc015d33",
-  measurementId: "G-WRTF9Z95CQ"
+  apiKey: "AIzaSyDoDrW4HV04xX1UgghOTPyVfg7z66oaN08",
+  authDomain: "azari-solar-fb3e7.firebaseapp.com",
+  projectId: "azari-solar-fb3e7",
+  storageBucket: "azari-solar-fb3e7.firebasestorage.app",
+  messagingSenderId: "400363778126",
+  appId: "1:400363778126:web:ac2307343b0257e308131f",
+  measurementId: "G-EHHQ45EHLF",
 };
 
-const app = initializeApp(firebaseConfig);
+let _analyticsPromise: Promise<import("firebase/analytics").Analytics | null> | null = null;
 
-let analytics: Analytics | null = null;
+export function getFirebaseAnalytics(): Promise<import("firebase/analytics").Analytics | null> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (_analyticsPromise) return _analyticsPromise;
 
-if (typeof window !== "undefined") {
-  isSupported().then((yes) => {
-    if (yes) {
-      analytics = getAnalytics(app);
-    }
-  });
+  _analyticsPromise = (async () => {
+    const [{ initializeApp, getApps }, { getAnalytics, isSupported }] = await Promise.all([
+      import("firebase/app"),
+      import("firebase/analytics"),
+    ]);
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    const supported = await isSupported();
+    return supported ? getAnalytics(app) : null;
+  })();
+
+  return _analyticsPromise;
 }
-
-export { analytics };

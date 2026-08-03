@@ -5,21 +5,33 @@ import { useContent } from "../hooks/useContent";
 type TropicsContent = {
   header: string;
   subtext: string;
+  performanceRating: number;
+};
+
+type MetricsContent = {
+  items: Array<{ value: string; label: string; order: number }>;
 };
 
 const DEFAULT_TROPICS: TropicsContent = {
   header: "Solar Energy for the Tropics",
   subtext:
-    "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+    "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At Azari Solar we bridge the Trust Gap with resilient design for the philippine archipelago.",
+  performanceRating: 87,
+};
+
+const DEFAULT_METRICS: MetricsContent = {
+  items: [{ value: "0", label: "INSTALLED", order: 1 }],
 };
 
 export default function ASTropicsSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
 
-  const [visibleCards, setVisibleCards] = useState(-1);
+  const [isVisible, setIsVisible] = useState(false);
   const [showText, setShowText] = useState(false);
   const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
+  const metrics = useContent<MetricsContent>("metrics", DEFAULT_METRICS);
+  const installedValue = metrics.items.find((i) => i.label === "INSTALLED")?.value ?? "0";
 
   const headerParts = tropics.header
     .split(/\n|<br\s*\/?\s*>/i)
@@ -29,11 +41,12 @@ export default function ASTropicsSection() {
   const headerTop = headerParts[0] ?? "Solar Energy for the";
   const headerBottom = headerParts[1] ?? "Tropics";
 
-  const brandedSubtext = tropics.subtext.includes("azari.solar")
-    ? tropics.subtext
-    : "Standard solar systems are often not equipped to handle the unique challenges of the tropics. At azari.solar we bridge the Trust Gap with resilient design for the philippine archipelago.";
-
-  const [subtextBeforeBrand, subtextAfterBrand] = brandedSubtext.split("azari.solar");
+  // Normalize domain form ("azari.solar") to brand name wherever it appears as company name
+  const normalizedSubtext = tropics.subtext.replace(/azari\.solar/gi, "Azari Solar");
+  const brandIdx = normalizedSubtext.indexOf("Azari Solar");
+  const subtextBeforeBrand = brandIdx >= 0 ? normalizedSubtext.slice(0, brandIdx) : normalizedSubtext;
+  const subtextAfterBrand = brandIdx >= 0 ? normalizedSubtext.slice(brandIdx + "Azari Solar".length) : "";
+  const hasBrand = brandIdx >= 0;
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -48,10 +61,8 @@ export default function ASTropicsSection() {
         hasAnimated.current = true;
 
         timeouts.push(
-          window.setTimeout(() => setVisibleCards(0), 200),
-          window.setTimeout(() => setVisibleCards(1), 550),
-          window.setTimeout(() => setVisibleCards(2), 900),
-          window.setTimeout(() => setShowText(true), 1350)
+          window.setTimeout(() => setIsVisible(true), 200),
+          window.setTimeout(() => setShowText(true), 600)
         );
 
         observer.disconnect();
@@ -69,7 +80,11 @@ export default function ASTropicsSection() {
 
   return (
     <section ref={sectionRef} className="as-tropics-section">
-      <ASTropicsCards visibleCards={visibleCards} />
+      <ASTropicsCards
+          isVisible={isVisible}
+          assetsDeployed={installedValue}
+          performanceRating={tropics.performanceRating ?? 87}
+        />
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
         <p className="header">
@@ -79,7 +94,7 @@ export default function ASTropicsSection() {
 
         <p className="subtext">
           {subtextBeforeBrand}
-          <span>azari.solar</span>
+          {hasBrand && <span>Azari Solar</span>}
           {subtextAfterBrand}
         </p>
       </div>

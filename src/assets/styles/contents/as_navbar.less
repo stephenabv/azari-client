@@ -2,15 +2,15 @@
   @glass-effect();
   width: 100%;
   padding: 12px 32px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
 
   position: relative;
   z-index: 1000;
   overflow: visible;
 
-  font: 14px "Inter", sans-serif;
+  font: 13px "Inter", sans-serif;
   border-radius: 24px;
 }
 
@@ -40,6 +40,7 @@
   justify-content: center;
   cursor: pointer;
   font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
   transition: color 0.3s ease;
 }
 
@@ -66,6 +67,7 @@
 .nav-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 32px;
 }
 
@@ -81,65 +83,28 @@
 }
 
 .theme-toggle-btn {
-  position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 18px;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.14) 0%,
-      rgba(255, 255, 255, 0.06) 45%,
-      rgba(255, 255, 255, 0.03) 100%
-    );
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  border: none;
+  background: transparent;
   cursor: pointer;
 }
 
-.theme-toggle-btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.34) 0%,
-      rgba(255, 255, 255, 0.14) 16%,
-      rgba(255, 255, 255, 0.02) 42%,
-      transparent 70%
-    );
-  opacity: 0.72;
-}
-
 .theme-toggle-img {
+  height: 44px;
   width: auto;
-  height: 32px;
-  position: relative;
-  z-index: 1;
   display: block;
-  transition:
-    transform 0.3s ease,
-    opacity 0.3s ease,
-    filter 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
 .theme-toggle-btn:hover .theme-toggle-img {
-  transform: scale(1.02);
+  transform: scale(1.06);
 }
 
 .theme-toggle-btn:active .theme-toggle-img {
-  transform: scale(0.97);
+  transform: scale(0.94);
 }
 
 .mobile-menu-btn {
@@ -214,8 +179,8 @@
   border: none;
   border-radius: 12px;
   background: transparent;
-  color: #fff;
-  font: 500 14px "Inter", sans-serif;
+  color: rgba(255, 255, 255, 0.82);
+  font: 500 13px "Inter", sans-serif;
   text-align: left;
   cursor: pointer;
   transition:
@@ -290,13 +255,20 @@
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 42px;
   }
 }
 
 @media (max-width: 768px) {
   .ASNavbar {
     padding: 10px 16px;
+    /* Menu column is hidden below. Collapse to logo | rest and place each
+       child explicitly so removing the menu can't reshuffle the layout. */
+    grid-template-columns: auto 1fr;
+  }
+
+  .nav-logo {
+    grid-column: 1;
   }
 
   .nav-menu {
@@ -312,6 +284,8 @@
   }
 
   .nav-actions {
+    grid-column: 2;
+    justify-self: end; /* pin the cluster to the right edge of its track */
     gap: 14px;
   }
 
@@ -322,7 +296,7 @@
   }
 
   .theme-toggle-img {
-    height: 34px;
+    height: 36px;
   }
 }
 
@@ -346,7 +320,7 @@
   }
 
   .theme-toggle-img {
-    height: 32px;
+    height: 34px;
   }
 
   .mobile-menu-btn {
@@ -379,7 +353,7 @@
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 32px;
   }
 
   .mobile-menu-btn {
@@ -405,6 +379,12 @@
 @media (max-height: 520px) and (orientation: landscape) {
   .ASNavbar {
     padding: 8px 20px;
+    /* Menu is hidden in landscape too — same explicit two-track placement. */
+    grid-template-columns: auto 1fr;
+  }
+
+  .nav-logo {
+    grid-column: 1;
   }
 
   .nav-menu {
@@ -421,12 +401,17 @@
     overflow-y: auto;
   }
 
+  .nav-actions {
+    grid-column: 2;
+    justify-self: end;
+  }
+
   .getQuote-btn {
     padding: 8px 16px;
     font-size: 12px;
   }
 
   .theme-toggle-img {
-    height: 30px;
+    height: 34px;
   }
 }

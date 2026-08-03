@@ -5,6 +5,7 @@
   border-radius: 24px;
   overflow: hidden;
   background: transparent;
+  margin: 0 auto 80px;
 }
 
 .as-benefits-video {
@@ -79,7 +80,7 @@
   transform: translateY(0);
 }
 
-/* alternating: odd items sit lower, even items sit higher */
+
 .as-benefit-item:nth-child(odd) {
   align-self: flex-end;
   margin-bottom: 64px;
@@ -166,6 +167,8 @@
 @media (max-width: 768px) {
   .ASBenefitsBanner {
     border-radius: 22px;
+    width: calc(100% - 48px);
+    margin: 0 auto 20px;
   }
 
   .as-benefits-overlay {
@@ -208,6 +211,8 @@
 @media (max-width: 576px) {
   .ASBenefitsBanner {
     border-radius: 20px;
+    width: calc(100% - 36px);
+    margin: 0 auto 20px;
   }
 
   .as-benefits-content {
@@ -242,6 +247,8 @@
     height: auto;
     min-height: auto;
     border-radius: 18px;
+    width: calc(100% - 32px);
+    margin: 0 auto 20px;
   }
 
   .as-benefits-content {
@@ -283,6 +290,11 @@
 }
 
 @media (max-width: 340px) {
+  .ASBenefitsBanner {
+    width: calc(100% - 28px);
+    margin: 0 auto 20px;
+  }
+
   .as-benefits-content {
     gap: 18px;
     padding: 28px 14px;

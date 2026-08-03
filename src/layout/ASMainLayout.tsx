@@ -1,29 +1,27 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Outlet, useLocation } from "react-router";
 import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
-
-const getSystemTheme = (): "light-theme" | "dark-theme" => {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark-theme"
-    : "light-theme";
-};
-
+import ASRateLimitBanner from "../components/ASRateLimitBanner";
 
 export default function ASMainLayout() {
   const location = useLocation();
+  const analyticsReady = useRef(false);
 
   const isHeroPage = location.pathname === "/";
+  const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
 
-  const [theme, setTheme] = useState<"light-theme" | "dark-theme">(() => {
-    const savedTheme = localStorage.getItem("theme") as
-      | "light-theme"
-      | "dark-theme"
-      | null;
+  // SSR-safe: default to dark-theme; anti-flash script in <body> handles the visual side
+  const [theme, setTheme] = useState<"light-theme" | "dark-theme">("dark-theme");
 
-    return savedTheme ?? getSystemTheme();
-  });
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "light-theme" | "dark-theme" | null;
+    const system = window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark-theme"
+      : "light-theme";
+    setTheme(saved ?? system);
+  }, []);
 
   useEffect(() => {
     document.body.classList.remove("light-theme", "dark-theme");
@@ -32,10 +30,18 @@ export default function ASMainLayout() {
   }, [theme]);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
-
-  useEffect(() => {
+    if (!analyticsReady.current) {
+      const fire = () => {
+        analyticsReady.current = true;
+        trackPageView(location.pathname);
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        const id = requestIdleCallback(fire, { timeout: 5000 });
+        return () => cancelIdleCallback(id);
+      }
+      const id = setTimeout(fire, 2000);
+      return () => clearTimeout(id);
+    }
     trackPageView(location.pathname);
   }, [location.pathname]);
 
@@ -47,6 +53,7 @@ export default function ASMainLayout() {
 
   return (
     <main className="app-main">
+      <ASRateLimitBanner />
       <header className="navbar-section">
         <div className="navbar-inner">
           <ASNavbar theme={theme} toggleTheme={toggleTheme} />
@@ -55,7 +62,7 @@ export default function ASMainLayout() {
 
       <div className="layout-content">
         <div className="layout-page-body">
-          <div className={`page-container ${isHeroPage ? "no-offset" : ""}`}>
+          <div className={`page-container ${isHeroPage || isProjectDetail ? "no-offset" : ""}`}>
             <div className="route-page" key={location.pathname}>
               <Outlet context={{ theme }} />
             </div>

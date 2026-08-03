@@ -358,6 +358,72 @@
   border-color: #e14a43;
 }
 
+.as-talk-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: clamp(48px, 6vw, 80px) clamp(32px, 4vw, 56px);
+  text-align: center;
+  animation: asTalkSuccessIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.as-talk-success-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.as-talk-success h3 {
+  margin: 0;
+  font-family: "Outfit", sans-serif;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.as-talk-success p {
+  margin: 0;
+  color: #7f838b;
+  font-family: "Inter", sans-serif;
+  font-size: clamp(14px, 1.2vw, 17px);
+  line-height: 1.55;
+  max-width: 360px;
+}
+
+.as-talk-success-btn {
+  margin-top: 12px;
+  min-width: 140px;
+  min-height: 50px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.light-theme .as-talk-success h3 {
+  color: #111111;
+}
+
+@keyframes asTalkSuccessIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 @media (max-width: 640px) {
   .as-talk-overlay {
     padding: 10px;

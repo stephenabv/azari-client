@@ -1,0 +1,72 @@
+.as-location-ac {
+  position: relative;
+  width: 100%;
+}
+
+.as-location-ac-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  max-height: 220px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+.as-location-ac-item {
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #c7cbd2;
+  cursor: pointer;
+  transition: background 0.1s ease, color 0.1s ease;
+
+  &:hover,
+  &.is-active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+}
+
+.light-theme .as-location-ac-list {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  scrollbar-color: rgba(17, 17, 17, 0.18) transparent;
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(17, 17, 17, 0.18);
+  }
+}
+
+.light-theme .as-location-ac-item {
+  color: #374151;
+
+  &:hover,
+  &.is-active {
+    background: #f3f4f6;
+    color: #111111;
+  }
+}
