@@ -466,11 +466,12 @@ function fmtRef(id: string, type: "talk" | "quotations"): string {
 }
 
 function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "quotations" }) {
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -3255,13 +3256,14 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
 }
 
 function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
+  const [searchParams] = useSearchParams();
   const [inquiries, setInquiries] = useState<PackageInquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [selectedInquiry, setSelectedInquiry] = useState<PackageInquiry | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [statusFilter, setStatusFilter] = useState<"all" | PackageInquiry["status"]>("all");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -3319,7 +3321,8 @@ function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
     if (statusFilter !== "all" && inq.status !== statusFilter) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return inq.name.toLowerCase().includes(q) || inq.email.toLowerCase().includes(q) || inq.packageName.toLowerCase().includes(q);
+    const ref = `pkg-${inq.id.slice(0, 8).toLowerCase()}`;
+    return inq.name.toLowerCase().includes(q) || inq.email.toLowerCase().includes(q) || inq.packageName.toLowerCase().includes(q) || ref === q || ref.includes(q);
   });
 
   const counts = {
@@ -3502,7 +3505,7 @@ ${materialsHtml}
           <input
             className="ad-input ad-inq-search"
             type="search"
-            placeholder="Search name, email or package…"
+            placeholder="Search by ref (PKG-...), name, email or package…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
