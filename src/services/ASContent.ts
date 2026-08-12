@@ -52,7 +52,10 @@ export type ContentKey =
   | 'cta'
   | 'benefits'
   | 'footer'
-  | 'section-visibility';
+  | 'section-visibility'
+  | 'legalDisclaimer'
+  | 'privacyPolicy'
+  | 'termsConditions';
 
 export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
   try {

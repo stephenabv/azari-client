@@ -17,6 +17,8 @@ export default [
     route("packages", "routes/packages.tsx"),
     route("solar-calculator", "routes/solar-calculator.tsx"),
     route("client-journey", "routes/client-journey.tsx"),
+    route("privacy-policy", "routes/privacy-policy.tsx"),
+    route("terms-and-conditions", "routes/terms-and-conditions.tsx"),
     route("sitemap.xml", "routes/sitemap-xml.tsx"),
     route("*", "routes/$.tsx"),
   ]),

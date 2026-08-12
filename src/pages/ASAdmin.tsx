@@ -82,11 +82,11 @@ import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "utilities" | "sections"
-  | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer";
+  | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer" | "legal";
 
 const TAB_IDS: readonly Tab[] = [
   "overview", "inquiries", "quotations", "projects", "inventory", "packages", "package-inquiries", "utilities", "sections",
-  "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "cta", "footer",
+  "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "cta", "footer", "legal",
 ];
 
 function isTab(value: string | null): value is Tab {
@@ -6182,6 +6182,182 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
+type LegalSectionForm = { heading: string; body: string };
+type LegalDocForm = { title: string; effectiveDate: string; lastUpdated: string; intro: string; sections: LegalSectionForm[] };
+type LegalDisclaimerForm = { enabled: boolean; text: string };
+
+const EMPTY_LEGAL_DOC: LegalDocForm = { title: "", effectiveDate: "", lastUpdated: "", intro: "", sections: [] };
+const EMPTY_DISCLAIMER: LegalDisclaimerForm = { enabled: true, text: "" };
+
+type LegalSubTab = "disclaimer" | "privacyPolicy" | "termsConditions";
+
+function LegalEditor({ apiKey }: { apiKey: string }) {
+  const [subTab, setSubTab] = useState<LegalSubTab>("disclaimer");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [disclaimer, setDisclaimer] = useState<LegalDisclaimerForm>(EMPTY_DISCLAIMER);
+  const [privacyPolicy, setPrivacyPolicy] = useState<LegalDocForm>(EMPTY_LEGAL_DOC);
+  const [termsConditions, setTermsConditions] = useState<LegalDocForm>(EMPTY_LEGAL_DOC);
+  const [resetTarget, setResetTarget] = useState<"privacyPolicy" | "termsConditions" | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await adminGetAllContent(apiKey);
+      const d = res.data.find((i) => i.key === "legalDisclaimer");
+      const p = res.data.find((i) => i.key === "privacyPolicy");
+      const t = res.data.find((i) => i.key === "termsConditions");
+      if (d?.data) setDisclaimer({ ...EMPTY_DISCLAIMER, ...(d.data as Partial<LegalDisclaimerForm>) });
+      if (p?.data) setPrivacyPolicy({ ...EMPTY_LEGAL_DOC, ...(p.data as Partial<LegalDocForm>) });
+      if (t?.data) setTermsConditions({ ...EMPTY_LEGAL_DOC, ...(t.data as Partial<LegalDocForm>) });
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const handleSaveDisclaimer = async () => {
+    setSaving(true); setMsg("");
+    try { await adminUpsertContent(apiKey, "legalDisclaimer", disclaimer); setMsg("✓ Disclaimer saved"); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
+  };
+
+  const handleSaveDoc = async (key: "privacyPolicy" | "termsConditions", doc: LegalDocForm) => {
+    setSaving(true); setMsg("");
+    try {
+      await adminUpsertContent(apiKey, key, doc);
+      setMsg(`✓ ${key === "privacyPolicy" ? "Privacy Policy" : "Terms and Conditions"} saved`);
+    } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    finally { setSaving(false); }
+  };
+
+  const handleReset = async (key: "privacyPolicy" | "termsConditions") => {
+    setResetTarget(null);
+    try { await adminResetContent(apiKey, key); setMsg("✓ Reset to default"); await load(); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+  };
+
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading legal content…</div>;
+
+  const activeDoc = subTab === "privacyPolicy" ? privacyPolicy : subTab === "termsConditions" ? termsConditions : null;
+  const setActiveDoc = subTab === "privacyPolicy" ? setPrivacyPolicy : setTermsConditions;
+  const resetLabel = resetTarget === "privacyPolicy" ? "Privacy Policy" : "Terms and Conditions";
+
+  return (
+    <div>
+      <ConfirmDeleteModal
+        open={resetTarget !== null}
+        title={`Reset "${resetLabel}" to default?`}
+        description="All current content will be replaced with the default draft text. This cannot be undone."
+        onConfirm={() => { if (resetTarget) void handleReset(resetTarget); }}
+        onCancel={() => setResetTarget(null)}
+      />
+      <div className="ad-section-header" style={{ marginBottom: 16 }}>
+        <div>
+          <div className="ad-section-title">Legal Pages</div>
+          <div style={{ fontSize: 13, color: "var(--ad-text2)", marginTop: 4 }}>
+            Manage the Privacy Policy, Terms &amp; Conditions, and the draft-disclaimer banner shown on both public pages.
+          </div>
+        </div>
+      </div>
+      <Toast msg={msg} />
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {(["disclaimer", "privacyPolicy", "termsConditions"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setSubTab(t)}
+            className={`ad-btn ad-btn--sm${subTab === t ? "" : " ad-btn--ghost"}`}
+          >
+            {t === "disclaimer" ? "Draft Disclaimer" : t === "privacyPolicy" ? "Privacy Policy" : "Terms & Conditions"}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "disclaimer" && (
+        <div className="ad-card">
+          <div className="ad-section-header" style={{ marginBottom: 12 }}>
+            <div className="ad-card-title" style={{ margin: 0 }}>Draft Disclaimer Banner</div>
+            <label className="ad-toggle-switch" title={disclaimer.enabled ? "Shown on both pages — click to hide" : "Hidden — click to show"}>
+              <input type="checkbox" checked={disclaimer.enabled} onChange={(e) => setDisclaimer((d) => ({ ...d, enabled: e.target.checked }))} />
+              <span className="ad-toggle-track" />
+            </label>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--ad-text3)", marginTop: 0, marginBottom: 12 }}>
+            When enabled, this notice appears at the top of both the Privacy Policy and Terms and Conditions pages, warning visitors that the legal text is a temporary draft pending certification and may change without notice.
+          </p>
+          <label className="ad-label">Disclaimer Text</label>
+          <textarea
+            className="ad-input"
+            style={{ minHeight: 110 }}
+            value={disclaimer.text}
+            onChange={(e) => setDisclaimer((d) => ({ ...d, text: e.target.value }))}
+            placeholder="This page is a temporary draft pending legal review…"
+          />
+          <div className="ad-form-actions" style={{ marginTop: 16 }}>
+            <button onClick={() => void handleSaveDisclaimer()} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Disclaimer"}</button>
+          </div>
+        </div>
+      )}
+
+      {activeDoc && (
+        <div>
+          <div className="ad-card" style={{ marginBottom: 16 }}>
+            <div className="ad-section-header" style={{ marginBottom: 12 }}>
+              <div className="ad-card-title" style={{ margin: 0 }}>Page Details</div>
+              <button onClick={() => setResetTarget(subTab as "privacyPolicy" | "termsConditions")} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+            </div>
+            <div className="ad-form-grid" style={{ marginBottom: 16 }}>
+              <div><label className="ad-label">Page Title</label><input className="ad-input" value={activeDoc.title} onChange={(e) => setActiveDoc((d) => ({ ...d, title: e.target.value }))} /></div>
+              <div><label className="ad-label">Effective Date</label><input className="ad-input" value={activeDoc.effectiveDate} onChange={(e) => setActiveDoc((d) => ({ ...d, effectiveDate: e.target.value }))} placeholder="August 11, 2026" /></div>
+              <div><label className="ad-label">Last Updated</label><input className="ad-input" value={activeDoc.lastUpdated} onChange={(e) => setActiveDoc((d) => ({ ...d, lastUpdated: e.target.value }))} placeholder="August 11, 2026" /></div>
+            </div>
+            <div>
+              <label className="ad-label">Intro Paragraph</label>
+              <textarea className="ad-input" style={{ minHeight: 100 }} value={activeDoc.intro} onChange={(e) => setActiveDoc((d) => ({ ...d, intro: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="ad-card" style={{ marginBottom: 16 }}>
+            <div className="ad-section-header" style={{ marginBottom: 12 }}>
+              <div className="ad-card-title" style={{ margin: 0 }}>Sections</div>
+              <button onClick={() => setActiveDoc((d) => ({ ...d, sections: [...d.sections, { heading: "", body: "" }] }))} className="ad-btn ad-btn--sm ad-btn--secondary">+ Add Section</button>
+            </div>
+            {activeDoc.sections.length === 0 && <div style={{ fontSize: 13, color: "var(--ad-text3)" }}>No sections yet. Click "+ Add Section" to add one.</div>}
+            {activeDoc.sections.map((s, i) => (
+              <div key={i} className="ad-card" style={{ background: "var(--ad-surface2)", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label className="ad-label" style={{ margin: 0 }}>Heading</label>
+                  <button onClick={() => setActiveDoc((d) => ({ ...d, sections: d.sections.filter((_, j) => j !== i) }))} className="ad-btn ad-btn--danger ad-btn--sm">Remove</button>
+                </div>
+                <input
+                  className="ad-input"
+                  style={{ marginBottom: 10 }}
+                  value={s.heading}
+                  onChange={(e) => setActiveDoc((d) => ({ ...d, sections: d.sections.map((x, j) => j === i ? { ...x, heading: e.target.value } : x) }))}
+                />
+                <label className="ad-label">Body</label>
+                <textarea
+                  className="ad-input"
+                  style={{ minHeight: 140, fontFamily: "monospace", fontSize: 12 }}
+                  value={s.body}
+                  onChange={(e) => setActiveDoc((d) => ({ ...d, sections: d.sections.map((x, j) => j === i ? { ...x, body: e.target.value } : x) }))}
+                />
+                <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--ad-text3)" }}>Separate paragraphs with a blank line. Lines starting with "- " render as a bullet list.</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="ad-form-actions">
+            <button onClick={() => void handleSaveDoc(subTab as "privacyPolicy" | "termsConditions", activeDoc)} disabled={saving} className="ad-btn">{saving ? "Saving…" : "Save Changes"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const BLOCK_TYPE_LABELS: Record<ContentBlock['type'], string> = {
   heading:          'Heading',
   paragraph:        'Paragraph',
@@ -7173,6 +7349,7 @@ export default function ASAdmin() {
         { id: "process",    label: "Process",       icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></NavIcon> },
         { id: "cta",        label: "Call to Action", icon: <NavIcon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></NavIcon> },
         { id: "footer",     label: "Footer",         icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></NavIcon> },
+        { id: "legal",      label: "Legal",          icon: <NavIcon><path d="M12 3v18M7 6h10M5 6l-3 6a3 3 0 0 0 6 0L5 6zM19 6l-3 6a3 3 0 0 0 6 0l-3-6z"/></NavIcon> },
       ],
     },
   ];
@@ -7252,6 +7429,7 @@ export default function ASAdmin() {
           {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
           {tab === "cta"               && <CtaEditor apiKey={apiKey} />}
           {tab === "footer"            && <FooterEditor apiKey={apiKey} />}
+          {tab === "legal"             && <LegalEditor apiKey={apiKey} />}
         </main>
       </div>
     </div>

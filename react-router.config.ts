@@ -9,6 +9,8 @@ export default {
       "/projects",
       "/solar-calculator",
       "/client-journey",
+      "/privacy-policy",
+      "/terms-and-conditions",
     ];
   },
 } satisfies Config;

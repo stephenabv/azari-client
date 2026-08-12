@@ -40,7 +40,7 @@ const DEFAULT_FOOTER: Required<FooterData> = {
     credits: "Designed by Orland Developed by Stephen & Adriel",
     privacy_policy: {
       name: "Privacy Policy",
-      url: "https://azari.solar/privacy-terms",
+      url: "https://azari.solar/privacy-policy",
     },
     terms_conditions: {
       name: "Terms and Conditions",

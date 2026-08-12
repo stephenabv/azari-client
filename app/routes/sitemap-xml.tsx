@@ -6,6 +6,8 @@ const STATIC_URLS = [
   { loc: "https://azari.solar/projects", priority: "0.8", changefreq: "weekly" },
   { loc: "https://azari.solar/solar-calculator", priority: "0.8", changefreq: "monthly" },
   { loc: "https://azari.solar/client-journey", priority: "0.7", changefreq: "monthly" },
+  { loc: "https://azari.solar/privacy-policy", priority: "0.3", changefreq: "yearly" },
+  { loc: "https://azari.solar/terms-and-conditions", priority: "0.3", changefreq: "yearly" },
 ];
 
 interface ProjectEntry {
