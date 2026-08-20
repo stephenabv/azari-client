@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASImgLoader from "./ASImgLoader";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
@@ -54,23 +53,26 @@ function apiToProject(p: ApiProject): Project {
   return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
 }
 
-export default function ASProjects() {
-  useSeoMeta({
-    title: "Solar Projects in Bohol, Philippines",
-    description: "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
-    canonical: "https://azari.solar/projects",
-  });
-  const navigate = useNavigate();
+type ASProjectsProps = {
+  /** Projects resolved by the route loader, so the grid is server-rendered. */
+  initialProjects?: ApiProject[];
+};
+
+export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const seeded = initialProjects?.map(apiToProject) ?? [];
+  const [projects, setProjects] = useState<Project[]>(seeded);
+  const [loading, setLoading] = useState(seeded.length === 0);
 
   useEffect(() => {
+    // Already server-rendered; skip the duplicate request on hydration.
+    if (seeded.length > 0) return;
     fetchProjects()
       .then((data) => setProjects(data.map(apiToProject)))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeIndex = filters.indexOf(activeFilter);
@@ -110,9 +112,9 @@ export default function ASProjects() {
   return (
     <section className="as-projects-section">
       <div className="as-projects-header">
-        <h2 className="as-projects-title">
+        <h1 className="as-projects-title">
           Our Solar Installations Portfolio
-        </h2>
+        </h1>
 
         <p className="as-projects-description">
           Proven Resilience. Quantifiable Savings. Explore our nationwide
@@ -163,14 +165,12 @@ export default function ASProjects() {
       ) : filteredProjects.length > 0 ? (
         <div className="as-projects-grid">
           {filteredProjects.map((project, index) => (
-            <article
+            <Link
               className="as-project-card"
               key={project.id}
+              to={`/projects/${project.id}`}
               style={{ animationDelay: `${index * 90}ms`, cursor: "pointer" }}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(`/projects/${project.id}`)}
-              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/projects/${project.id}`); }}
+              aria-label={project.title}
             >
               <ASImgLoader
                 src={project.image}
@@ -192,7 +192,7 @@ export default function ASProjects() {
                   </svg>
                 </div>
 
-                <h3>{project.title}</h3>
+                <h2>{project.title}</h2>
 
                 <div className="as-project-card-stats">
                   <div>
@@ -208,7 +208,7 @@ export default function ASProjects() {
                   </div>
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       ) : (

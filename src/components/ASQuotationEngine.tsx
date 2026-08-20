@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
 import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
@@ -309,11 +308,6 @@ function LoadProfileSection({
 }
 
 export default function ASQuotationEngine() {
-  useSeoMeta({
-    title: "Free Solar Savings Calculator — Bohol, Philippines",
-    description: "Estimate your solar system size and monthly savings with our free solar calculator. Enter your electricity bill to find the right package — serving Bohol & the Philippines.",
-    canonical: "https://azari.solar/solar-calculator",
-  });
   const location = useLocation();
   const quoteState = (location.state ?? {}) as QuoteNavigationState;
 

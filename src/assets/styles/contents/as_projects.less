@@ -100,13 +100,18 @@
   gap: 22px;
 }
 
+/* The card is an <a> so the project page is reachable by crawlers and by
+   keyboard without a JS handler. It must carry no anchor styling of its own. */
 .as-project-card {
   position: relative;
+  display: block;
   height: 330px;
   border-radius: 18px;
   overflow: hidden;
   isolation: isolate;
   background: #151515;
+  color: inherit;
+  text-decoration: none;
   animation: asProjectCardIn 700ms ease forwards;
   opacity: 0;
   transform: translateY(28px) scale(0.98);
@@ -189,7 +194,7 @@
   color: #ffffff;
 }
 
-.as-project-card h3 {
+.as-project-card h2 {
   margin: 0 0 20px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -703,7 +708,7 @@
     padding: 20px;
   }
 
-  .as-project-card h3 {
+  .as-project-card h2 {
     max-width: 100%;
     font-size: 21px;
   }
@@ -775,7 +780,7 @@
     padding: 16px;
   }
 
-  .as-project-card h3 {
+  .as-project-card h2 {
     margin-bottom: 18px;
     font-size: 19px;
   }

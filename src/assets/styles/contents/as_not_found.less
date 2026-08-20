@@ -238,7 +238,12 @@
   margin-top: 32px;
 }
 
-.as-not-found-actions button {
+.as-not-found-actions button,
+.as-not-found-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   min-height: 48px;
   padding: 0 20px;
   border: none;
@@ -251,7 +256,8 @@
   cursor: pointer;
 }
 
-.as-not-found-actions button.secondary {
+.as-not-found-actions button.secondary,
+.as-not-found-actions a.secondary {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
 }

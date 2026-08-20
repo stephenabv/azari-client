@@ -1,5 +1,4 @@
 import { useContent } from "../hooks/useContent";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASImpactCalculator from "../components/ASCalculator";
 import ASCallToAction from "../components/ASCallToAction";
@@ -40,11 +39,6 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
 };
 
 export default function ASDashboard() {
-  useSeoMeta({
-    title: "Azari Solar — Solar Panel Installer in Bohol, Philippines",
-    description: "Affordable solar packages and professional installation for homes & businesses in Tagbilaran, Bohol. Hybrid, grid-tie, and off-grid systems. Get a free quote.",
-    canonical: "https://azari.solar/",
-  });
   const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);
 
   return (

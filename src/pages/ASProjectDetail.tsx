@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router";
+import { Link, useParams, useNavigate } from "react-router";
 import iconPlay from "../assets/icons/icon-play.svg";
 import iconGoBack from "../assets/icons/icon-go-back.svg";
 import logoAnimated from "../assets/animations/logo-animated.svg";
@@ -599,23 +598,37 @@ function SkeletonLoader() {
   );
 }
 
-export default function ASProjectDetails() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [project, setProject] = useState<ASProjectDetailsModel | null>(null);
-  const [loading, setLoading] = useState(true);
+type ASProjectDetailsProps = {
+  /**
+   * Project fetched by the route loader on the server, so the markup is already
+   * rendered in the SSR response. When it matches the current :id the client
+   * does not refetch; the effect below still covers any other case.
+   */
+  initialProject?: ASProjectDetailsModel | null;
+};
 
-  useSeoMeta({
-    title: project ? project.title : "Projects",
-    description: project
-      ? `${project.title} — a solar installation by Azari Solar. ${project.subtitle ?? ""}`.trim()
-      : "Browse completed solar installation projects by Azari Solar.",
-    canonical: project ? `https://azari.solar/projects/${id}` : "https://azari.solar/projects",
-  });
+export default function ASProjectDetails({
+  initialProject = null,
+}: ASProjectDetailsProps = {}) {
+  const { id } = useParams<{ id: string }>();
+  const [project, setProject] = useState<ASProjectDetailsModel | null>(
+    initialProject,
+  );
+  const [loading, setLoading] = useState(!initialProject);
+
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
+    // Server already resolved this project (including after a client-side
+    // navigation between projects, which re-runs the loader): adopt it instead
+    // of fetching the same record a second time.
+    if (initialProject && String(initialProject.id) === String(id)) {
+      setProject(initialProject);
+      setNotFound(false);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetchProjectById(id).then((data) => {
       if (!data) {
@@ -625,7 +638,7 @@ export default function ASProjectDetails() {
       }
       setLoading(false);
     });
-  }, [id]);
+  }, [id, initialProject]);
 
   if (loading) return <SkeletonLoader />;
 
@@ -638,12 +651,9 @@ export default function ASProjectDetails() {
           <p className="as-pd-not-found-desc">
             This project may have been removed or the link is incorrect.
           </p>
-          <button
-            className="as-pd-not-found-btn"
-            onClick={() => navigate("/projects")}
-          >
+          <Link className="as-pd-not-found-btn" to="/projects">
             Back to Projects
-          </button>
+          </Link>
         </div>
       </div>
     );

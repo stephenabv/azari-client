@@ -1,43 +1,55 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { useLoaderData } from "react-router";
 import "../../src/assets/styles/contents/as_project_detail.less";
 import ASProjectDetails from "../../src/pages/ASProjectDetail";
-
-const API_BASE = process.env["API_URL"] ?? "http://localhost:4000";
+import type { ASProjectDetailsModel } from "../../src/services/ASContent";
+import { apiGet } from "../lib/api.server";
+import { socialImageUrl } from "../lib/seo";
 
 export async function loader({ params }: LoaderFunctionArgs) {
-  try {
-    const res = await fetch(`${API_BASE}/api/projects/${params["id"]}`, {
-      headers: { Accept: "application/json" },
+  const id = params["id"] ?? "";
+  const result = await apiGet<ASProjectDetailsModel>(`/api/projects/${id}`);
+
+  // A project that does not exist — or is unpublished, which the public API
+  // reports the same way — is genuinely absent, so answer with a real 404
+  // instead of a 200 shell. The root ErrorBoundary renders the 404 page.
+  if (result.status === "not-found") {
+    throw new Response("Project not found", {
+      status: 404,
+      statusText: "Not Found",
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { data?: Record<string, unknown> };
-    return json.data ?? null;
-  } catch {
-    return null;
   }
+
+  // The API being unreachable is a server problem, not a missing project.
+  // Reporting it as 404 would invite Google to drop a live URL.
+  if (result.status === "unavailable") {
+    throw new Response("Project temporarily unavailable", {
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+  }
+
+  return result.data;
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data, params }) => {
-  if (!data) {
-    return [
-      { title: "Project Not Found — Azari Solar" },
-      { name: "robots", content: "noindex" },
-    ];
-  }
+// React Router 8 passes the loader result as `loaderData`. The previous `data`
+// argument was always undefined here, so every project page served the generic
+// fallback title and description.
+export const meta: MetaFunction<typeof loader> = ({ loaderData, params }) => {
+  const project = loaderData as
+    | { title?: string; subtitle?: string; imageUrl?: string }
+    | undefined;
 
-  const project = data as {
-    title?: string;
-    subtitle?: string;
-    imageUrl?: string;
-    category?: string;
-  };
+  const url = `https://azari.solar/projects/${params["id"] ?? ""}`;
 
-  const title = `${project.title ?? "Solar Project"} — Azari Solar`;
+  // The loader throws for a missing project, so meta only runs with real data.
+  // The canonical is always this project's own URL — never /projects, which
+  // would tell Google the page is a duplicate of the index.
+  const title = `${project?.title ?? "Solar Project"} — Azari Solar`;
   const description =
-    project.subtitle ??
-    `${project.title ?? "Solar project"} by Azari Solar in Bohol, Philippines.`;
-  const url = `https://azari.solar/projects/${params["id"]}`;
-  const image = project.imageUrl ?? "https://azari.solar/preview.jpg";
+    project?.subtitle ??
+    `${project?.title ?? "Solar project"} by Azari Solar in Bohol, Philippines.`;
+  const image = socialImageUrl(project?.imageUrl);
 
   return [
     { title },
@@ -57,5 +69,6 @@ export const meta: MetaFunction<typeof loader> = ({ data, params }) => {
 };
 
 export default function ProjectDetail() {
-  return <ASProjectDetails />;
+  const project = useLoaderData<typeof loader>();
+  return <ASProjectDetails initialProject={project} />;
 }

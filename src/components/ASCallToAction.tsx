@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import { useContent } from "../hooks/useContent";
@@ -20,7 +20,6 @@ const DEFAULT_CTA: CtaContent = {
 };
 
 export default function ASCallToAction() {
-  const navigate = useNavigate();
 
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
@@ -71,17 +70,16 @@ export default function ASCallToAction() {
         <p className="as-cta-description">{cta.description}</p>
 
         <div className="as-cta-actions">
-          <button
-            type="button"
+          <Link
+            to="/solar-calculator"
             className="as-cta-primary"
-            onClick={() => navigate("/solar-calculator")}
           >
             {cta.primaryCta.replace(/\s*↗\s*$/, "")}
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true" style={{ flexShrink: 0 }}>
               <line x1="5" y1="19" x2="19" y2="5" />
               <polyline points="5 5 19 5 19 19" />
             </svg>
-          </button>
+          </Link>
 
           <button
             type="button"

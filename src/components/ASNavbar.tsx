@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import { useContent } from "../hooks/useContent";
 
 import lightModeToggle from "../assets/images/light-toggle-v2.png";
@@ -19,7 +19,6 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     width: 0,
   });
 
-  const navigate = useNavigate();
   const location = useLocation();
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
@@ -142,26 +141,21 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
     };
   }, []);
 
+  // Navigation itself is handled by the <Link> the handler is attached to, so
+  // that every destination renders as a real crawlable anchor. This only keeps
+  // the menu/indicator state in sync on click.
   const handleTabClick = (tab: string) => {
     setIsMobileMenuOpen(false);
     setActiveTab(tab);
-    navigate(tabRoutes[tab]);
   };
 
   return (
     <nav className="ASNavbar" ref={navbarRef}>
-      <div
+      <Link
+        to="/"
         className="nav-logo"
-        onClick={() => { setActiveTab("Home"); navigate("/"); }}
-        role="button"
         aria-label="Azari Solar"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            setActiveTab("Home"); navigate("/");
-          }
-        }}
+        onClick={() => setActiveTab("Home")}
       />
 
       <ul className="nav-menu" ref={navMenuRef}>
@@ -172,9 +166,10 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
               tabRefs.current[tab] = el;
             }}
             className={activeTab === tab ? "active" : ""}
-            onClick={() => handleTabClick(tab)}
           >
-            <span className="nav-link-text">{tab}</span>
+            <Link to={tabRoutes[tab]} onClick={() => handleTabClick(tab)}>
+              <span className="nav-link-text">{tab}</span>
+            </Link>
           </li>
         ))}
 
@@ -224,14 +219,14 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
 
       <div className={`mobile-nav-menu ${isMobileMenuOpen ? "open" : ""}`}>
         {tabs.map((tab) => (
-          <button
+          <Link
             key={tab}
-            type="button"
+            to={tabRoutes[tab]}
             className={activeTab === tab ? "active" : ""}
             onClick={() => handleTabClick(tab)}
           >
             {tab}
-          </button>
+          </Link>
         ))}
       </div>
     </nav>

@@ -1,5 +1,6 @@
 import type { LinksFunction, MetaFunction } from "react-router";
 import ASDashboard from "../../src/pages/ASDashboard";
+import { FAQ_SCHEMA } from "../lib/faq-schema";
 
 // Preload the hero video poster so the browser's preload scanner can fetch it
 // immediately from the initial HTML, before JS hydrates and the <video> renders.
@@ -51,6 +52,8 @@ export const meta: MetaFunction = () => [
       "Affordable solar packages and professional installation for homes and businesses in Bohol, Philippines.",
   },
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
+  // FAQ structured data belongs on this page only, not the whole site.
+  { "script:ld+json": FAQ_SCHEMA },
 ];
 
 export default function Index() {
