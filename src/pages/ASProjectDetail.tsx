@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router";
+import { Link, useParams, useNavigate } from "react-router";
 import iconPlay from "../assets/icons/icon-play.svg";
 import iconGoBack from "../assets/icons/icon-go-back.svg";
 import logoAnimated from "../assets/animations/logo-animated.svg";
@@ -601,7 +601,6 @@ function SkeletonLoader() {
 
 export default function ASProjectDetails() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [project, setProject] = useState<ASProjectDetailsModel | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -638,12 +637,9 @@ export default function ASProjectDetails() {
           <p className="as-pd-not-found-desc">
             This project may have been removed or the link is incorrect.
           </p>
-          <button
-            className="as-pd-not-found-btn"
-            onClick={() => navigate("/projects")}
-          >
+          <Link className="as-pd-not-found-btn" to="/projects">
             Back to Projects
-          </button>
+          </Link>
         </div>
       </div>
     );

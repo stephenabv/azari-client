@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASImgLoader from "./ASImgLoader";
@@ -60,7 +60,6 @@ export default function ASProjects() {
     description: "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
     canonical: "https://azari.solar/projects",
   });
-  const navigate = useNavigate();
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
@@ -163,14 +162,12 @@ export default function ASProjects() {
       ) : filteredProjects.length > 0 ? (
         <div className="as-projects-grid">
           {filteredProjects.map((project, index) => (
-            <article
+            <Link
               className="as-project-card"
               key={project.id}
+              to={`/projects/${project.id}`}
               style={{ animationDelay: `${index * 90}ms`, cursor: "pointer" }}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(`/projects/${project.id}`)}
-              onKeyDown={(e) => { if (e.key === "Enter") navigate(`/projects/${project.id}`); }}
+              aria-label={project.title}
             >
               <ASImgLoader
                 src={project.image}
@@ -208,7 +205,7 @@ export default function ASProjects() {
                   </div>
                 </div>
               </div>
-            </article>
+            </Link>
           ))}
         </div>
       ) : (

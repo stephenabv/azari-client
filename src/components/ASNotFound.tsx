@@ -1,9 +1,8 @@
-import { useNavigate } from "react-router";
+import { Link } from "react-router";
 
 import "../assets/styles/contents/as_not_found.less";
 
 export default function ASNotFound() {
-  const navigate = useNavigate();
 
   return (
     <section className="as-not-found">
@@ -47,8 +46,8 @@ export default function ASNotFound() {
         </p>
 
         <div className="as-not-found-actions">
-          <button type="button" onClick={() => navigate("/")}>Back to Home</button>
-          <button type="button" className="secondary" onClick={() => navigate("/projects")}>View Projects</button>
+          <Link to="/">Back to Home</Link>
+          <Link to="/projects" className="secondary">View Projects</Link>
         </div>
       </div>
     </section>

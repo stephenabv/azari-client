@@ -44,6 +44,16 @@
   transition: color 0.3s ease;
 }
 
+/* Menu items are real anchors so they are crawlable. They must not introduce
+   any appearance of their own — colour, weight and hover all stay on the li. */
+.nav-menu li > a {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+}
+
 .nav-link-text {
   display: inline-block;
   line-height: 1;
@@ -173,7 +183,9 @@
   transform: translateY(0);
 }
 
-.mobile-nav-menu button {
+.mobile-nav-menu button,
+.mobile-nav-menu a {
+  display: block;
   width: 100%;
   padding: 14px 16px;
   border: none;
@@ -182,6 +194,7 @@
   color: rgba(255, 255, 255, 0.82);
   font: 500 13px "Inter", sans-serif;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition:
     background 0.25s ease,
@@ -189,7 +202,9 @@
 }
 
 .mobile-nav-menu button.active,
-.mobile-nav-menu button:hover {
+.mobile-nav-menu button:hover,
+.mobile-nav-menu a.active,
+.mobile-nav-menu a:hover {
   background: rgba(252, 97, 90, 0.18);
   color: #fc615a;
 }
