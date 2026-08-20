@@ -23,5 +23,4 @@ export default [
     route("*", "routes/$.tsx"),
   ]),
   route(ADMIN_PATH, "routes/admin.tsx"),
-  route("robots.txt", "routes/robots-txt.tsx"),
 ] satisfies RouteConfig;

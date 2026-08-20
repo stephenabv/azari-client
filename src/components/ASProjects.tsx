@@ -112,9 +112,9 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   return (
     <section className="as-projects-section">
       <div className="as-projects-header">
-        <h2 className="as-projects-title">
+        <h1 className="as-projects-title">
           Our Solar Installations Portfolio
-        </h2>
+        </h1>
 
         <p className="as-projects-description">
           Proven Resilience. Quantifiable Savings. Explore our nationwide
@@ -192,7 +192,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
                   </svg>
                 </div>
 
-                <h3>{project.title}</h3>
+                <h2>{project.title}</h2>
 
                 <div className="as-project-card-stats">
                   <div>

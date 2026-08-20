@@ -216,7 +216,9 @@ function BlockRenderer({ block }: { block: ContentBlock }) {
 }
 
 export function StepContent({ step }: { step: ApiJourneyStep }) {
-  const sorted = [...step.blocks].sort((a, b) => a.order - b.order);
+  // Guarded: this renders on the server now, so one malformed record would
+  // otherwise fail the whole route instead of just this step.
+  const sorted = [...(step.blocks ?? [])].sort((a, b) => a.order - b.order);
   return (
     <div className="as-cjp-panel-inner">
       {step.subheading && <h2 className="as-cjp-panel-subheading">{step.subheading}</h2>}

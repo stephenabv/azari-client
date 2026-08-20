@@ -32,8 +32,11 @@ export async function loader({ params }: LoaderFunctionArgs) {
   return result.data;
 }
 
-export const meta: MetaFunction<typeof loader> = ({ data, params }) => {
-  const project = data as
+// React Router 8 passes the loader result as `loaderData`. The previous `data`
+// argument was always undefined here, so every project page served the generic
+// fallback title and description.
+export const meta: MetaFunction<typeof loader> = ({ loaderData, params }) => {
+  const project = loaderData as
     | { title?: string; subtitle?: string; imageUrl?: string }
     | undefined;
 
