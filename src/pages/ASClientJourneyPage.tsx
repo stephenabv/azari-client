@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import type {
   ApiJourneyStep, ContentBlock,
   HeadingBlock, ParagraphBlock, BulletListBlock, LinkGroupBlock,
@@ -228,14 +227,16 @@ export function StepContent({ step }: { step: ApiJourneyStep }) {
   );
 }
 
-export default function ASClientJourneyPage() {
-  useSeoMeta({
-    title: "Solar Installation Process in Bohol",
-    description: "Learn how Azari Solar guides you from consultation to installation in Bohol. Transparent process, quality components, and full after-sales support across the Philippines.",
-    canonical: "https://azari.solar/client-journey",
-  });
-  const [steps, setSteps] = useState<ApiJourneyStep[]>([]);
-  const [loading, setLoading] = useState(true);
+type ASClientJourneyPageProps = {
+  /** Steps resolved by the route loader, so the page is server-rendered. */
+  initialSteps?: ApiJourneyStep[];
+};
+
+export default function ASClientJourneyPage({
+  initialSteps,
+}: ASClientJourneyPageProps = {}) {
+  const [steps, setSteps] = useState<ApiJourneyStep[]>(initialSteps ?? []);
+  const [loading, setLoading] = useState((initialSteps ?? []).length === 0);
   const [openId, setOpenId] = useState<string | null>(null);
   const [shownCount, setShownCount] = useState(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
@@ -250,10 +251,13 @@ export default function ASClientJourneyPage() {
   const justOpenedRef = useRef<string | null>(null);
 
   useEffect(() => {
+    // Already server-rendered; skip the duplicate request on hydration.
+    if ((initialSteps ?? []).length > 0) return;
     fetchClientJourney().then(data => {
       setSteps(data);
       setLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

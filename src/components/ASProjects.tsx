@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import ASImgLoader from "./ASImgLoader";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
@@ -54,22 +53,26 @@ function apiToProject(p: ApiProject): Project {
   return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
 }
 
-export default function ASProjects() {
-  useSeoMeta({
-    title: "Solar Projects in Bohol, Philippines",
-    description: "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
-    canonical: "https://azari.solar/projects",
-  });
+type ASProjectsProps = {
+  /** Projects resolved by the route loader, so the grid is server-rendered. */
+  initialProjects?: ApiProject[];
+};
+
+export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const seeded = initialProjects?.map(apiToProject) ?? [];
+  const [projects, setProjects] = useState<Project[]>(seeded);
+  const [loading, setLoading] = useState(seeded.length === 0);
 
   useEffect(() => {
+    // Already server-rendered; skip the duplicate request on hydration.
+    if (seeded.length > 0) return;
     fetchProjects()
       .then((data) => setProjects(data.map(apiToProject)))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeIndex = filters.indexOf(activeFilter);

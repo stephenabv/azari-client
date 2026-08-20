@@ -20,4 +20,32 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // Route modules are required by React Router to export loaders, meta, links
+    // and friends alongside the component. react-refresh flags those as
+    // non-component exports, which is a false positive for this file type.
+    files: ['app/root.tsx', 'app/routes/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': [
+        'error',
+        {
+          allowExportNames: [
+            'action',
+            'clientAction',
+            'clientLoader',
+            'ErrorBoundary',
+            'handle',
+            'headers',
+            'HydrateFallback',
+            'Layout',
+            'links',
+            'loader',
+            'meta',
+            'middleware',
+            'shouldRevalidate',
+          ],
+        },
+      ],
+    },
+  },
 ])

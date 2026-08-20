@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useSeoMeta } from "../hooks/useSeoMeta";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
@@ -738,12 +737,12 @@ function PkgCardSkeleton() {
   );
 }
 
-export default function ASPackages() {
-  useSeoMeta({
-    title: "Affordable Solar Packages in Bohol, Philippines",
-    description: "Browse affordable residential & commercial solar packages in Bohol. Hybrid, grid-tie & off-grid systems with full installation — single & three phase available.",
-    canonical: "https://azari.solar/packages",
-  });
+type ASPackagesProps = {
+  /** Packages resolved by the route loader, so the grid is server-rendered. */
+  initialPackages?: ApiSolarPackage[];
+};
+
+export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   const navigate = useNavigate();
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
 
@@ -762,8 +761,10 @@ export default function ASPackages() {
   }, []);
 
   const [phase, setPhase] = useState<Phase>("single");
-  const [packages, setPackages] = useState<ApiSolarPackage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [packages, setPackages] = useState<ApiSolarPackage[]>(
+    initialPackages ?? [],
+  );
+  const [loading, setLoading] = useState((initialPackages ?? []).length === 0);
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
   const [loadingMoreGroups, setLoadingMoreGroups] = useState<Record<string, boolean>>({});
   const [selectedPkg, setSelectedPkg] = useState<ApiSolarPackage | null>(null);
@@ -772,9 +773,12 @@ export default function ASPackages() {
   const [ctaModalOpen, setCtaModalOpen] = useState(false);
 
   useEffect(() => {
+    // Already server-rendered; skip the duplicate request on hydration.
+    if ((initialPackages ?? []).length > 0) return;
     fetchPublicPackages()
       .then(setPackages)
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const groups = groupByType(packages, phase);
