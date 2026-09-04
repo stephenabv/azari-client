@@ -1562,6 +1562,9 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [pkgListLoading, setPkgListLoading] = useState(false);
   const [selectedPkgId, setSelectedPkgId] = useState('');
   const [galleryMsg, setGalleryMsg] = useState("");
+  // Gallery names already persisted for the project being edited. Saved photos
+  // cannot be told apart from newly added ones by their src — both are data URLs.
+  const [savedGalleryNames, setSavedGalleryNames] = useState<Set<string>>(new Set());
   const clearErr = (f: string) => setErrors(p => { const c = { ...p }; delete c[f]; return c; });
 
   const load = async () => {
@@ -1579,7 +1582,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
   }, [showForm]);
 
   const openAdd = () => {
-    setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null);
+    setEditingId(null); setForm(EMPTY_PROJECT_FORM); setImageFile(null); setSavedGalleryNames(new Set());
     setImagePreview(""); setMsg(""); setFormSection('basic'); setSystemInputMode('manual'); setSelectedPkgId(''); setShowForm(true);
   };
   const openEdit = (p: ApiProject) => {
@@ -1608,9 +1611,10 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
       loadKw: p.loadKw != null ? String(p.loadKw) : "",
       storageKwh: p.storageKwh != null ? String(p.storageKwh) : (p.system?.match(/\(([\d.]+)\s*kWh/i)?.[1] ?? ""),
     });
+    setSavedGalleryNames(new Set(((p.galleryImageNames ?? []) as string[]).map(n => n.trim().toLowerCase())));
     setImageFile(null); setImagePreview(p.imageUrl); setMsg(""); setFormSection('basic'); setSystemInputMode('manual'); setSelectedPkgId(''); setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); setErrors({}); setGalleryMsg(""); };
+  const closeForm = () => { setShowForm(false); setEditingId(null); setImageFile(null); setImagePreview(""); setMsg(""); setErrors({}); setGalleryMsg(""); setSavedGalleryNames(new Set()); };
 
   const handleImageSelect = (file: File | undefined) => {
     if (!file) return;
@@ -2098,7 +2102,11 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
               const MAX = 20;
               const ALLOWED = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
               const atMax = form.galleryImages.length >= MAX;
-              const savedCount = form.galleryImages.filter(s => !s.startsWith('data:')).length;
+              const isSavedAt = (i: number) => {
+                const name = form.galleryImageNames[i];
+                return name != null && savedGalleryNames.has(name.trim().toLowerCase());
+              };
+              const savedCount = form.galleryImages.filter((_, i) => isSavedAt(i)).length;
               const newCount = form.galleryImages.length - savedCount;
 
               const processFiles = (files: File[]) => {
@@ -2179,7 +2187,8 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
             {form.galleryImages.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
                 {form.galleryImages.map((src, i) => {
-                  const isSaved = !src.startsWith('data:');
+                  const name = form.galleryImageNames[i];
+                  const isSaved = name != null && savedGalleryNames.has(name.trim().toLowerCase());
                   return (
                     <div key={i} style={{ position: "relative", aspectRatio: "4/3" }}>
                       <img src={src} alt={`Gallery ${i + 1}`} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6, border: `1px solid ${isSaved ? "var(--ad-accent)" : "var(--ad-border)"}` }} />
