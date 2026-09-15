@@ -4,6 +4,7 @@ import type { ApiSolarPackage, PackageSelection } from "../../services/ASContent
 import { submitPackageInquiry, computeMonthlySavings } from "../../services/ASContent";
 import { formatCapacity } from "../../lib/units";
 import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
+import { useScrollLock } from "../../hooks/useScrollLock";
 
 type Props = {
   isOpen: boolean;
@@ -47,22 +48,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
     return () => clearTimeout(t);
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const y = window.scrollY;
-    const o = { overflow: document.body.style.overflow, position: document.body.style.position, top: document.body.style.top, width: document.body.style.width };
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${y}px`;
-    document.body.style.width = "100%";
-    return () => {
-      document.body.style.overflow = o.overflow;
-      document.body.style.position = o.position;
-      document.body.style.top = o.top;
-      document.body.style.width = o.width;
-      window.scrollTo(0, y);
-    };
-  }, [isOpen]);
+  useScrollLock(isOpen);
 
   const handleClose = () => {
     setIsClosing(true);

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import "./as_talktoexpert.less";
 import ASSystemError from "../system-error/ASSystemError";
 import LocationAutocompleteInput, { type NominatimResult } from "../../components/ASLocationAutocomplete";
+import { useScrollLock } from "../../hooks/useScrollLock";
 import {
   buildTalkToExpertPayload,
   validateTalkToExpertField,
@@ -113,32 +114,7 @@ export default function ASTalkToAnExpert({
     return Object.keys(newErrors).length === 0;
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const scrollY = window.scrollY;
-
-    const original = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-
-    return () => {
-      document.body.style.overflow = original.overflow;
-      document.body.style.position = original.position;
-      document.body.style.top = original.top;
-      document.body.style.width = original.width;
-
-      window.scrollTo(0, scrollY);
-    };
-  }, [isOpen]);
+  useScrollLock(isOpen);
 
   const handleClose = () => {
     setIsClosing(true);

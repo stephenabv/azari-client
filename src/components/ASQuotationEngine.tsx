@@ -6,6 +6,7 @@ import RequestProposalModal from "../modules/quotaion-modal/ASProposalRequest";
 import ProposalSubmittedModal from "../modules/quotaion-modal/ASProposalSubmitted";
 import { sendQuotationRequest } from "../modules/quotationbuilder";
 import ASSystemError from "../modules/system-error/ASSystemError";
+import { useScrollLock } from "../hooks/useScrollLock";
 import {
   computeDpt,
   computeDailyLoadMetrics,
@@ -364,30 +365,7 @@ export default function ASQuotationEngine() {
   }, [selectedProperty, systemPurpose]);
 
 
-  useEffect(() => {
-    if (!modal) return;
-
-    const scrollY = window.scrollY;
-    const prev = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-
-    return () => {
-      document.body.style.overflow = prev.overflow;
-      document.body.style.position = prev.position;
-      document.body.style.top = prev.top;
-      document.body.style.width = prev.width;
-      window.scrollTo(0, scrollY);
-    };
-  }, [modal]);
+  useScrollLock(Boolean(modal));
 
 
   useEffect(() => {
