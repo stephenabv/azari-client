@@ -4,10 +4,13 @@ import { trackPageView } from "../services/ASAnalytics";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
+import ASPageLoader from "../components/ASPageLoader";
+import { usePageTransition } from "../hooks/usePageTransition";
 
 export default function ASMainLayout() {
   const location = useLocation();
   const analyticsReady = useRef(false);
+  const isPageTransitioning = usePageTransition();
 
   const isHeroPage = location.pathname === "/";
   const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
@@ -53,6 +56,7 @@ export default function ASMainLayout() {
 
   return (
     <main className="app-main">
+      {isPageTransitioning && <ASPageLoader />}
       <ASRateLimitBanner />
       <header className="navbar-section">
         <div className="navbar-inner">

@@ -153,7 +153,17 @@
   transform: translateY(-7px) rotate(-45deg);
 }
 
+/* Every themed value on the drawer lives in one token block per theme, and the
+   items read those tokens instead of being restyled per element type. Menu
+   entries have been both <button> and <a> over time; tokens keep a change of
+   element from silently dropping the theme's colours. */
 .mobile-nav-menu {
+  --as-drawer-surface: rgba(18, 18, 18, 0.92);
+  --as-drawer-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  --as-drawer-item: rgba(255, 255, 255, 0.82);
+  --as-drawer-item-accent: #fc615a;
+  --as-drawer-item-accent-surface: rgba(252, 97, 90, 0.18);
+
   position: absolute;
   top: calc(100% + 10px);
   left: 16px;
@@ -164,10 +174,10 @@
   gap: 6px;
   padding: 12px;
   border-radius: 18px;
-  background: rgba(18, 18, 18, 0.92);
+  background: var(--as-drawer-surface);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--as-drawer-shadow);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-8px);
@@ -183,15 +193,14 @@
   transform: translateY(0);
 }
 
-.mobile-nav-menu button,
-.mobile-nav-menu a {
+.mobile-nav-menu > * {
   display: block;
   width: 100%;
   padding: 14px 16px;
   border: none;
   border-radius: 12px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--as-drawer-item);
   font: 500 13px "Inter", sans-serif;
   text-align: left;
   text-decoration: none;
@@ -201,12 +210,11 @@
     color 0.25s ease;
 }
 
-.mobile-nav-menu button.active,
-.mobile-nav-menu button:hover,
-.mobile-nav-menu a.active,
-.mobile-nav-menu a:hover {
-  background: rgba(252, 97, 90, 0.18);
-  color: #fc615a;
+.mobile-nav-menu > .active,
+.mobile-nav-menu > *:hover,
+.mobile-nav-menu > *:focus-visible {
+  background: var(--as-drawer-item-accent-surface);
+  color: var(--as-drawer-item-accent);
 }
 
 .light-theme .mobile-menu-btn {
@@ -215,18 +223,10 @@
 }
 
 .light-theme .mobile-nav-menu {
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
-}
-
-.light-theme .mobile-nav-menu button {
-  color: #111;
-}
-
-.light-theme .mobile-nav-menu button.active,
-.light-theme .mobile-nav-menu button:hover {
-  background: rgba(252, 97, 90, 0.12);
-  color: #fc615a;
+  --as-drawer-surface: rgba(255, 255, 255, 0.94);
+  --as-drawer-shadow: 0 18px 40px rgba(0, 0, 0, 0.12);
+  --as-drawer-item: #111;
+  --as-drawer-item-accent-surface: rgba(252, 97, 90, 0.12);
 }
 
 @media (max-width: 1200px) {
