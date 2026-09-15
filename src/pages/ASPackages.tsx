@@ -8,6 +8,7 @@ import { useContent } from "../hooks/useContent";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
+import { useScrollLock } from "../hooks/useScrollLock";
 import checkBullet from "../assets/logos/packages/check-bullet.svg";
 
 
@@ -307,32 +308,14 @@ function PackageCard({
     }, 220);
   }, []);
 
+  useScrollLock(showModal);
+
   useEffect(() => {
     if (!showModal) return;
 
-    const scrollY = window.scrollY;
-    const original = {
-      overflow: document.body.style.overflow,
-      position: document.body.style.position,
-      top: document.body.style.top,
-      width: document.body.style.width,
-    };
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
-
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleCloseModal(); };
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-
-      document.body.style.overflow = original.overflow;
-      document.body.style.position = original.position;
-      document.body.style.top = original.top;
-      document.body.style.width = original.width;
-      window.scrollTo(0, scrollY);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [showModal, handleCloseModal]);
 
   const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
