@@ -2,14 +2,16 @@
   .ASNavbar {
     background: #ffffff;
 
+    /* `&` is required: the active/hover state lives on the <li> itself, not on
+       a descendant, so a nested `.active` / `li:hover` never matched. */
     .nav-menu li {
       color: #555555;
 
-      .active {
+      &.active {
         color: #111111;
       }
 
-      li:hover {
+      &:hover {
         color: #000000;
       }
     }
