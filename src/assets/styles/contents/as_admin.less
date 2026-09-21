@@ -1216,27 +1216,138 @@ body.is-light {
 }
 
 // ── Package builder two-column modal layout ──────────────────────────────────
+//
+// Wide screens give each column its own scrollport so the two halves of the
+// form move independently; the shell, header and footer stay put. Below
+// @pkg-builder-stack the columns are too narrow to work in, so they stack and
+// the single scrollport moves up to the body — one continuous form again.
+
+@pkg-builder-stack: 900px;
+
+.ad-pkg-modal-shell {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  max-height: 90dvh;
+  // The shell never scrolls: whatever is inside owns the scrollport, which is
+  // what keeps the header and footer fixed against a moving form.
+  overflow: hidden;
+}
+
+.ad-pkg-modal-body {
+  flex: 1;
+  // Without this the content floors the body's height and it grows past the
+  // shell instead of being the thing that bounds the columns.
+  min-height: 0;
+  padding: 20px;
+  overflow: hidden;
+  // A flex parent hands the layout its height through stretch. A percentage
+  // height would not: the body's own height comes from flexing against the
+  // shell's max-height, which is not a containing block a percentage resolves
+  // against here, and the grid silently falls back to sizing to its content.
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: @pkg-builder-stack) {
+    display: block;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+.ad-pkg-modal-footer {
+  flex-shrink: 0;
+  padding: 14px 20px;
+  border-top: 2px solid var(--ad-border);
+  background: var(--ad-bg);
+
+  // The shared .ad-form-actions inside keeps its own button styling; only the
+  // margin it carries for in-form use is dropped here.
+  .ad-form-actions {
+    margin-top: 0;
+  }
+}
 
 .ad-pkg-builder-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
-  align-items: start;
+  // An explicit row track is what makes the columns scroll. Left implicit the
+  // row is auto-sized, so it grows to the taller column's content and stretch
+  // then hands both columns that content height — they never overflow, they
+  // just get clipped by the body. minmax(0, 1fr) pins the row to the
+  // container's own height and lets it shrink below its content instead.
+  grid-template-rows: minmax(0, 1fr);
+  // Stretch, not start: each column must fill the row for its own scrollport
+  // to have a height to work against.
+  align-items: stretch;
+  // Takes the body's height as a flex item rather than as a percentage.
+  flex: 1;
+  min-height: 0;
 
-  @media (max-width: 680px) {
+  @media (max-width: @pkg-builder-stack) {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    align-items: start;
+    flex: none;
+  }
+}
+
+.ad-pkg-builder-left,
+.ad-pkg-builder-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  // Keeps a scroll gesture that reaches one column's end from continuing into
+  // the other column, the body, or the page behind the modal.
+  overscroll-behavior: contain;
+  // Reserve the scrollbar's width on both sides so the columns stay aligned
+  // whether one, both or neither is currently scrollable.
+  scrollbar-gutter: stable;
+  padding-right: 2px;
+
+  // A flex column whose height is now capped would shrink its children to
+  // fit rather than overflow, quietly squashing the form instead of giving
+  // it a scrollbar. Children keep their natural height; the column scrolls.
+  > * {
+    flex-shrink: 0;
+  }
+
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--ad-border);
+    border-radius: 4px;
+
+    &:hover {
+      background: var(--ad-text3);
+    }
+  }
+
+  @media (max-width: @pkg-builder-stack) {
+    // Stacked, the body scrolls as one form — a scrollport per column here
+    // would trap the gesture in a short box.
+    overflow: visible;
+    min-height: auto;
+    scrollbar-gutter: auto;
+    padding-right: 0;
   }
 }
 
 .ad-pkg-builder-left {
-  display: flex;
-  flex-direction: column;
   gap: 16px;
 }
 
 .ad-pkg-builder-right {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
 }
 
