@@ -20,6 +20,7 @@ interface BodyStyleSnapshot {
   position: string;
   top: string;
   width: string;
+  paddingRight: string;
 }
 
 export interface ScrollLockHandle {
@@ -39,6 +40,7 @@ function read(style: CSSStyleDeclaration): BodyStyleSnapshot {
     position: style.position,
     top: style.top,
     width: style.width,
+    paddingRight: style.paddingRight,
   };
 }
 
@@ -47,6 +49,7 @@ function write(style: CSSStyleDeclaration, next: BodyStyleSnapshot): void {
   style.position = next.position;
   style.top = next.top;
   style.width = next.width;
+  style.paddingRight = next.paddingRight;
 }
 
 /**
@@ -62,11 +65,21 @@ export function acquireScrollLock(): ScrollLockHandle {
   if (lockCount === 0) {
     lockedScrollY = window.scrollY;
     restingState = read(style);
+
+    // Taking the page out of flow also takes away its scrollbar, and on a
+    // platform with classic (space-consuming) scrollbars the viewport then
+    // widens by that much and everything behind the overlay jumps sideways.
+    // Standing the width back up as padding holds the page still. Overlay
+    // scrollbars measure 0 here, so this is a no-op on those platforms.
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const existingPad = parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+
     write(style, {
       overflow: "hidden",
       position: "fixed",
       top: `-${lockedScrollY}px`,
       width: "100%",
+      paddingRight: scrollbarWidth > 0 ? `${existingPad + scrollbarWidth}px` : restingState.paddingRight,
     });
   }
 

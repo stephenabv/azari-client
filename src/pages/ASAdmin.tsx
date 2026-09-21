@@ -77,6 +77,7 @@ import {
 import { ELECTRIC_RATE_CONFIG } from "../models/calculation";
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
+import { useScrollLock } from "../hooks/useScrollLock";
 import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
@@ -4187,6 +4188,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [isSortOrderManual, setIsSortOrderManual] = useState(false);
   const [sortOrderStr, setSortOrderStr]           = useState(String(EMPTY_PKG_FORM.sortOrder ?? 1));
 
+  // Freezes the admin page behind the builder modal, and puts the reader back
+  // at the same offset when it closes. Reference-counted, so it composes with
+  // the preview and delete dialogs that can sit on top of it.
+  useScrollLock(showForm);
+
   const getNextSortOrder = (ph: 'single' | 'three', excludeId?: string | null) =>
     Math.max(0, ...packages.filter(p => p.phase === ph && p.id !== excludeId).map(p => p.sortOrder ?? 0)) + 1;
 
@@ -4445,7 +4451,21 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           <div className="ad-section-sub">{loading ? "Loading…" : `${activeCount} active · ${packages.length} total — create packages by selecting components from your inventory. Specs and pricing auto-calculate.`}</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {!showForm && <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Package</button>}
+          {/* Hidden rather than unmounted while the builder is open: dropping it
+              out of the flow shortens the page, and the browser's scroll
+              anchoring then shifts the offset by the button's height before the
+              scroll lock has captured it — so closing the modal put the reader
+              27px away from where they started. It is behind the backdrop
+              either way, and inert to pointer and keyboard while hidden. */}
+          <button
+            onClick={openAdd}
+            className="ad-btn ad-btn--sm"
+            style={showForm ? { visibility: "hidden" } : undefined}
+            aria-hidden={showForm || undefined}
+            tabIndex={showForm ? -1 : undefined}
+          >
+            + Add Package
+          </button>
         </div>
       </div>
       {msg && <Toast msg={msg} />}
@@ -4521,7 +4541,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
             background: "rgba(0, 0, 0, 0.5)", zIndex: 999,
             display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 16, overflow: "auto"
+            padding: 16, overflow: "auto", overscrollBehavior: "contain"
           }} onClick={closeForm}>
             {}
             <div className="ad-pkg-modal-shell" style={{
