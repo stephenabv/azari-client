@@ -16,6 +16,8 @@ import {
 import ASCallToAction from "../components/ASCallToAction";
 import { BentoCard } from "../components/ASBentoCard";
 import ASImgLoader from "../components/ASImgLoader";
+import ASLightbox from "../components/ASLightbox";
+import { useScrollLock } from "../hooks/useScrollLock";
 
 function getVideoEmbedUrl(url: string): string | null {
   if (!url.trim()) return null;
@@ -416,6 +418,11 @@ function GallerySection({ images }: { images: string[] }) {
   const [visibleItems, setVisibleItems] = useState(-1);
   const [modalOpen, setModalOpen] = useState(false);
   const [navbarBottom, setNavbarBottom] = useState(91);
+  // Index into the full `images` list, not just the tiles on screen, so the
+  // viewer can page through every photo from wherever it was opened.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  useScrollLock(modalOpen);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -442,10 +449,14 @@ function GallerySection({ images }: { images: string[] }) {
     const navbar = document.querySelector("header.navbar-section");
     const nb = navbar ? Math.round(navbar.getBoundingClientRect().bottom) : 91;
     setNavbarBottom(nb);
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setModalOpen(false); };
+    // The viewer sits above this modal and consumes Escape itself; without
+    // this guard one press would dismiss both.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && lightboxIndex === null) setModalOpen(false);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalOpen]);
+  }, [modalOpen, lightboxIndex]);
 
   if (!images || images.length === 0) return null;
 
@@ -460,11 +471,24 @@ function GallerySection({ images }: { images: string[] }) {
         <div className="as-pd-gallery-grid">
           {displayImages.map((src, i) => {
             const isLast = i === displayImages.length - 1 && remaining > 0;
+            const open = isLast ? () => setModalOpen(true) : () => setLightboxIndex(i);
             return (
               <div
                 key={i}
-                className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : ""}${i <= visibleItems ? " is-shown" : ""}`}
-                onClick={isLast ? () => setModalOpen(true) : undefined}
+                className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : " as-pd-gallery-item--zoomable"}${i <= visibleItems ? " is-shown" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={isLast ? `Show ${remaining} more photos` : `Expand gallery photo ${i + 1}`}
+                // The tile is focusable for keyboard users, but focusing it on
+                // click would scroll a partly-visible tile into view and move
+                // the page out from under the reader before the overlay opens.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={open}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  open();
+                }}
               >
                 <ASImgLoader src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
                 {isLast && (
@@ -510,7 +534,20 @@ function GallerySection({ images }: { images: string[] }) {
             </div>
             <div className="as-pd-gallery-modal-grid">
               {extraImages.map((src, i) => (
-                <div key={i} className="as-pd-gallery-modal-item">
+                <div
+                  key={i}
+                  className="as-pd-gallery-modal-item as-pd-gallery-modal-item--zoomable"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Expand gallery photo ${i + 9}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setLightboxIndex(i + 8)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    setLightboxIndex(i + 8);
+                  }}
+                >
                   <ASImgLoader
                     src={src}
                     alt={`Gallery photo ${i + 9}`}
@@ -523,6 +560,15 @@ function GallerySection({ images }: { images: string[] }) {
           </div>
         </div>,
         document.body
+      )}
+
+      {lightboxIndex !== null && (
+        <ASLightbox
+          images={images}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </section>
   );

@@ -1,0 +1,293 @@
+// Full-screen image viewer (ASLightbox).
+//
+// Laid out as three rows — bar, stage, thumbnail strip — in a grid pinned to
+// the viewport, so the image gets whatever height is left over and the page
+// behind never gains a scrollbar. Sizes come from dvh/dvw units so a mobile
+// browser's collapsing address bar does not crop the controls.
+
+@lb-accent: #fc615a;
+@lb-control-size: 46px;
+@lb-control-size-sm: 40px;
+
+.as-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000; // above the "More Photos" modal (9999) it can be opened from
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  background: rgba(8, 8, 8, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overscroll-behavior: contain;
+  animation: asLightboxIn 180ms ease-out both;
+
+  // Holds focus on open so the arrow keys work immediately; it is a container,
+  // not a control, so it shows no ring of its own.
+  &:focus {
+    outline: none;
+  }
+}
+
+@keyframes asLightboxIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+// ─── Top bar ─────────────────────────────────────────────────────────────────
+
+.as-lightbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.as-lightbox-counter {
+  font: 600 13px "Inter", sans-serif;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+// ─── Controls ────────────────────────────────────────────────────────────────
+
+.as-lightbox-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: @lb-control-size;
+  height: @lb-control-size;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: rgba(20, 20, 20, 0.72);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  &:focus-visible {
+    outline: 2px solid @lb-accent;
+    outline-offset: 2px;
+  }
+}
+
+// ─── Stage ───────────────────────────────────────────────────────────────────
+
+.as-lightbox-stage {
+  position: relative;
+  min-height: 0; // lets the 1fr row actually shrink instead of overflowing
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  touch-action: none; // the horizontal drag is ours to interpret
+}
+
+.as-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+
+  &:active {
+    transform: translateY(-50%) scale(0.94);
+  }
+
+  &--prev { left: 6px; }
+  &--next { right: 6px; }
+}
+
+.as-lightbox-figure {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+// `contain` keeps every photo at its own aspect ratio; the max- pair means a
+// portrait shot is bounded by the height and a landscape one by the width,
+// so neither is cropped or stretched.
+.as-lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+  user-select: none;
+  -webkit-user-drag: none;
+  opacity: 0;
+  transition: opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  &.is-loaded {
+    opacity: 1;
+  }
+
+  // While a finger is down the image tracks it 1:1 — no easing, or it lags.
+  &.is-dragging {
+    transition: opacity 220ms ease;
+    cursor: grabbing;
+  }
+}
+
+.as-lightbox-spinner {
+  position: absolute;
+  width: clamp(48px, 10vmin, 76px);
+  height: auto;
+  pointer-events: none;
+}
+
+// ─── Thumbnail strip ─────────────────────────────────────────────────────────
+
+.as-lightbox-thumbs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  padding: 2px 0;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.as-lightbox-thumbs-track {
+  display: flex;
+  gap: 8px;
+  width: max-content;
+  margin: 0 auto;
+  padding: 0 4px;
+}
+
+.as-lightbox-thumb {
+  width: 68px;
+  height: 48px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  opacity: 0.5;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &:hover { opacity: 0.85; }
+
+  &.is-active {
+    opacity: 1;
+    border-color: @lb-accent;
+  }
+
+  &:focus-visible {
+    outline: 2px solid @lb-accent;
+    outline-offset: 2px;
+  }
+}
+
+// ─── Gallery tiles become interactive ────────────────────────────────────────
+
+.as-pd-gallery-item--zoomable,
+.as-pd-gallery-modal-item--zoomable {
+  cursor: zoom-in;
+
+  &:focus-visible {
+    outline: 2px solid @lb-accent;
+    outline-offset: 3px;
+  }
+}
+
+// ─── Responsive ──────────────────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .as-lightbox {
+    gap: 6px;
+  }
+
+  .as-lightbox-btn {
+    width: @lb-control-size-sm;
+    height: @lb-control-size-sm;
+  }
+
+  .as-lightbox-thumb {
+    width: 56px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  // Arrows overlap the image edges rather than sitting beside it: at this
+  // width a side gutter would cost more picture than it is worth.
+  .as-lightbox-nav--prev { left: 2px; }
+  .as-lightbox-nav--next { right: 2px; }
+
+  .as-lightbox-counter {
+    font-size: 12px;
+    padding: 4px 11px;
+  }
+
+  .as-lightbox-thumb {
+    width: 48px;
+    height: 36px;
+  }
+}
+
+// Landscape phones have almost no vertical room: drop the strip and let the
+// photo take the whole stage.
+@media (max-height: 460px) {
+  .as-lightbox-thumbs {
+    display: none;
+  }
+
+  .as-lightbox {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .as-lightbox {
+    animation: none;
+  }
+
+  .as-lightbox-img,
+  .as-lightbox-btn,
+  .as-lightbox-thumb {
+    transition-duration: 0.01ms;
+  }
+}
+
+// ─── Light theme ─────────────────────────────────────────────────────────────
+//
+// The viewer stays dark in both themes — a photo reads best against a neutral
+// dark ground — so only the chrome that would disappear against it is tuned.
+body.light-theme .as-lightbox {
+  background: rgba(16, 16, 18, 0.95);
+}
