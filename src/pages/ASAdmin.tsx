@@ -4524,10 +4524,9 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             padding: 16, overflow: "auto"
           }} onClick={closeForm}>
             {}
-            <div style={{
+            <div className="ad-pkg-modal-shell" style={{
               background: "var(--ad-bg)", borderRadius: 8, boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-              maxWidth: 1140, width: "100%", maxHeight: "90vh", overflow: "auto", zIndex: 1000,
-              display: "flex", flexDirection: "column"
+              maxWidth: 1140, width: "100%", zIndex: 1000
             }} onClick={(e) => e.stopPropagation()}>
               {}
               <div style={{
@@ -4559,7 +4558,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
               </div>
 
               {}
-              <div style={{ padding: 20, overflow: "auto", flex: 1 }}>
+              <div className="ad-pkg-modal-body">
                 <div className="ad-pkg-builder-layout">
 
                   {}
@@ -4661,7 +4660,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                 />
                                 {search !== '' && (
                                   <div style={{
-                                    position: "absolute", top: "100%", left: 0, right: 0,
+                                    // In normal flow rather than absolutely placed: the column
+                                    // it sits in is now a scrollport, which would clip an
+                                    // absolute panel at its edge with no way to scroll to it.
+                                    // In flow the column grows and every match stays reachable.
+                                    width: "100%",
                                     background: "var(--ad-input-bg)", border: "1px solid var(--ad-border)",
                                     borderTop: "none", borderRadius: "0 0 8px 8px",
                                     maxHeight: 220, overflowY: "auto", zIndex: 20,
@@ -5138,13 +5141,17 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                       )}
                     </div>
 
-                    {}
-                    <div className="ad-form-actions" style={{ paddingTop: 4 }}>
-                      <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
-                      <button onClick={closeForm} className="ad-btn ad-btn--ghost">Cancel</button>
-                    </div>
                   </div>
 
+                </div>
+              </div>
+
+              {/* Outside the scrollports so the primary actions stay reachable
+                  however far either column has been scrolled. */}
+              <div className="ad-pkg-modal-footer">
+                <div className="ad-form-actions">
+                  <button onClick={() => void handleSave()} disabled={saving} className="ad-btn">{saving ? "Saving…" : editingId ? "Update Package" : "Create Package"}</button>
+                  <button onClick={closeForm} className="ad-btn ad-btn--ghost">Cancel</button>
                 </div>
               </div>
             </div>
