@@ -78,6 +78,7 @@ import { ELECTRIC_RATE_CONFIG } from "../models/calculation";
 import { CATEGORY_SPEC, unitFactor, toCanonical, fromCanonical, formatCapacity } from "../lib/units";
 import LocationAutocompleteInput from "../components/ASLocationAutocomplete";
 import { useScrollLock } from "../hooks/useScrollLock";
+import ASInventoryQuickAdd from "../components/ASInventoryQuickAdd";
 import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
@@ -4193,6 +4194,49 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   // the preview and delete dialogs that can sit on top of it.
   useScrollLock(showForm);
 
+  // The builder section whose "add new inventory item" form is open, if any.
+  const [quickAddCategory, setQuickAddCategory] = useState<string | null>(null);
+
+  /** Puts a component on the package, respecting the one-per-category rule. */
+  const addComponentLine = (comp: ApiSolarComponent) => {
+    const existing = (form.components ?? []).find(l => l.componentId === comp.id);
+    if (existing) {
+      if (!existing.baseComponentId) {
+        setComponents((form.components ?? []).map(l => l.componentId === comp.id ? { ...l, quantity: l.quantity + 1 } : l));
+      }
+      return;
+    }
+    setComponents([...(form.components ?? []), { componentId: comp.id, quantity: 1, baseComponentId: null, multiplier: 1 }]);
+  };
+
+  /**
+   * Creates the item through the same inventory service the Inventory tab
+   * uses, folds it into the loaded list so the package line resolves, and
+   * attaches it to the package.
+   */
+  const createInventoryItem = async (input: ComponentInput): Promise<ApiSolarComponent> => {
+    const res = await adminCreateComponent(apiKey, input) as { data?: ApiSolarComponent };
+    let created = res?.data;
+
+    // The create response is the fast path; if it ever carries no record,
+    // re-read inventory and match on the identity we just sent.
+    if (!created?.id) {
+      const all = await adminGetComponents(apiKey);
+      setAllComponents(all.data);
+      created = all.data.find(c =>
+        c.category === input.category &&
+        c.name.trim().toLowerCase() === input.name.trim().toLowerCase());
+      if (!created) throw new Error("Item was created but could not be read back. Check the Inventory tab.");
+    } else {
+      setAllComponents(prev => prev.some(c => c.id === created!.id) ? prev : [...prev, created!]);
+    }
+
+    addComponentLine(created);
+    setQuickAddCategory(null);
+    setMsg("✓ Inventory item created");
+    return created;
+  };
+
   const getNextSortOrder = (ph: 'single' | 'three', excludeId?: string | null) =>
     Math.max(0, ...packages.filter(p => p.phase === ph && p.id !== excludeId).map(p => p.sortOrder ?? 0)) + 1;
 
@@ -4727,6 +4771,29 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                                       })
                                     )}
                                   </div>
+                                )}
+
+                                {quickAddCategory === category ? (
+                                  <ASInventoryQuickAdd
+                                    category={category}
+                                    initialName={search}
+                                    existingComponents={allComponents}
+                                    onCancel={() => setQuickAddCategory(null)}
+                                    onCreate={createInventoryItem}
+                                    onUseExisting={(comp) => {
+                                      addComponentLine(comp);
+                                      setQuickAddCategory(null);
+                                      setCatSearches(cs => ({ ...cs, [category]: '' }));
+                                    }}
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="ad-btn ad-btn--sm ad-btn--ghost ad-qa-add-btn"
+                                    onClick={() => setQuickAddCategory(category)}
+                                  >
+                                    + Add New Inventory Item
+                                  </button>
                                 )}
                               </div>
                             )}
