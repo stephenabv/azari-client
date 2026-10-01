@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
+import { INVERTER_CATEGORY, normalizeAttribute } from "../services/packages/PackageFilter";
+import { DEFAULT_INVERTER_BRANDS_CONTENT, type InverterBrandMeta, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 import {
   adminGetStats,
   adminGetAllContent,
@@ -83,11 +85,11 @@ import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 
 type Tab =
-  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "package-inquiries" | "utilities" | "sections"
+  | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "inverter-brands" | "package-inquiries" | "utilities" | "sections"
   | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer" | "legal";
 
 const TAB_IDS: readonly Tab[] = [
-  "overview", "inquiries", "quotations", "projects", "inventory", "packages", "package-inquiries", "utilities", "sections",
+  "overview", "inquiries", "quotations", "projects", "inventory", "packages", "inverter-brands", "package-inquiries", "utilities", "sections",
   "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "cta", "footer", "legal",
 ];
 
@@ -5738,6 +5740,168 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
+/**
+ * Display metadata for inverter brands shown in the packages page filter.
+ * Brands come from inventory (active inverters), so a new brand appears here
+ * automatically; admins only decorate it with a logo and display order.
+ */
+function InverterBrandsEditor({ apiKey }: { apiKey: string }) {
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } =
+    useSectionEditor<InverterBrandsContent>(apiKey, "inverter-brands", DEFAULT_INVERTER_BRANDS_CONTENT);
+
+  const [inventoryBrands, setInventoryBrands] = useState<string[]>([]);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminGetComponents(apiKey)
+      .then((res) => {
+        if (cancelled) return;
+        const byKey = new Map<string, string>();
+        for (const c of res.data) {
+          if (c.category !== INVERTER_CATEGORY || !c.isActive || !c.brand?.trim()) continue;
+          const key = normalizeAttribute(c.brand);
+          if (!byKey.has(key)) byKey.set(key, c.brand.trim());
+        }
+        setInventoryBrands([...byKey.values()]);
+      })
+      .catch(() => { if (!cancelled) setInventoryBrands([]); });
+    return () => { cancelled = true; };
+  }, [apiKey]);
+
+  // Inventory brands first (with any saved metadata), then saved brands no longer in inventory.
+  const rows: InverterBrandMeta[] = useMemo(() => {
+    const saved = new Map(form.items.map((it) => [normalizeAttribute(it.name), it]));
+    const merged = inventoryBrands.map((name, i) =>
+      saved.get(normalizeAttribute(name)) ?? { id: normalizeAttribute(name), name, logoUrl: "", order: form.items.length + i + 1 },
+    );
+    const inInventory = new Set(inventoryBrands.map(normalizeAttribute));
+    const orphaned = form.items.filter((it) => !inInventory.has(normalizeAttribute(it.name)));
+    return [...merged, ...orphaned].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  }, [form.items, inventoryBrands]);
+
+  const inInventory = useMemo(() => new Set(inventoryBrands.map(normalizeAttribute)), [inventoryBrands]);
+
+  const persist = async (next: InverterBrandMeta[]) => {
+    const nextForm: InverterBrandsContent = { items: next };
+    setForm(() => nextForm);
+    await save(nextForm);
+  };
+
+  const updateRow = (id: string, patch: Partial<InverterBrandMeta>) =>
+    setForm(() => ({ items: rows.map((r) => (r.id === id ? { ...r, ...patch } : r)) }));
+
+  const removeRow = (id: string) => void persist(rows.filter((r) => r.id !== id));
+
+  const pickLogo = (row: InverterBrandMeta) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp,image/svg+xml";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      setUploadingKey(row.id);
+      try {
+        const logoUrl = await compressImageClient(file, 400, 160, 0.88);
+        await persist(rows.map((r) => (r.id === row.id ? { ...r, logoUrl } : r)));
+      } finally { setUploadingKey(null); }
+    };
+    input.click();
+  };
+
+  if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
+
+  return (
+    <div>
+      <SectionEditorHeader title="Inverter Brands" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <Toast msg={msg} />
+
+      <div className="ad-card">
+        <p style={{ fontSize: 13, color: "var(--ad-text2)", margin: "0 0 16px" }}>
+          Brands are detected from active inverters in Inventory. The packages page shows a brand filter once two or more
+          brands are used by active packages. Add a logo to replace the text label (use a transparent logo that reads on both light and dark backgrounds); brands without a logo show their name.
+        </p>
+
+        {rows.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--ad-text3)", margin: 0 }}>No inverter brands found in Inventory yet.</p>
+        ) : (
+          <div className="ad-table-wrap">
+            <table className="ad-table">
+              <thead>
+                <tr>
+                  <th>Logo</th>
+                  <th>Brand</th>
+                  <th style={{ textAlign: "center" }}>Order</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const orphaned = !inInventory.has(normalizeAttribute(row.name));
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="ad-partner-table-logo"
+                          onClick={() => pickLogo(row)}
+                          title="Click to upload logo"
+                          style={{ cursor: "pointer", border: "none", padding: 0, background: "none" }}
+                        >
+                          {uploadingKey === row.id ? (
+                            <span className="ad-partner-logo-hint">Uploading…</span>
+                          ) : row.logoUrl ? (
+                            <img src={row.logoUrl} alt={row.name} className="ad-partner-logo-preview" />
+                          ) : (
+                            <span className="ad-partner-logo-name-fallback">{row.name}</span>
+                          )}
+                        </button>
+                      </td>
+                      <td style={{ fontWeight: 500 }}>
+                        {row.name}
+                        {orphaned && <div style={{ fontSize: 11, color: "var(--ad-text3)" }}>Not in Inventory</div>}
+                      </td>
+                      <td style={{ textAlign: "center", maxWidth: 90 }}>
+                        <EditableNumber
+                          value={row.order}
+                          min={0}
+                          onChange={(n) => updateRow(row.id, { order: n })}
+                          className="ad-input"
+                          style={{ textAlign: "center" }}
+                        />
+                      </td>
+                      <td>
+                        <div className="ad-table-actions">
+                          {row.logoUrl && (
+                            <button onClick={() => void persist(rows.map((r) => (r.id === row.id ? { ...r, logoUrl: "" } : r)))} className="ad-btn ad-btn--ghost ad-btn--sm">
+                              Remove logo
+                            </button>
+                          )}
+                          {orphaned && (
+                            <button onClick={() => removeRow(row.id)} className="ad-btn ad-btn--danger ad-btn--sm">Delete</button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {rows.length > 0 && (
+          <div className="ad-form-actions">
+            <button onClick={() => void persist(rows)} disabled={saving} className="ad-btn">
+              {saving ? "Saving…" : "Save Order"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type BenefitItem = { title: string; description: string; order: number };
 type BenefitsForm = { items: BenefitItem[] };
 const DEFAULT_BENEFITS_FORM: BenefitsForm = {
@@ -7433,6 +7597,7 @@ export default function ASAdmin() {
       items: [
         { id: "inventory",  label: "Inventory",  icon: <NavIcon><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
         { id: "packages",   label: "Packages",   icon: <NavIcon><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></NavIcon> },
+        { id: "inverter-brands", label: "Inverter Brands", icon: <NavIcon><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></NavIcon> },
         { id: "projects",   label: "Projects",   icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></NavIcon> },
         { id: "utilities",  label: "Utilities",  icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></NavIcon> },
       ],
@@ -7518,6 +7683,7 @@ export default function ASAdmin() {
           {tab === "projects"          && <ProjectsManager apiKey={apiKey} />}
           {tab === "inventory"         && <ComponentsManager apiKey={apiKey} onGoToPackages={() => navigate("packages")} />}
           {tab === "packages"          && <PackagesManager apiKey={apiKey} />}
+          {tab === "inverter-brands"   && <InverterBrandsEditor apiKey={apiKey} />}
           {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
           {tab === "utilities"         && <UtilitiesManager apiKey={apiKey} />}
           {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
