@@ -1,10 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
+import ASBrandFilter from "../components/ASBrandFilter";
+import { CompositePackageFilter, InverterBrandFilter, normalizeAttribute } from "../services/packages/PackageFilter";
+import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import ASPackageInquiry from "../modules/package-inquiry/ASPackageInquiry";
@@ -47,6 +50,9 @@ const ctaMobileStyles = `
 `;
 
 const PAGE_SIZE = 3;
+const BRAND_PARAM = "brand";
+/** The filter is only useful once there is a choice to make. */
+const MIN_BRANDS_FOR_FILTER = 2;
 
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };
@@ -764,7 +770,34 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const groups = groupByType(packages, phase);
+  const brandContent = useContent<InverterBrandsContent>("inverter-brands", DEFAULT_INVERTER_BRANDS_CONTENT);
+  const brandOptions = useMemo(
+    () => new InverterBrandCatalog(brandContent).optionsFor(packages),
+    [brandContent, packages],
+  );
+  const showBrandFilter = brandOptions.length >= MIN_BRANDS_FOR_FILTER;
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedBrand = normalizeAttribute(searchParams.get(BRAND_PARAM));
+  // Ignore stale or unknown links rather than rendering an empty page.
+  const brand = showBrandFilter && brandOptions.some((o) => o.key === requestedBrand) ? requestedBrand : null;
+  const brandLabel = brandOptions.find((o) => o.key === brand)?.label ?? "";
+
+  const handleBrand = (key: string | null) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (key) next.set(BRAND_PARAM, key);
+        else next.delete(BRAND_PARAM);
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+    setVisibleCounts({});
+  };
+
+  const filtered = new CompositePackageFilter([new InverterBrandFilter(brand)]).apply(packages);
+  const groups = groupByType(filtered, phase);
 
   const showMore = (label: string, total: number) => {
     setLoadingMoreGroups((prev) => ({ ...prev, [label]: true }));
@@ -802,20 +835,25 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
           <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
-        <div className={`as-packages-phase-toggle${phase === "three" ? " is-second" : ""}`}>
-          <span className="as-pkg-phase-slider" aria-hidden="true" />
-          <button
-            className={`as-pkg-phase-btn${phase === "single" ? " is-active" : ""}`}
-            onClick={() => handlePhase("single")}
-          >
-            Single Phase
-          </button>
-          <button
-            className={`as-pkg-phase-btn${phase === "three" ? " is-active" : ""}`}
-            onClick={() => handlePhase("three")}
-          >
-            Three Phase
-          </button>
+        <div className="as-packages-toolbar">
+          <div className={`as-packages-phase-toggle${phase === "three" ? " is-second" : ""}`}>
+            <span className="as-pkg-phase-slider" aria-hidden="true" />
+            <button
+              className={`as-pkg-phase-btn${phase === "single" ? " is-active" : ""}`}
+              onClick={() => handlePhase("single")}
+            >
+              Single Phase
+            </button>
+            <button
+              className={`as-pkg-phase-btn${phase === "three" ? " is-active" : ""}`}
+              onClick={() => handlePhase("three")}
+            >
+              Three Phase
+            </button>
+          </div>
+          {showBrandFilter && (
+            <ASBrandFilter options={brandOptions} value={brand} onChange={handleBrand} />
+          )}
         </div>
 
         {loading ? (
@@ -830,7 +868,18 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <div className="as-packages-empty">No packages available for this phase.</div>
+          <div className="as-packages-empty">
+            {brand ? (
+              <>
+                No {brandLabel} packages available for this phase.{" "}
+                <button type="button" className="as-packages-empty-reset" onClick={() => handleBrand(null)}>
+                  Show all brands
+                </button>
+              </>
+            ) : (
+              "No packages available for this phase."
+            )}
+          </div>
         ) : (
           groups.map((group) => {
             const total = group.packages.length;

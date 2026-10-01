@@ -53,6 +53,7 @@ export type ContentKey =
   | 'benefits'
   | 'footer'
   | 'section-visibility'
+  | 'inverter-brands'
   | 'legalDisclaimer'
   | 'privacyPolicy'
   | 'termsConditions';
