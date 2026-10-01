@@ -51,8 +51,8 @@ const ctaMobileStyles = `
 
 const PAGE_SIZE = 3;
 const BRAND_PARAM = "brand";
-/** The filter is only useful once there is a choice to make. */
-const MIN_BRANDS_FOR_FILTER = 2;
+/** Show the filter as soon as any active package has an inverter brand. */
+const MIN_BRANDS_FOR_FILTER = 1;
 
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };

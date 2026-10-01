@@ -5818,8 +5818,8 @@ function InverterBrandsEditor({ apiKey }: { apiKey: string }) {
 
       <div className="ad-card">
         <p style={{ fontSize: 13, color: "var(--ad-text2)", margin: "0 0 16px" }}>
-          Brands are detected from active inverters in Inventory. The packages page shows a brand filter once two or more
-          brands are used by active packages. Add a logo to replace the text label (use a transparent logo that reads on both light and dark backgrounds); brands without a logo show their name.
+          Brands are detected from active inverters in Inventory. The packages page shows a brand filter listing every brand
+          used by active packages. Add a logo to replace the text label (use a transparent logo that reads on both light and dark backgrounds); brands without a logo show their name.
         </p>
 
         {rows.length === 0 ? (
