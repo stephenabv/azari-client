@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import climateDark from "../assets/images/dark/climate_bg_dark.webp";
 import assetsDeployed from "../assets/images/dark/assets_deployed_dark.webp";
-import { useT } from "../i18n";
 
 type ASTropicsCardsProps = {
   isVisible: boolean;
@@ -9,11 +8,25 @@ type ASTropicsCardsProps = {
   performanceRating: number;
 };
 
-const CARD_IMAGES = {
-  climate: climateDark,
-  solar: assetsDeployed,
-  performance: "/images/performance-bg.jpg",
-} as const;
+const cards = [
+  {
+    type: "climate",
+    title: "Climate Resilience",
+    tags: ["TYPHOON-RATED RACKING", "HIGH-HEAT OPTIMIZATION"],
+    image: climateDark,
+  },
+  {
+    type: "solar",
+    subtitle: "SOLAR ASSETS DEPLOYED",
+    image: assetsDeployed,
+  },
+  {
+    type: "performance",
+    title: "Performance Guarantee",
+    subtitle: "AVERAGE ELECTRICITY BILL REDUCTION FOR OUR CLIENTS",
+    image: "/images/performance-bg.jpg",
+  },
+];
 
 function useCountUp(target: number, isActive: boolean, duration = 1500, decimals = 0): number {
   const [value, setValue] = useState(0);
@@ -35,8 +48,6 @@ function useCountUp(target: number, isActive: boolean, duration = 1500, decimals
 }
 
 export default function ASTropicsCards({ isVisible, assetsDeployed, performanceRating }: ASTropicsCardsProps) {
-  const t = useT();
-  const climateTags = [t("system.tropics.typhoonRacking"), t("system.tropics.heatOptimization")];
   const assetsNumber = parseFloat(assetsDeployed);
   const assetsUnit = assetsDeployed.replace(/[\d.]/g, "");
 
@@ -58,14 +69,14 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
     <div className="as-tropics-cards">
       <div
         className={`as-tropics-card as-climate-card ${isVisible ? "is-shown" : ""}`}
-        style={{ backgroundImage: `url(${CARD_IMAGES.climate})` }}
+        style={{ backgroundImage: `url(${cards[0].image})` }}
       >
         <div className="as-card-overlay" />
 
-        <p className="as-climate-title">{t("system.tropics.climateTitle")}</p>
+        <p className="as-climate-title">{cards[0].title}</p>
 
         <div className="as-climate-tags">
-          {climateTags.map((tag) => (
+          {cards[0].tags?.map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
         </div>
@@ -73,7 +84,7 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
 
       <div
         className={`as-tropics-card as-solar-card ${isVisible ? "is-shown" : ""}`}
-        style={{ backgroundImage: `url(${CARD_IMAGES.solar})` }}
+        style={{ backgroundImage: `url(${cards[1].image})` }}
       >
         <div className="as-card-overlay as-solar-overlay" />
 
@@ -82,17 +93,17 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
             {rolledAssets.toFixed(2)}
             {assetsUnit}
           </p>
-          <p className="as-solar-description">{t("system.tropics.assetsDeployed")}</p>
+          <p className="as-solar-description">{cards[1].subtitle}</p>
         </div>
       </div>
 
       <div
         className={`as-tropics-card as-performance-card ${isVisible ? "is-shown" : ""}`}
-        style={{ backgroundImage: `url(${CARD_IMAGES.performance})` }}
+        style={{ backgroundImage: `url(${cards[2].image})` }}
       >
         <div className="as-performance-card-container">
-          <p className="as-performance-title">{t("system.tropics.performanceTitle")}</p>
-          <p className="as-performance-description">{t("system.tropics.performanceSubtitle")}</p>
+          <p className="as-performance-title">{cards[2].title}</p>
+          <p className="as-performance-description">{cards[2].subtitle}</p>
 
           <div className="as-performance-content">
             <div

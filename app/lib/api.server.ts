@@ -1,6 +1,3 @@
-import { DEFAULT_LOCALE } from "../../src/i18n/locales";
-import { LocalePath } from "../../src/i18n/LocalePath";
-
 /**
  * Server-side access to azari-service for route loaders.
  *
@@ -47,14 +44,4 @@ export async function apiGet<T>(path: string): Promise<ApiResult<T>> {
 export async function apiGetList<T>(path: string): Promise<T[]> {
   const result = await apiGet<T[]>(path);
   return result.status === "ok" && Array.isArray(result.data) ? result.data : [];
-}
-
-/**
- * An API path for the language of the page being rendered, e.g.
- * "/api/packages?locale=ko" for /ko/packages. English pages are unchanged.
- */
-export function localizedApiPath(path: string, request: Request): string {
-  const { locale } = LocalePath.parse(new URL(request.url).pathname);
-  if (locale === DEFAULT_LOCALE) return path;
-  return `${path}${path.includes("?") ? "&" : "?"}locale=${encodeURIComponent(locale.tag)}`;
 }

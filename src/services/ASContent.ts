@@ -1,13 +1,7 @@
 
 import { SOLAR_CONSTANTS } from '../models/calculation';
-import { DEFAULT_LOCALE } from '../i18n/locales';
 
 const API_BASE = '/api';
-
-/** `?locale=` suffix for a content request; empty for the default (English) locale. */
-function localeQuery(locale?: string): string {
-  return locale && locale !== DEFAULT_LOCALE.tag ? `?locale=${encodeURIComponent(locale)}` : '';
-}
 
 
 
@@ -64,23 +58,9 @@ export type ContentKey =
   | 'privacyPolicy'
   | 'termsConditions';
 
-/**
- * Content that holds visitor-facing text and can be translated per locale.
- * Settings-like keys (visibility toggles, brand logos) are shared by every
- * language and are always read in English.
- */
-export const LOCALIZABLE_CONTENT_KEYS: ReadonlySet<string> = new Set([
-  'hero', 'metrics', 'excellence', 'process', 'tropics', 'clientJourney', 'cta',
-  'benefits', 'footer', 'partners', 'legalDisclaimer', 'privacyPolicy', 'termsConditions',
-]);
-
-/**
- * @param locale BCP 47 tag; omitted or the default locale requests English,
- *   exactly as before. Untranslated content falls back to English server-side.
- */
-export async function fetchContent<T = unknown>(key: ContentKey, locale?: string): Promise<T | null> {
+export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/content/${key}${localeQuery(locale)}`, {
+    const res = await apiFetch(`${API_BASE}/content/${key}`, {
       headers: { Accept: 'application/json' }
     });
     if (!res.ok) return null;
@@ -106,8 +86,8 @@ export async function fetchAllContent(): Promise<Record<string, unknown> | null>
 
 
 
-export async function adminGetAllContent(apiKey: string, locale?: string) {
-  const res = await apiFetch(`${API_BASE}/admin/content${localeQuery(locale)}`, {
+export async function adminGetAllContent(apiKey: string) {
+  const res = await apiFetch(`${API_BASE}/admin/content`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -115,8 +95,8 @@ export async function adminGetAllContent(apiKey: string, locale?: string) {
   return (await res.json()) as { success: boolean; data: Array<{ key: string; data: unknown; isCustomized: boolean; updatedAt: string | null }> };
 }
 
-export async function adminUpsertContent(apiKey: string, key: string, data: unknown, locale?: string) {
-  const res = await apiFetch(`${API_BASE}/admin/content/${key}${localeQuery(locale)}`, {
+export async function adminUpsertContent(apiKey: string, key: string, data: unknown) {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
     method: 'PUT',
     headers: {
       'x-admin-api-key': apiKey,
@@ -133,8 +113,8 @@ export async function adminUpsertContent(apiKey: string, key: string, data: unkn
   return res.json();
 }
 
-export async function adminResetContent(apiKey: string, key: string, locale?: string) {
-  const res = await apiFetch(`${API_BASE}/admin/content/${key}${localeQuery(locale)}`, {
+export async function adminResetContent(apiKey: string, key: string) {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
@@ -402,9 +382,9 @@ export interface ProjectInput {
   storageKwh?: number;
 }
 
-export async function fetchProjects(locale?: string): Promise<ApiProject[]> {
+export async function fetchProjects(): Promise<ApiProject[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/projects${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/projects`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiProject[] };
     return json.data ?? [];
@@ -413,9 +393,9 @@ export async function fetchProjects(locale?: string): Promise<ApiProject[]> {
   }
 }
 
-export async function fetchProjectById(id: string, locale?: string): Promise<ApiProject | null> {
+export async function fetchProjectById(id: string): Promise<ApiProject | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/projects/${encodeURIComponent(id)}${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/projects/${id}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const json = await res.json() as { success: boolean; data: ApiProject };
     return json.data ?? null;
@@ -647,9 +627,9 @@ export interface PackageInput {
   components?: PackageComponentLine[];
 }
 
-export async function fetchPublicPackages(locale?: string): Promise<ApiSolarPackage[]> {
+export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/packages${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/packages`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiSolarPackage[] };
     return json.data ?? [];
@@ -850,8 +830,6 @@ export async function submitPackageInquiry(data: {
   packageId: string;
   packageName: string;
   packageDetails: PackageDetails;
-  /** Visitor's BCP-47 locale tag; the server uses it to translate free text. */
-  locale?: string;
 }) {
   const res = await apiFetch(`${API_BASE}/packages/inquiries`, {
     method: 'POST',
@@ -895,9 +873,9 @@ export async function adminDeletePackageInquiry(apiKey: string, id: string) {
   return res.json();
 }
 
-export async function fetchPublicIpRatings(locale?: string): Promise<ApiIpRating[]> {
+export async function fetchPublicIpRatings(): Promise<ApiIpRating[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/ip-ratings${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/ip-ratings`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiIpRating[] };
     return json.data ?? [];
@@ -1037,9 +1015,9 @@ export interface ApiJourneyStep {
 
 export type JourneyStepInput = Omit<ApiJourneyStep, 'id' | 'createdAt' | 'updatedAt'>;
 
-export async function fetchClientJourney(locale?: string): Promise<ApiJourneyStep[]> {
+export async function fetchClientJourney(): Promise<ApiJourneyStep[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/client-journey${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/client-journey`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiJourneyStep[] };
     return json.data ?? [];

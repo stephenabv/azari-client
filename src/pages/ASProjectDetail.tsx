@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Link, useParams, useNavigate } from "react-router";
 import iconPlay from "../assets/icons/icon-play.svg";
+import iconGoBack from "../assets/icons/icon-go-back.svg";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 import {
   fetchProjectById,
@@ -17,9 +18,6 @@ import { BentoCard } from "../components/ASBentoCard";
 import ASImgLoader from "../components/ASImgLoader";
 import ASLightbox from "../components/ASLightbox";
 import { useScrollLock } from "../hooks/useScrollLock";
-import { useLocale, useLocalizedPath, useT, type MessageKey } from "../i18n";
-
-type Translate = ReturnType<typeof useT>;
 
 function getVideoEmbedUrl(url: string): string | null {
   if (!url.trim()) return null;
@@ -31,7 +29,6 @@ function getVideoEmbedUrl(url: string): string | null {
 }
 
 function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
-  const t = useT();
   const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
   const embedUrl = getVideoEmbedUrl(url);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -52,7 +49,7 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
   return createPortal(
     <div className="as-video-backdrop" onClick={handleClose}>
       <div className="as-video-container" onClick={(e) => e.stopPropagation()}>
-        <button className="as-video-close" onClick={handleClose} aria-label={t("pages.projectDetail.closeVideo")}>×</button>
+        <button className="as-video-close" onClick={handleClose} aria-label="Close video">×</button>
         {isDirectVideo ? (
           <video ref={videoRef} src={url} autoPlay playsInline className="as-video-player" />
         ) : embedUrl ? (
@@ -62,7 +59,7 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
             className="as-video-frame"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            title={t("pages.projectDetail.videoTitle")}
+            title="Project video"
           />
         ) : null}
       </div>
@@ -100,21 +97,7 @@ export function getYouTubeThumbnail(
 
 type HeroChip = { value: string; label: string };
 
-const SYSTEM_FIELD_LABELS: Record<string, MessageKey> = {
-  loadKw: "pages.projectDetail.chips.loadKw",
-  storageKwh: "pages.projectDetail.chips.storageKwh",
-  productionKwp: "pages.projectDetail.chips.productionKwp",
-  savings: "pages.projectDetail.chips.savings",
-  electricalSystem: "pages.projectDetail.chips.electricalSystem",
-};
-
-const CATEGORY_LABELS: Partial<Record<string, MessageKey>> = {
-  Residential: "projects.category.residential",
-  Commercial: "projects.category.commercial",
-  Industrial: "projects.category.industrial",
-};
-
-function resolveHeroChips(project: ApiProject, t: Translate): HeroChip[] {
+function resolveHeroChips(project: ApiProject): HeroChip[] {
   const cards: HeroCardSource[] = project.heroCards ?? [];
 
   // If the admin has configured cards, resolve them; else auto-generate.
@@ -125,28 +108,28 @@ function resolveHeroChips(project: ApiProject, t: Translate): HeroChip[] {
         return [{ value: card.value, label: card.label }];
       }
       // system card — resolve from project fields
-      const label = card.label ?? systemFieldDefaultLabel(card.field, t);
-      const value = resolveSystemField(project, card.field, t);
+      const label = card.label ?? systemFieldDefaultLabel(card.field);
+      const value = resolveSystemField(project, card.field);
       if (!value) return [];
       return [{ value, label }];
     });
   }
 
-  return buildHeroChips(project, t);
+  return buildHeroChips(project);
 }
 
-function systemFieldDefaultLabel(field: string, t: Translate): string {
-  const key = SYSTEM_FIELD_LABELS[field];
-  return key ? t(key) : field;
+function systemFieldDefaultLabel(field: string): string {
+  const labels: Record<string, string> = {
+    loadKw: 'Load Capacity',
+    storageKwh: 'Storage Capacity',
+    productionKwp: 'Production Capacity',
+    savings: 'Estimated Savings',
+    electricalSystem: 'Electrical System',
+  };
+  return labels[field as string] ?? field;
 }
 
-function phaseLabel(system: string, t: Translate): string {
-  return /3-phase|three.phase/i.test(system)
-    ? t("pages.projectDetail.threePhase")
-    : t("pages.projectDetail.singlePhase");
-}
-
-function resolveSystemField(project: ApiProject, field: string, t: Translate): string | null {
+function resolveSystemField(project: ApiProject, field: string): string | null {
   switch (field) {
     case 'loadKw':
       return project.loadKw != null && project.loadKw > 0 ? `${project.loadKw}kW` : null;
@@ -163,18 +146,18 @@ function resolveSystemField(project: ApiProject, field: string, t: Translate): s
       return project.savings || null;
     case 'electricalSystem':
       if (project.electricalSystem) return project.electricalSystem;
-      if (project.system) return phaseLabel(project.system, t);
+      if (project.system) return /3-phase|three.phase/i.test(project.system) ? 'Three-Phase' : 'Single-Phase';
       return null;
     default:
       return null;
   }
 }
 
-function buildHeroChips(project: ApiProject, t: Translate): HeroChip[] {
+function buildHeroChips(project: ApiProject): HeroChip[] {
   const chips: HeroChip[] = [];
 
   if (project.loadKw != null && project.loadKw > 0) {
-    chips.push({ value: `${project.loadKw}kW`, label: t(SYSTEM_FIELD_LABELS.loadKw) });
+    chips.push({ value: `${project.loadKw}kW`, label: 'Load Capacity' });
   }
 
   const storageVal = project.storageKwh != null && project.storageKwh > 0
@@ -184,24 +167,25 @@ function buildHeroChips(project: ApiProject, t: Translate): HeroChip[] {
       return m ? parseFloat(m[1]) : 0;
     })();
   if (storageVal > 0) {
-    chips.push({ value: `${storageVal}kWh`, label: t(SYSTEM_FIELD_LABELS.storageKwh) });
+    chips.push({ value: `${storageVal}kWh`, label: 'Storage Capacity' });
   }
 
   if (project.productionKwp != null && project.productionKwp > 0) {
-    chips.push({ value: `${project.productionKwp}kWp`, label: t(SYSTEM_FIELD_LABELS.productionKwp) });
+    chips.push({ value: `${project.productionKwp}kWp`, label: 'Production Capacity' });
   } else {
     const m = project.system?.match(/^([\d.]+)\s*kWp/i);
-    if (m) chips.push({ value: `${m[1]}kWp`, label: t(SYSTEM_FIELD_LABELS.productionKwp) });
+    if (m) chips.push({ value: `${m[1]}kWp`, label: 'Production Capacity' });
   }
 
   if (project.savings) {
-    chips.push({ value: project.savings, label: t(SYSTEM_FIELD_LABELS.savings) });
+    chips.push({ value: project.savings, label: 'Estimated Savings' });
   }
 
   if (project.electricalSystem) {
-    chips.push({ value: project.electricalSystem, label: t(SYSTEM_FIELD_LABELS.electricalSystem) });
+    chips.push({ value: project.electricalSystem, label: 'Electrical System' });
   } else if (project.system) {
-    chips.push({ value: phaseLabel(project.system, t), label: t(SYSTEM_FIELD_LABELS.electricalSystem) });
+    const isThree = /3-phase|three.phase/i.test(project.system);
+    chips.push({ value: isThree ? 'Three-Phase' : 'Single-Phase', label: 'Electrical System' });
   }
 
   const seen = new Set<string>();
@@ -215,12 +199,8 @@ function HeroSection({ project }: { project: ApiProject }) {
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
   const navigate = useNavigate();
-  const t = useT();
-  const locale = useLocale();
 
-  const chips = resolveHeroChips(project, t);
-  const categoryKey = CATEGORY_LABELS[project.category];
-  const categoryLabel = categoryKey ? t(categoryKey) : project.category;
+  const chips = resolveHeroChips(project);
 
   const heroSrc = getYouTubeThumbnail(project.videoUrl) ?? project.imageUrl;
   const heroFallback = getYouTubeThumbnail(project.videoUrl, "hq") ?? project.imageUrl;
@@ -276,12 +256,12 @@ function HeroSection({ project }: { project: ApiProject }) {
         onLoad={handleHeroLoad}
       />
       <div className="as-pd-hero-overlay" />
-      <button className="as-pd-back-btn as-pd-back-btn--mobile" onClick={() => navigate(-1)}>
-        <span className="as-pd-back-label">{t("pages.projectDetail.goBack")}</span>
+      <button className="as-pd-back-btn as-pd-back-btn--mobile" onClick={() => navigate(-1)} aria-label="Go back">
+        <img src={iconGoBack} alt="" />
       </button>
       <div ref={bottomRef} className={`as-pd-hero-bottom${isShown ? ' is-shown' : ''}`}>
-        <button className="as-pd-back-btn as-pd-back-btn--desktop" onClick={() => navigate(-1)}>
-          <span className="as-pd-back-label">{t("pages.projectDetail.goBack")}</span>
+        <button className="as-pd-back-btn as-pd-back-btn--desktop" onClick={() => navigate(-1)} aria-label="Go back">
+          <img src={iconGoBack} alt="" />
         </button>
         <div className="as-pd-hero-content">
           <div className="as-pd-hero-left">
@@ -289,7 +269,7 @@ function HeroSection({ project }: { project: ApiProject }) {
               className="as-pd-category-badge"
               style={{ color: project.categoryColor || '#ffffff' }}
             >
-              {categoryLabel.toLocaleUpperCase(locale.tag)}
+              {project.category.toUpperCase()}
             </span>
             <h1 className="as-pd-hero-title">{project.title}</h1>
             {project.subtitle && (
@@ -311,7 +291,7 @@ function HeroSection({ project }: { project: ApiProject }) {
           <button
             className="as-pd-hero-play"
             onClick={() => setVideoOpen(true)}
-            aria-label={t("pages.projectDetail.watchVideo")}
+            aria-label="Watch the video"
           >
             <img src={iconPlay} alt="" draggable={false} />
           </button>
@@ -328,7 +308,6 @@ function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const t = useT();
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -354,7 +333,7 @@ function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-performance${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
-        <h2 className="as-pd-section-title">{t("pages.projectDetail.performanceTitle")}</h2>
+        <h2 className="as-pd-section-title">Performance &amp; Resilience Summary</h2>
         <div className="as-pd-perf-grid">
           {visible.map((m, i) => (
             <div key={i} className="as-pd-perf-item">
@@ -368,7 +347,7 @@ function PerformanceSection({ metrics }: { metrics: PerformanceMetric[] }) {
             className="as-pd-perf-show-more"
             onClick={() => setShowAll(v => !v)}
           >
-            {showAll ? t("pages.projectDetail.showLess") : t("pages.projectDetail.showMore")}
+            {showAll ? "Show less" : "Show more"}
           </button>
         )}
       </div>
@@ -384,15 +363,14 @@ function isEmptyBentoCard(item: TechBreakdownItem): boolean {
   return true;
 }
 
-function resolveBentoTitle(item: TechBreakdownItem, project: ApiProject, t: Translate): TechBreakdownItem {
+function resolveBentoTitle(item: TechBreakdownItem, project: ApiProject): TechBreakdownItem {
   if (item.cardType !== 'hero' && item.cardType !== 'feature') return item;
   if (item.titleSource?.type !== 'system') return item;
-  const resolved = resolveSystemField(project, item.titleSource.field, t);
+  const resolved = resolveSystemField(project, item.titleSource.field);
   return resolved ? { ...item, title: resolved } : item;
 }
 
 function TechnicalBreakdownSection({ items, project }: { items: TechBreakdownItem[]; project: ApiProject }) {
-  const t = useT();
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
@@ -415,14 +393,14 @@ function TechnicalBreakdownSection({ items, project }: { items: TechBreakdownIte
 
   const filtered = (items ?? [])
     .filter(item => !isEmptyBentoCard(item))
-    .map(item => resolveBentoTitle(item, project, t))
+    .map(item => resolveBentoTitle(item, project))
     .slice(0, 5);
 
   if (filtered.length === 0) return null;
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-breakdown${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
-        <h2 className="as-pd-section-title">{t("pages.projectDetail.breakdownTitle")}</h2>
+        <h2 className="as-pd-section-title">Technical Breakdown</h2>
         <div className="as-pd-breakdown-bento" data-count={filtered.length}>
           {filtered.map((item, i) => (
             <BentoCard key={i} item={item} />
@@ -443,7 +421,6 @@ function GallerySection({ images }: { images: string[] }) {
   // Index into the full `images` list, not just the tiles on screen, so the
   // viewer can page through every photo from wherever it was opened.
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const t = useT();
 
   useScrollLock(modalOpen);
 
@@ -490,7 +467,7 @@ function GallerySection({ images }: { images: string[] }) {
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-gallery${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
-        <h2 className="as-pd-section-title">{t("pages.projectDetail.galleryTitle")}</h2>
+        <h2 className="as-pd-section-title">Project Installation Gallery</h2>
         <div className="as-pd-gallery-grid">
           {displayImages.map((src, i) => {
             const isLast = i === displayImages.length - 1 && remaining > 0;
@@ -501,9 +478,7 @@ function GallerySection({ images }: { images: string[] }) {
                 className={`as-pd-gallery-item${isLast ? " as-pd-gallery-item--more" : " as-pd-gallery-item--zoomable"}${i <= visibleItems ? " is-shown" : ""}`}
                 role="button"
                 tabIndex={0}
-                aria-label={isLast
-                  ? t("pages.projectDetail.showMorePhotos", { count: remaining })
-                  : t("pages.projectDetail.expandPhoto", { n: i + 1 })}
+                aria-label={isLast ? `Show ${remaining} more photos` : `Expand gallery photo ${i + 1}`}
                 // The tile is focusable for keyboard users, but focusing it on
                 // click would scroll a partly-visible tile into view and move
                 // the page out from under the reader before the overlay opens.
@@ -515,7 +490,7 @@ function GallerySection({ images }: { images: string[] }) {
                   open();
                 }}
               >
-                <ASImgLoader src={src} alt={t("pages.projectDetail.galleryPhoto", { n: i + 1 })} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
+                <ASImgLoader src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
                 {isLast && (
                   <div className="as-pd-gallery-more">
                     <span>+{remaining}</span>
@@ -534,7 +509,7 @@ function GallerySection({ images }: { images: string[] }) {
           onClick={() => setModalOpen(false)}
           role="dialog"
           aria-modal="true"
-          aria-label={t("pages.projectDetail.morePhotos")}
+          aria-label="More photos"
         >
           <div
             className="as-pd-gallery-modal"
@@ -543,13 +518,13 @@ function GallerySection({ images }: { images: string[] }) {
           >
             <div className="as-pd-gallery-modal-header">
               <h3 className="as-pd-gallery-modal-title">
-                {t("pages.projectDetail.morePhotos")}
+                More Photos
                 <span className="as-pd-gallery-modal-count">{extraImages.length}</span>
               </h3>
               <button
                 className="as-pd-gallery-modal-close"
                 onClick={() => setModalOpen(false)}
-                aria-label={t("pages.projectDetail.closeGallery")}
+                aria-label="Close gallery"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" width="18" height="18" aria-hidden="true">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -564,7 +539,7 @@ function GallerySection({ images }: { images: string[] }) {
                   className="as-pd-gallery-modal-item as-pd-gallery-modal-item--zoomable"
                   role="button"
                   tabIndex={0}
-                  aria-label={t("pages.projectDetail.expandPhoto", { n: i + 9 })}
+                  aria-label={`Expand gallery photo ${i + 9}`}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setLightboxIndex(i + 8)}
                   onKeyDown={(e) => {
@@ -575,7 +550,7 @@ function GallerySection({ images }: { images: string[] }) {
                 >
                   <ASImgLoader
                     src={src}
-                    alt={t("pages.projectDetail.galleryPhoto", { n: i + 9 })}
+                    alt={`Gallery photo ${i + 9}`}
                     className="as-pd-gallery-modal-img"
                     wrapClassName="as-img-loader-block"
                   />
@@ -600,7 +575,6 @@ function GallerySection({ images }: { images: string[] }) {
 }
 
 function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }) {
-  const t = useT();
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
@@ -624,7 +598,7 @@ function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }
   return (
     <section ref={sectionRef} className={`as-pd-section as-pd-testimonial-section${isShown ? ' is-shown' : ''}`}>
       <div className="as-pd-container">
-        <h2 className="as-pd-section-title">{t("pages.projectDetail.testimonialTitle")}</h2>
+        <h2 className="as-pd-section-title">What our clients say</h2>
         <div className="as-pd-testimonial-layout">
           <div className="as-pd-testimonial-author">
             <div className="as-pd-testimonial-name-role">
@@ -646,9 +620,8 @@ function TestimonialSection({ testimonial }: { testimonial: ProjectTestimonial }
 }
 
 function SkeletonLoader() {
-  const t = useT();
   return (
-    <div className="as-pd-skeleton" role="status" aria-busy="true" aria-label={t("pages.projectDetail.loading")}>
+    <div className="as-pd-skeleton">
       <div className="as-pd-skeleton-hero">
         <img src={logoAnimated} alt="" className="as-pd-skeleton-hero-logo" />
       </div>
@@ -684,9 +657,6 @@ export default function ASProjectDetails({
   initialProject = null,
 }: ASProjectDetailsProps = {}) {
   const { id } = useParams<{ id: string }>();
-  const localize = useLocalizedPath();
-  const t = useT();
-  const localeTag = useLocale().tag;
   const [project, setProject] = useState<ASProjectDetailsModel | null>(
     initialProject,
   );
@@ -705,20 +675,16 @@ export default function ASProjectDetails({
       setLoading(false);
       return;
     }
-    let cancelled = false;
     setLoading(true);
-    fetchProjectById(id, localeTag).then((data) => {
-      if (cancelled) return;
+    fetchProjectById(id).then((data) => {
       if (!data) {
         setNotFound(true);
       } else {
         setProject(data);
-        setNotFound(false);
       }
       setLoading(false);
     });
-    return () => { cancelled = true; };
-  }, [id, initialProject, localeTag]);
+  }, [id, initialProject]);
 
   if (loading) return <SkeletonLoader />;
 
@@ -727,10 +693,12 @@ export default function ASProjectDetails({
       <div className="as-pd-not-found">
         <div className="as-pd-not-found-inner">
           <p className="as-pd-not-found-code">404</p>
-          <h2 className="as-pd-not-found-title">{t("pages.projectDetail.notFoundTitle")}</h2>
-          <p className="as-pd-not-found-desc">{t("pages.projectDetail.notFoundBody")}</p>
-          <Link className="as-pd-not-found-btn" to={localize("/projects")}>
-            {t("pages.projectDetail.backToProjects")}
+          <h2 className="as-pd-not-found-title">Project Not Found</h2>
+          <p className="as-pd-not-found-desc">
+            This project may have been removed or the link is incorrect.
+          </p>
+          <Link className="as-pd-not-found-btn" to="/projects">
+            Back to Projects
           </Link>
         </div>
       </div>

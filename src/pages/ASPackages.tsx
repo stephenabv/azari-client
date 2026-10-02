@@ -1,12 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { fetchPublicPackages, computeMonthlySavings, type ApiSolarPackage, type ApiPackageComponent, type ApiIpRating, type PackageSelection } from "../services/ASContent";
 import { formatCapacity } from "../lib/units";
 import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 import ASBrandFilter from "../components/ASBrandFilter";
-import { useLocale, useLocalizedNavigate, useT } from "../i18n";
 import { CompositePackageFilter, InverterBrandFilter, normalizeAttribute } from "../services/packages/PackageFilter";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 
@@ -152,24 +151,19 @@ function effectiveQty(pc: ApiPackageComponent, allPcs: ApiPackageComponent[], qt
   return coreQty(pc, qty);
 }
 
-type Translate = ReturnType<typeof useT>;
-
-function buildFeatures(t: Translate, pkg: ApiSolarPackage, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
+function buildFeatures(pkg: ApiSolarPackage, inverterKw: number, solarKwp: number, storageKwh: number): string[] {
   const isHybrid = pkg.storageKwh > 0;
 
   if (pkg.mainFeatures?.length) return pkg.mainFeatures;
 
   const dailyKwh = Math.round(solarKwp * SOLAR_CONSTANTS.dailyYieldPerKwp * 10) / 10;
-  const inverterCapacity = formatCapacity(inverterKw, "power", { unit: "kW" });
   const list = [
-    t(isHybrid ? "packages.feature.hybridSystem" : "packages.feature.gridTiedSystem"),
-    t("packages.feature.monitoring"),
-    t(isHybrid ? "packages.feature.loadCapacity" : "packages.feature.systemCapacity", { value: inverterCapacity }),
-    t("packages.feature.dailyProduction", { value: dailyKwh }),
+    `${isHybrid ? "Hybrid" : "Grid Tied"} System`,
+    "Mobile Device Monitoring",
+    `${formatCapacity(inverterKw, "power", { unit: "kW" })} ${isHybrid ? "Load Capacity" : "System Capacity"}`,
+    `${dailyKwh} kWh/day Production Capacity`,
   ];
-  if (isHybrid) {
-    list.push(t("packages.feature.storageCapacity", { value: formatCapacity(storageKwh, "energy", { unit: "kWh" }) }));
-  }
+  if (isHybrid) list.push(`${formatCapacity(storageKwh, "energy", { unit: "kWh" })} Storage Capacity`);
   return list;
 }
 
@@ -192,7 +186,6 @@ function QuantityStepper({
   max: number;
   onBump: (delta: number) => void;
 }) {
-  const t = useT();
   return (
     <div className="as-pkg-qty-row">
       <div className="as-pkg-qty-label">
@@ -204,14 +197,14 @@ function QuantityStepper({
           className="as-pkg-qty-btn"
           onClick={() => onBump(-1)}
           disabled={value <= min}
-          aria-label={t("packages.decrease", { label })}
+          aria-label={`Decrease ${label}`}
         >−</button>
         <span className="as-pkg-qty-val">{value}</span>
         <button
           className="as-pkg-qty-btn"
           onClick={() => onBump(1)}
           disabled={value >= max}
-          aria-label={t("packages.increase", { label })}
+          aria-label={`Increase ${label}`}
         >+</button>
       </div>
     </div>
@@ -307,7 +300,6 @@ function PackageCard({
   onInquire: (sel: PackageSelection) => void;
   ipRating?: ApiIpRating | null;
 }) {
-  const t = useT();
   const defaults = defaultQty(pkg);
   const [qty, setQty] = useState<QtyState>(defaults);
   const [showModal, setShowModal] = useState(false);
@@ -342,7 +334,7 @@ function PackageCard({
   const liveStorageKwh = Math.round((batteryLine?.component.storageCapacityKwh ?? 0) * qty.batteries * 100) / 100;
 
   const savings = computeMonthlySavings(liveSolarKwp);
-  const features = buildFeatures(t, pkg, liveInverterKw, liveSolarKwp, liveStorageKwh);
+  const features = buildFeatures(pkg, liveInverterKw, liveSolarKwp, liveStorageKwh);
 
 
   const bounds = computeBounds(pkg, qty.inverter);
@@ -400,11 +392,6 @@ function PackageCard({
   const priceToDisplay = animatedPrice ?? dynamicPrice ?? pkg.totalPrice;
   const displaySavingsMin = animatedSavingsMin ?? savings.min;
   const displaySavingsMax = animatedSavingsMax ?? savings.max;
-  const sizeLabel = t("packages.systemSize", { size: formatCapacity(liveInverterKw, "power", { unit: "kW" }) });
-  const savingsLabel = t("packages.monthlySaving", {
-    min: displaySavingsMin.toLocaleString(),
-    max: displaySavingsMax.toLocaleString(),
-  });
 
   const buildSelection = (): PackageSelection => ({
     qty,
@@ -427,19 +414,19 @@ function PackageCard({
 
   return (
     <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`}>
-      {pkg.isRecommended && <div className="as-pkg-recommended-badge">{t("packages.recommended")}</div>}
+      {pkg.isRecommended && <div className="as-pkg-recommended-badge">Recommended</div>}
       {ipRating && <IpRatingBadge code={ipRating.code} description={ipRating.description} offset={!!pkg.isRecommended} />}
 
       <div className="as-pkg-top">
         <div className="as-pkg-name">{displayName}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
-        <div className="as-pkg-size-label">{sizeLabel}</div>
-        <div className="as-pkg-savings">{savingsLabel}</div>
+        <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} System</div>
+        <div className="as-pkg-savings">Approx. Monthly Saving: ₱{displaySavingsMin.toLocaleString()} – ₱{displaySavingsMax.toLocaleString()}</div>
         <button
           className={`as-pkg-inquire${pkg.isRecommended ? " is-featured" : ""}`}
           onClick={() => onInquire(buildSelection())}
         >
-          {t("packages.inquire")}
+          Inquire
         </button>
       </div>
 
@@ -454,11 +441,11 @@ function PackageCard({
         ))}
       </ul>
 
-      <p className="as-pkg-customize-note">{t("packages.customizeNote")}</p>
+      <p className="as-pkg-customize-note">*You can customize your system</p>
 
       <div className="as-pkg-qty-table">
         <QuantityStepper
-          label={t("packages.inverter")}
+          label="Inverter"
           sublabel={[
             [inverterLine?.component.brand, inverterLine?.component.model].filter(Boolean).join(" "),
             inverterLine?.component.loadCapacityKw ? formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" }) : undefined,
@@ -470,7 +457,7 @@ function PackageCard({
         />
         {isHybrid && (
           <QuantityStepper
-            label={t("packages.battery")}
+            label="Battery"
             sublabel={[
               [batteryLine?.component.brand, batteryLine?.component.model].filter(Boolean).join(" "),
               batteryLine?.component.storageCapacityKwh ? formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" }) : undefined,
@@ -482,7 +469,7 @@ function PackageCard({
           />
         )}
         <QuantityStepper
-          label={t("packages.solarPanel")}
+          label="Solar Panel"
           sublabel={[
             [panelLine?.component.brand, panelLine?.component.model].filter(Boolean).join(" "),
             panelLine?.component.productionCapacityKwp ? `${Math.round(panelLine.component.productionCapacityKwp * 1000)}W` : undefined,
@@ -495,11 +482,12 @@ function PackageCard({
       </div>
 
       <button className="as-pkg-details-link" onClick={() => { setShowModal(true); setShowOtherComponents(false); }}>
-        {t("packages.seeMore")}
+        See more details
+        {}
       </button>
 
       {showModal && createPortal(
-        <div className={`as-pkg-modal-overlay${isClosingModal ? " is-closing" : ""}`} onClick={handleCloseModal} role="dialog" aria-modal="true" aria-label={t("packages.detailsOf", { name: displayName })}>
+        <div className={`as-pkg-modal-overlay${isClosingModal ? " is-closing" : ""}`} onClick={handleCloseModal} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
           <div className={`as-pkg-modal${isClosingModal ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()}>
 
             {}
@@ -509,20 +497,24 @@ function PackageCard({
               )}
               <div className="as-pkg-modal-hero-gradient" />
 
-              <button className="as-pkg-modal-close" onClick={handleCloseModal} aria-label={t("packages.closeDetails")}>✕</button>
+              <button className="as-pkg-modal-close" onClick={handleCloseModal} aria-label="Close details">✕</button>
 
               <div className="as-pkg-modal-hero-content">
                 <div className="as-pkg-modal-hero-label">{displayName}</div>
                 {priceToDisplay != null && (
                   <div className="as-pkg-modal-hero-price">{pesoFmt(priceToDisplay)}</div>
                 )}
-                <div className="as-pkg-modal-hero-size">{sizeLabel}</div>
-                <div className="as-pkg-modal-hero-savings">{savingsLabel}</div>
+                <div className="as-pkg-modal-hero-size">
+                  {formatCapacity(liveInverterKw, "power", { unit: "kW" })} System
+                </div>
+                <div className="as-pkg-modal-hero-savings">
+                  Approx. Monthly Saving: ₱{displaySavingsMin.toLocaleString()} – ₱{displaySavingsMax.toLocaleString()}
+                </div>
                 <button
                   className="as-pkg-modal-hero-inquire"
                   onClick={() => { handleCloseModal(); onInquire(buildSelection()); }}
                 >
-                  {t("packages.inquire")}
+                  Inquire
                 </button>
               </div>
             </div>
@@ -534,7 +526,7 @@ function PackageCard({
               {inverterLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
-                    <span className="as-pkg-spec-sec-title">{t("packages.inverterSpec")}</span>
+                    <span className="as-pkg-spec-sec-title">Inverter Specification</span>
                     <a
                       href={inverterLine.component.dataSheetUrl ?? undefined}
                       target="_blank"
@@ -542,16 +534,16 @@ function PackageCard({
                       className={`as-pkg-spec-datasheet${!inverterLine.component.dataSheetUrl ? " is-disabled" : ""}`}
                       aria-disabled={!inverterLine.component.dataSheetUrl}
                     >
-                      {t("packages.dataSheet")}
+                      Download Data Sheet
                     </a>
                   </div>
                   <div className="as-pkg-spec-rows">
                     <div className="as-pkg-spec-row">
-                      {t("packages.modelName")}
+                      Model Name
                       <span className="spec-value">{inverterLine.component.brand} {inverterLine.component.model}</span>
                     </div>
                     <div className="as-pkg-spec-row">
-                      {t("packages.inverterCapacity")}
+                      Inverter Capacity
                       <span className="spec-value">{formatCapacity(inverterLine.component.loadCapacityKw, "power", { unit: "kW" })}</span>
                     </div>
                   </div>
@@ -562,7 +554,7 @@ function PackageCard({
               {isHybrid && batteryLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
-                    <span className="as-pkg-spec-sec-title">{t("packages.batterySpec")}</span>
+                    <span className="as-pkg-spec-sec-title">Battery Specification</span>
                     <a
                       href={batteryLine.component.dataSheetUrl ?? undefined}
                       target="_blank"
@@ -570,16 +562,16 @@ function PackageCard({
                       className={`as-pkg-spec-datasheet${!batteryLine.component.dataSheetUrl ? " is-disabled" : ""}`}
                       aria-disabled={!batteryLine.component.dataSheetUrl}
                     >
-                      {t("packages.dataSheet")}
+                      Download Data Sheet
                     </a>
                   </div>
                   <div className="as-pkg-spec-rows">
                     <div className="as-pkg-spec-row">
-                      {t("packages.modelName")}
+                      Model Name
                       <span className="spec-value">{batteryLine.component.brand} {batteryLine.component.model}</span>
                     </div>
                     <div className="as-pkg-spec-row">
-                      {t("packages.batteryCapacity")}
+                      Battery Capacity
                       <span className="spec-value">{formatCapacity(batteryLine.component.storageCapacityKwh, "energy", { unit: "kWh" })}</span>
                     </div>
                   </div>
@@ -590,7 +582,7 @@ function PackageCard({
               {panelLine && (
                 <div className="as-pkg-spec-section">
                   <div className="as-pkg-spec-sec-header">
-                    <span className="as-pkg-spec-sec-title">{t("packages.panelSpec")}</span>
+                    <span className="as-pkg-spec-sec-title">Solar Panel Specification</span>
                     <a
                       href={panelLine.component.dataSheetUrl ?? undefined}
                       target="_blank"
@@ -598,16 +590,16 @@ function PackageCard({
                       className={`as-pkg-spec-datasheet${!panelLine.component.dataSheetUrl ? " is-disabled" : ""}`}
                       aria-disabled={!panelLine.component.dataSheetUrl}
                     >
-                      {t("packages.dataSheet")}
+                      Download Data Sheet
                     </a>
                   </div>
                   <div className="as-pkg-spec-rows">
                     <div className="as-pkg-spec-row">
-                      {t("packages.modelName")}
+                      Model Name
                       <span className="spec-value">{panelLine.component.brand} {panelLine.component.model}</span>
                     </div>
                     <div className="as-pkg-spec-row">
-                      {t("packages.productionCapacity")}
+                      Production Capacity
                       <span className="spec-value">{Math.round(panelLine.component.productionCapacityKwp * 1000)}W</span>
                     </div>
                   </div>
@@ -635,7 +627,7 @@ function PackageCard({
                   return (
                     <div className="as-pkg-modal-see-more">
                       <button className="as-pkg-modal-see-more-btn" onClick={() => setShowOtherComponents(true)}>
-                        {t("packages.seeMore")}
+                        See more details
                       </button>
                     </div>
                   );
@@ -644,7 +636,7 @@ function PackageCard({
                 return (
                   <div className="as-pkg-spec-section">
                     <div className="as-pkg-spec-sec-header">
-                      <span className="as-pkg-spec-sec-title">{t("packages.components")}</span>
+                      <span className="as-pkg-spec-sec-title">Components</span>
                     </div>
                     <div className="as-pkg-spec-others-list">
                       {otherPcs.map((pc) => {
@@ -670,7 +662,7 @@ function PackageCard({
                     </div>
                     <div className="as-pkg-modal-see-more">
                       <button className="as-pkg-modal-see-more-btn" onClick={() => setShowOtherComponents(false)}>
-                        {t("packages.seeLess")}
+                        See less details
                       </button>
                     </div>
                   </div>
@@ -687,9 +679,9 @@ function PackageCard({
   );
 }
 
-type PackageGroup = { id: string; label: string; packages: ApiSolarPackage[] };
+type PackageGroup = { label: string; packages: ApiSolarPackage[] };
 
-function groupByType(t: Translate, packages: ApiSolarPackage[], phase: Phase): PackageGroup[] {
+function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] {
   const active = packages
     .filter((p) => p.phase === phase && p.isActive)
     .sort((a, b) =>
@@ -700,10 +692,10 @@ function groupByType(t: Translate, packages: ApiSolarPackage[], phase: Phase): P
 
   const hybrid = active.filter((p) => p.storageKwh > 0);
   const gridTied = active.filter((p) => p.storageKwh === 0);
-  const phaseLabel = t(phase === "three" ? "packages.threePhase" : "packages.singlePhase");
+  const phaseLabel = phase === "three" ? "Three Phase" : "Single Phase";
   const groups: PackageGroup[] = [];
-  if (hybrid.length) groups.push({ id: `${phase}:hybrid`, label: `${phaseLabel} · ${t("packages.hybrid")}`, packages: hybrid });
-  if (gridTied.length) groups.push({ id: `${phase}:grid-tied`, label: `${phaseLabel} · ${t("packages.gridTied")}`, packages: gridTied });
+  if (hybrid.length) groups.push({ label: `${phaseLabel} · Hybrid`, packages: hybrid });
+  if (gridTied.length) groups.push({ label: `${phaseLabel} · Grid-Tied`, packages: gridTied });
   return groups;
 }
 
@@ -740,9 +732,7 @@ type ASPackagesProps = {
 };
 
 export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
-  const navigate = useLocalizedNavigate();
-  const t = useT();
-  const locale = useLocale();
+  const navigate = useNavigate();
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
 
   useEffect(() => {
@@ -774,7 +764,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   useEffect(() => {
     // Already server-rendered; skip the duplicate request on hydration.
     if ((initialPackages ?? []).length > 0) return;
-    fetchPublicPackages(locale.tag)
+    fetchPublicPackages()
       .then(setPackages)
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -807,7 +797,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   };
 
   const filtered = new CompositePackageFilter([new InverterBrandFilter(brand)]).apply(packages);
-  const groups = groupByType(t, filtered, phase);
+  const groups = groupByType(filtered, phase);
 
   const showMore = (label: string, total: number) => {
     setLoadingMoreGroups((prev) => ({ ...prev, [label]: true }));
@@ -841,8 +831,8 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
       <div className="ASPackages page-container">
 
         <div className="as-packages-header">
-          <h1 className="as-packages-title">{t("packages.title")}</h1>
-          <p className="as-packages-subtitle">{t("packages.subtitle")}</p>
+          <h1 className="as-packages-title">Our Residential Packages</h1>
+          <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
         <div className="as-packages-toolbar">
@@ -852,13 +842,13 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
               className={`as-pkg-phase-btn${phase === "single" ? " is-active" : ""}`}
               onClick={() => handlePhase("single")}
             >
-              {t("packages.singlePhase")}
+              Single Phase
             </button>
             <button
               className={`as-pkg-phase-btn${phase === "three" ? " is-active" : ""}`}
               onClick={() => handlePhase("three")}
             >
-              {t("packages.threePhase")}
+              Three Phase
             </button>
           </div>
           {showBrandFilter && (
@@ -881,25 +871,25 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
           <div className="as-packages-empty">
             {brand ? (
               <>
-                {t("packages.emptyBrand", { brand: brandLabel })}{" "}
+                No {brandLabel} packages available for this phase.{" "}
                 <button type="button" className="as-packages-empty-reset" onClick={() => handleBrand(null)}>
-                  {t("packages.showAllBrands")}
+                  Show all brands
                 </button>
               </>
             ) : (
-              t("packages.emptyPhase")
+              "No packages available for this phase."
             )}
           </div>
         ) : (
           groups.map((group) => {
             const total = group.packages.length;
-            const visibleCount = visibleCounts[group.id] ?? PAGE_SIZE;
+            const visibleCount = visibleCounts[group.label] ?? PAGE_SIZE;
             const visible = group.packages.slice(0, visibleCount);
             const allShown = visibleCount >= total;
-            const isLoadingMore = loadingMoreGroups[group.id] ?? false;
+            const isLoadingMore = loadingMoreGroups[group.label] ?? false;
             const skeletonCount = Math.min(PAGE_SIZE, total - visibleCount);
             return (
-              <div key={group.id} className="as-packages-group">
+              <div key={group.label} className="as-packages-group">
                 <h2 className="as-packages-group-label">{group.label}</h2>
                 <div className="as-packages-grid">
                   {visible.map((pkg) => (
@@ -913,9 +903,9 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
                   <button
                     className="as-packages-show-more"
                     disabled={isLoadingMore}
-                    onClick={() => allShown ? showLess(group.id) : showMore(group.id, total)}
+                    onClick={() => allShown ? showLess(group.label) : showMore(group.label, total)}
                   >
-                    {t(allShown ? "packages.showLess" : "packages.showMore")}
+                    {allShown ? "Show less" : "Show more"}
                   </button>
                 )}
               </div>
@@ -926,16 +916,22 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
         <div className="as-packages-cta">
           <div className="as-packages-cta-content">
             <h2 className="as-packages-cta-title">
-              <span className="as-packages-cta-accent">{t("packages.cta.accent")}</span> {t("packages.cta.title")}
+              <span className="as-packages-cta-accent">Future-proof</span> your business infrastructure.
             </h2>
-            <p className="as-packages-cta-tagline">{t("packages.cta.tagline")}</p>
-            <p className="as-packages-cta-sub">{t("packages.cta.body")}</p>
+            <p className="as-packages-cta-tagline">
+              Turn your operational overhead into a strategic advantage.
+            </p>
+            <p className="as-packages-cta-sub">
+              Commercial and industrial energy demands require sophisticated, scalable engineering. Get in touch
+              with our specialist team for a comprehensive energy audit, financial feasibility breakdown, and
+              custom system design.
+            </p>
             <div className="as-packages-cta-actions">
               <button className="as-packages-cta-btn is-primary" onClick={() => setCtaModalOpen(true)}>
-                {t("packages.cta.contact")}
+                Contact Our C&amp;I Team →
               </button>
               <button className="as-packages-cta-btn is-secondary" onClick={() => setCtaModalOpen(true)}>
-                {t("packages.cta.consult")}
+                Schedule a Consultation
               </button>
             </div>
           </div>

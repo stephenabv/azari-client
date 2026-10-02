@@ -1,15 +1,14 @@
-import { localizedMeta } from "../lib/i18n-meta";
-import type { LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
 import "../../src/assets/styles/contents/as_project_detail.less";
 import ASProjectDetails from "../../src/pages/ASProjectDetail";
 import type { ASProjectDetailsModel } from "../../src/services/ASContent";
-import { apiGet, localizedApiPath } from "../lib/api.server";
+import { apiGet } from "../lib/api.server";
 import { socialImageUrl } from "../lib/seo";
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
+export async function loader({ params }: LoaderFunctionArgs) {
   const id = params["id"] ?? "";
-  const result = await apiGet<ASProjectDetailsModel>(localizedApiPath(`/api/projects/${encodeURIComponent(id)}`, request));
+  const result = await apiGet<ASProjectDetailsModel>(`/api/projects/${id}`);
 
   // A project that does not exist — or is unpublished, which the public API
   // reports the same way — is genuinely absent, so answer with a real 404
@@ -36,7 +35,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 // React Router 8 passes the loader result as `loaderData`. The previous `data`
 // argument was always undefined here, so every project page served the generic
 // fallback title and description.
-export const meta = localizedMeta<typeof loader>(({ loaderData, params }, t) => {
+export const meta: MetaFunction<typeof loader> = ({ loaderData, params }) => {
   const project = loaderData as
     | { title?: string; subtitle?: string; imageUrl?: string }
     | undefined;
@@ -46,14 +45,10 @@ export const meta = localizedMeta<typeof loader>(({ loaderData, params }, t) => 
   // The loader throws for a missing project, so meta only runs with real data.
   // The canonical is always this project's own URL — never /projects, which
   // would tell Google the page is a duplicate of the index.
-  const title = t("system.meta.projectDetail.title", {
-    name: project?.title ?? t("system.meta.projectDetail.fallbackName"),
-  });
+  const title = `${project?.title ?? "Solar Project"} — Azari Solar`;
   const description =
     project?.subtitle ??
-    (project?.title
-      ? t("system.meta.projectDetail.description", { name: project.title })
-      : t("system.meta.projectDetail.fallbackDescription"));
+    `${project?.title ?? "Solar project"} by Azari Solar in Bohol, Philippines.`;
   const image = socialImageUrl(project?.imageUrl);
 
   return [
@@ -71,7 +66,7 @@ export const meta = localizedMeta<typeof loader>(({ loaderData, params }, t) => 
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: image },
   ];
-});
+};
 
 export default function ProjectDetail() {
   const project = useLoaderData<typeof loader>();

@@ -1,23 +1,24 @@
-import { localizedMeta } from "../lib/i18n-meta";
+import type { MetaFunction } from "react-router";
 import "../../src/assets/styles/contents/as_legal_page.less";
 import ASLegalPage from "../../src/pages/ASLegalPage";
 
-export const meta = localizedMeta((_args, t) => [
-  { title: t("system.meta.termsConditions.title") },
+export const meta: MetaFunction = () => [
+  { title: "Terms and Conditions — Azari Solar" },
   {
     name: "description",
-    content: t("system.meta.termsConditions.description"),
+    content:
+      "The terms and conditions governing your use of azari.solar and Azari Solar's quotation, consultation, and installation services.",
   },
   { name: "robots", content: "index, follow" },
   { tagName: "link", rel: "canonical", href: "https://azari.solar/terms-and-conditions" },
   { property: "og:type", content: "website" },
   { property: "og:url", content: "https://azari.solar/terms-and-conditions" },
-  { property: "og:title", content: t("system.meta.termsConditions.title") },
+  { property: "og:title", content: "Terms and Conditions — Azari Solar" },
   {
     property: "og:description",
-    content: t("system.meta.termsConditions.shareDescription"),
+    content: "The terms and conditions governing your use of azari.solar.",
   },
-]);
+];
 
 export default function TermsAndConditions() {
   return <ASLegalPage contentKey="termsConditions" />;

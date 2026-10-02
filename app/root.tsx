@@ -5,12 +5,10 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
-  useLocation,
   useRouteError,
 } from "react-router";
 import type { HeadersFunction, LinksFunction } from "react-router";
 
-import { LocalePath } from "../src/i18n/LocalePath";
 import "../src/index.css";
 import "../src/assets/styles/main.less";
 
@@ -147,11 +145,8 @@ const SITE_JSONLD = JSON.stringify({
 }).replace(/</g, '\\u003c');
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { pathname } = useLocation();
-  const lang = LocalePath.parse(pathname).locale.tag;
-
   return (
-    <html lang={lang}>
+    <html lang="en-PH">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />

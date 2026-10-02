@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { splitAtSlot, useSecondsLabel } from "../hooks/useSecondsLabel";
-import { useLocalizedNavigate, useT } from "../i18n";
+import { useNavigate } from "react-router";
 
 export default function ASComingSoon() {
-  const navigate = useLocalizedNavigate();
-  const t = useT();
-  const seconds = useSecondsLabel();
+  const navigate = useNavigate();
   const redirectSeconds = 10;
   const [countdown, setCountdown] = useState(redirectSeconds);
 
@@ -14,7 +11,6 @@ export default function ASComingSoon() {
   }, [countdown]);
 
   const goHome = () => navigate("/");
-  const [redirectBefore, redirectAfter] = splitAtSlot(t("system.comingSoon.redirect"), "time");
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -66,13 +62,12 @@ export default function ASComingSoon() {
 
         <p className="as-coming-soon-eyebrow">Azari Solar</p>
 
-        <h1 className="as-coming-soon-title">{t("system.comingSoon.title")}</h1>
+        <h1 className="as-coming-soon-title">Azari Solar are charging up.</h1>
 
         <p className="as-coming-soon-text">
-          {t("system.comingSoon.body")}{" "}
-          {redirectBefore}
-          <strong>{seconds.count(countdown)}</strong>
-          {redirectAfter}
+          We&apos;re preparing this page to showcase smarter solar power systems,
+          energy savings, and sustainable solutions. Redirecting you back home in{" "}
+          <strong>{countdown}</strong> seconds.
         </p>
 
         <div className="as-countdown-progress">
@@ -80,8 +75,8 @@ export default function ASComingSoon() {
         </div>
 
         <div className="as-coming-soon-actions">
-          <button type="button" className="as-coming-soon-button" onClick={goHome}>
-            {t("system.comingSoon.backHome")}
+          <button className="as-coming-soon-button" onClick={goHome}>
+            Back to Home
           </button>
         </div>
       </div>

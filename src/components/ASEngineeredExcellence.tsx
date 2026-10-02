@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
-import { useT } from "../i18n";
 
 type ExcellenceItem = {
   number: string;
@@ -44,7 +43,6 @@ const DEFAULT_EXCELLENCE_CONTENT: ExcellenceContent = {
 export default function ASEngineeredExcellence() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
-  const t = useT();
 
   const [showLeft, setShowLeft] = useState(false);
   const [visibleCards, setVisibleCards] = useState(-1);
@@ -99,12 +97,14 @@ export default function ASEngineeredExcellence() {
     <section ref={sectionRef} className="as-engineered">
       <div className={`as-engineered-left ${showLeft ? "is-shown" : ""}`}>
         <h2 className="as-engineered-title">
-          {t("system.excellence.titleTop")} <br />
-          {t("system.excellence.titleBottom")}
+          Engineered for <br />
+          Excellence.
         </h2>
 
         <p className="as-engineered-description">
-          {t("system.excellence.description")}
+          We don't just install panels; we integrate intelligent energy systems
+          designed for the unique challenges of the Philippine grid
+          infrastructure.
         </p>
       </div>
 

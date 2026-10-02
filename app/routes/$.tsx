@@ -1,11 +1,10 @@
-import { localizedMeta } from "../lib/i18n-meta";
-import { data } from "react-router";
+import { data, type MetaFunction } from "react-router";
 import ASNotFound from "../../src/components/ASNotFound";
 
-export const meta = localizedMeta((_args, t) => [
-  { title: t("system.meta.notFound.title") },
+export const meta: MetaFunction = () => [
+  { title: "Page Not Found — Azari Solar" },
   { name: "robots", content: "noindex" },
-]);
+];
 
 export async function loader() {
   return data(null, { status: 404 });

@@ -1,4 +1,3 @@
-import { DEFAULT_LOCALE } from "../i18n/locales";
 import type { EngineResult } from "./calculation";
 
 export type SolarPackage = {
@@ -110,10 +109,9 @@ export function findMatchingPackages(
   return matches.slice(0, 3);
 }
 
-export async function fetchPackagesFromApi(locale?: string): Promise<SolarPackage[]> {
+export async function fetchPackagesFromApi(): Promise<SolarPackage[]> {
   try {
-    const query = locale && locale !== DEFAULT_LOCALE.tag ? `?locale=${encodeURIComponent(locale)}` : "";
-    const res = await fetch(`/api/packages${query}`, { headers: { Accept: "application/json" } });
+    const res = await fetch("/api/packages", { headers: { Accept: "application/json" } });
     if (!res.ok) return SOLAR_PACKAGES;
     const json = (await res.json()) as {
       success: boolean;

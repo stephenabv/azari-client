@@ -1,4 +1,3 @@
-import { useT } from "../../i18n";
 import "./as_system_error.less";
 
 type ASSystemErrorProps = {
@@ -6,32 +5,27 @@ type ASSystemErrorProps = {
 };
 
 export default function ASSystemError({ onClose }: ASSystemErrorProps) {
-  const t = useT();
-
   return (
     <div className="as-system-error-overlay">
-      <div
-        className="as-system-error-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="as-system-error-title"
-      >
-        <div className="as-system-error-icon" aria-hidden="true">!</div>
+      <div className="as-system-error-modal" role="dialog" aria-modal="true">
+        <div className="as-system-error-icon">!</div>
 
-        <p className="as-system-error-eyebrow">{t("system.systemError.eyebrow")}</p>
+        <p className="as-system-error-eyebrow">Request failed</p>
 
-        <h2 id="as-system-error-title">{t("system.systemError.title")}</h2>
+        <h2>Something went wrong</h2>
 
-        <p>{t("system.systemError.message")}</p>
+        <p>
+          We couldn’t process your request right now. Please try again in a moment.
+        </p>
 
         <div className="as-system-error-notes">
-          <span>{t("system.systemError.checkConnection")}</span>
-          <span>{t("system.systemError.verifyForm")}</span>
-          <span>{t("system.systemError.trySubmitting")}</span>
+          <span>Check your connection</span>
+          <span>Verify the form data</span>
+          <span>Try submitting again</span>
         </div>
 
         <button type="button" onClick={onClose}>
-          {t("system.systemError.close")}
+          Close
         </button>
       </div>
     </div>

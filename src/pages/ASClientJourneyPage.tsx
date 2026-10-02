@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useLocale, useLocalizedNavigate, useT, type MessageKey } from "../i18n";
+import { useNavigate } from "react-router";
 import type {
   ApiJourneyStep, ContentBlock,
   HeadingBlock, ParagraphBlock, BulletListBlock, LinkGroupBlock,
@@ -94,7 +94,7 @@ function BulletListRenderer({ block }: { block: BulletListBlock }) {
 }
 
 function LinkGroupRenderer({ block }: { block: LinkGroupBlock }) {
-  const navigate = useLocalizedNavigate();
+  const navigate = useNavigate();
   return (
     <div className="as-cjp-link-group">
       {block.links.map((link, i) => {
@@ -118,7 +118,7 @@ function LinkGroupRenderer({ block }: { block: LinkGroupBlock }) {
 }
 
 function ButtonRenderer({ block }: { block: ButtonBlock }) {
-  const navigate = useLocalizedNavigate();
+  const navigate = useNavigate();
   return (
     <button
       className="as-cjp-btn as-cjp-btn--primary"
@@ -142,7 +142,6 @@ function ImageRenderer({ block }: { block: ImageBlock }) {
 }
 
 function PartnerGridRenderer({ block }: { block: PartnerGridBlock }) {
-  const t = useT();
   return (
     <div className="as-cjp-partner-grid">
       {block.items.map((item, i) => (
@@ -157,7 +156,7 @@ function PartnerGridRenderer({ block }: { block: PartnerGridBlock }) {
               className="as-cjp-partner-dl"
               download
             >
-              {t("pages.journeyPage.download")}
+              Download
             </a>
           )}
         </div>
@@ -175,17 +174,7 @@ const CHANNEL_ICONS: Record<string, string> = {
   viber: "M11.4 0C5.9 0 1 4.6 1 10.2c0 3.1 1.5 5.9 3.9 7.7V21l3.5-1.9c.9.3 1.9.4 2.9.4 5.5 0 10.4-4.6 10.4-10.2C21.8 4.6 17 0 11.4 0zm1.1 13.7l-2.5-2.7-4.9 2.7 5.4-5.7 2.6 2.7 4.8-2.7-5.4 5.7z",
 };
 
-const CHANNEL_LABELS: Partial<Record<string, MessageKey>> = {
-  whatsapp: "pages.journeyPage.channels.whatsapp",
-  email: "pages.journeyPage.channels.email",
-  phone: "pages.journeyPage.channels.phone",
-  facebook: "pages.journeyPage.channels.facebook",
-  instagram: "pages.journeyPage.channels.instagram",
-  viber: "pages.journeyPage.channels.viber",
-};
-
 function ContactRenderer({ block }: { block: ContactBlock }) {
-  const t = useT();
   return (
     <div className="as-cjp-contact-channels">
       {block.channels.map((ch, i) => (
@@ -195,10 +184,7 @@ function ContactRenderer({ block }: { block: ContactBlock }) {
           target="_blank"
           rel="noopener noreferrer"
           className={`as-cjp-channel as-cjp-channel--${ch.kind}`}
-          aria-label={t("pages.journeyPage.channelLabel", {
-            channel: CHANNEL_LABELS[ch.kind] ? t(CHANNEL_LABELS[ch.kind]!) : ch.kind,
-            value: ch.value,
-          })}
+          aria-label={`${ch.kind}: ${ch.value}`}
         >
           <svg className="as-cjp-channel-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d={CHANNEL_ICONS[ch.kind] ?? CHANNEL_ICONS.phone} />
@@ -251,8 +237,6 @@ type ASClientJourneyPageProps = {
 export default function ASClientJourneyPage({
   initialSteps,
 }: ASClientJourneyPageProps = {}) {
-  const t = useT();
-  const localeTag = useLocale().tag;
   const [steps, setSteps] = useState<ApiJourneyStep[]>(initialSteps ?? []);
   const [loading, setLoading] = useState((initialSteps ?? []).length === 0);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -271,15 +255,12 @@ export default function ASClientJourneyPage({
   useEffect(() => {
     // Already server-rendered; skip the duplicate request on hydration.
     if ((initialSteps ?? []).length > 0) return;
-    let cancelled = false;
-    fetchClientJourney(localeTag).then(data => {
-      if (cancelled) return;
+    fetchClientJourney().then(data => {
       setSteps(data);
       setLoading(false);
     });
-    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localeTag]);
+  }, []);
 
   useEffect(() => {
     if (!steps.length) return;
@@ -474,7 +455,7 @@ export default function ASClientJourneyPage({
 
   if (loading) {
     return (
-      <section className="as-cjp as-cjp--loading" aria-busy="true" aria-label={t("pages.journeyPage.loading")}>
+      <section className="as-cjp as-cjp--loading">
         <div className="as-cjp-container">
           <div className="as-cjp-skeleton-header" />
           {[...Array(7)].map((_, i) => <div key={i} className="as-cjp-skeleton-row" />)}
@@ -487,8 +468,11 @@ export default function ASClientJourneyPage({
     <section ref={sectionRef} className="as-cjp">
       <div className="as-cjp-container">
         <header className="as-cjp-header">
-          <h1 className="as-cjp-title">{t("pages.journeyPage.title")}</h1>
-          <p className="as-cjp-subtitle">{t("pages.journeyPage.subtitle")}</p>
+          <h1 className="as-cjp-title">Our Client Journey</h1>
+          <p className="as-cjp-subtitle">
+            A streamlined step-by-step process designed to guide you from initial consultation
+            to long-term energy independence.
+          </p>
         </header>
 
         { }

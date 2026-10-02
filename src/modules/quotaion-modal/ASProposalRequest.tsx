@@ -3,12 +3,11 @@ import {
   sanitizeProposalRequestForm,
   validateProposalRequestField,
   validateProposalRequestForm,
-  type ProposalRequestErrors,
   type ProposalRequestFormData,
   type ProposalRequestField,
 } from "../../models/quotation";
+import type { FieldErrors } from "../../models/common";
 import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
-import { useT } from "../../i18n";
 
 type RequestProposalModalProps = {
   onClose: () => void;
@@ -21,7 +20,6 @@ export default function RequestProposalModal({
   onSubmit,
   isSubmitting = false,
 }: RequestProposalModalProps) {
-  const t = useT();
   const [formData, setFormData] = useState<ProposalRequestFormData>({
     fullName: "",
     location: "",
@@ -30,7 +28,7 @@ export default function RequestProposalModal({
     message: "",
   });
 
-  const [errors, setErrors] = useState<ProposalRequestErrors>({});
+  const [errors, setErrors] = useState<FieldErrors<ProposalRequestField>>({});
 
   const handleChange = (field: ProposalRequestField, value: string) => {
     if (field === "message" && value.length > 500) return;
@@ -44,7 +42,7 @@ export default function RequestProposalModal({
 
     setErrors((current) => ({
       ...current,
-      [field]: validateProposalRequestField(field, value) || undefined,
+      [field]: validateProposalRequestField(field, value),
     }));
   };
 
@@ -69,74 +67,77 @@ export default function RequestProposalModal({
           onClick={onClose}
           type="button"
           disabled={isSubmitting}
-          aria-label={t("quotation.common.close")}
         >
           ×
         </button>
 
-        <h2>{t("quotation.proposal.title")}</h2>
-        <p>{t("quotation.proposal.intro")}</p>
+        <h2>Request Proposal</h2>
+        <p>
+          You're almost there! Provide your details below so our team can
+          finalize your custom solar proposal and reach out to schedule your
+          free site assessment.
+        </p>
 
         <div className="as-modal-form">
           <label>
-            {t("quotation.proposal.name")}
+            Name
             <input
               className={errors.fullName ? "as-input-error" : ""}
-              placeholder={t("quotation.proposal.namePlaceholder")}
+              placeholder="Juan Dela Cruz"
               value={formData.fullName}
               onChange={(e) => handleChange("fullName", e.target.value)}
             />
             {errors.fullName && (
-              <small className="as-field-error">{t(errors.fullName)}</small>
+              <small className="as-field-error">{errors.fullName}</small>
             )}
           </label>
 
           <label>
-            {t("quotation.proposal.location")}
+            Location
             <LocationAutocompleteInput
               value={formData.location}
               onChange={(val) => handleChange("location", val)}
-              placeholder={t("quotation.proposal.locationPlaceholder")}
+              placeholder="Search map location or manually input address"
               inputClassName={errors.location ? "as-input-error" : ""}
             />
             {errors.location && (
-              <small className="as-field-error">{t(errors.location)}</small>
+              <small className="as-field-error">{errors.location}</small>
             )}
           </label>
 
           <label>
-            {t("quotation.proposal.email")}
+            Email Address
             <input
               className={errors.email ? "as-input-error" : ""}
               type="email"
-              placeholder={t("quotation.proposal.emailPlaceholder")}
+              placeholder="name@email.com"
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
             />
             {errors.email && (
-              <small className="as-field-error">{t(errors.email)}</small>
+              <small className="as-field-error">{errors.email}</small>
             )}
           </label>
 
           <label>
-            {t("quotation.proposal.phone")}
+            Phone Number
             <input
               className={errors.phone ? "as-input-error" : ""}
               type="tel"
-              placeholder={t("quotation.proposal.phonePlaceholder")}
+              placeholder="+63 912 345 6789"
               value={formData.phone}
               onChange={(e) => handleChange("phone", e.target.value)}
             />
             {errors.phone && (
-              <small className="as-field-error">{t(errors.phone)}</small>
+              <small className="as-field-error">{errors.phone}</small>
             )}
           </label>
 
           <label>
-            {t("quotation.proposal.notes")}
+            Additional Notes
             <textarea
               className={errors.message ? "as-input-error" : ""}
-              placeholder={t("quotation.proposal.notesPlaceholder")}
+              placeholder="Tell us more about your property or energy requirements."
               value={formData.message}
               maxLength={500}
               onChange={(e) => handleChange("message", e.target.value)}
@@ -146,9 +147,7 @@ export default function RequestProposalModal({
                 errors.message ? "as-field-error" : "as-character-count"
               }
             >
-              {errors.message
-                ? t(errors.message)
-                : t("quotation.proposal.characters", { count: formData.message.length })}
+              {errors.message || `${formData.message.length}/500 characters`}
             </small>
           </label>
         </div>
@@ -160,7 +159,7 @@ export default function RequestProposalModal({
             type="button"
             disabled={isSubmitting}
           >
-            {t("quotation.common.cancel")}
+            Cancel
           </button>
 
           <button
@@ -169,7 +168,7 @@ export default function RequestProposalModal({
             type="button"
             disabled={isSubmitting}
           >
-            {isSubmitting ? t("quotation.proposal.submitting") : t("quotation.proposal.submit")}
+            {isSubmitting ? "Submitting..." : "Request Proposal"}
           </button>
         </div>
       </div>
