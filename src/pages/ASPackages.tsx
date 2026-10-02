@@ -6,7 +6,7 @@ import { formatCapacity } from "../lib/units";
 import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 import ASBrandFilter from "../components/ASBrandFilter";
-import { useLocalizedNavigate, useT } from "../i18n";
+import { useLocale, useLocalizedNavigate, useT } from "../i18n";
 import { CompositePackageFilter, InverterBrandFilter, normalizeAttribute } from "../services/packages/PackageFilter";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 
@@ -742,6 +742,7 @@ type ASPackagesProps = {
 export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   const navigate = useLocalizedNavigate();
   const t = useT();
+  const locale = useLocale();
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
 
   useEffect(() => {
@@ -773,7 +774,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   useEffect(() => {
     // Already server-rendered; skip the duplicate request on hydration.
     if ((initialPackages ?? []).length > 0) return;
-    fetchPublicPackages()
+    fetchPublicPackages(locale.tag)
       .then(setPackages)
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

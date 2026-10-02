@@ -8,6 +8,12 @@ import {
   parseAdminLocale,
   useContentLocaleTag,
 } from "../modules/admin-content-locale/AdminContentLocale";
+import AutoTranslateDraftButton, { type AutoTranslateDraftProps } from "../modules/admin-translation/AutoTranslateDraftButton";
+import ASTranslationEditorModal from "../modules/admin-translation/ASTranslationEditorModal";
+import { TranslationLeaves } from "../modules/admin-translation/TranslationLeaves";
+import { SubmissionLocaleBadge, SubmissionTranslationNote, TranslatedField } from "../modules/admin-translation/SubmissionTranslation";
+import { parseSubmissionTranslation } from "../modules/admin-translation/SubmissionTranslationModel";
+import type { TranslatableEntityType } from "../services/ASTranslations";
 import { DEFAULT_LOCALE, type LocaleDefinition } from "../i18n/locales";
 import { INVERTER_CATEGORY, normalizeAttribute } from "../services/packages/PackageFilter";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, type InverterBrandMeta, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
@@ -598,6 +604,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
   };
 
   const STATUS_OPTIONS: SubmissionStatus[] = ["received", "emailed", "email_failed", "archived"];
+  const previewTranslation = previewRow ? parseSubmissionTranslation(previewRow.translation) : null;
+  const previewLocale = typeof previewRow?.locale === "string" && previewRow.locale ? previewRow.locale : null;
 
   return (
     <div>
@@ -689,6 +697,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
           title={type === "talk" ? "Talk Inquiry Details" : "Quotation Request Details"}
           subtitle={fmtRef(previewRow.id as string, type)}
         >
+          <SubmissionTranslationNote translation={previewTranslation} />
           {type === "talk" ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Reference</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontFamily: "monospace" }}>{fmtRef(previewRow.id as string, type)}</div></div>
@@ -700,7 +709,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Inquiry Type</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.inquiryType as string}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email Status</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><StatusBadge status={previewRow.status as string} /></div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Project Status</div><div style={{ fontSize: 14, color: PROJECT_STATUS_COLORS[(previewRow.projectStatus as string) ?? "new"] ?? "var(--ad-text)" }}>{PROJECT_STATUS_OPTIONS.find(o => o.value === (previewRow.projectStatus ?? "new"))?.label ?? "New"}</div></div>
-              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
+              {previewLocale && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Site Language</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><SubmissionLocaleBadge locale={previewLocale} standalone /></div></div>}
+              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><TranslatedField translation={previewTranslation} path="message"><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></TranslatedField></div>
             </div>
           ) : (
             <>
@@ -719,7 +729,8 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Electric Rate</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewRow.electricRatePhpPerKwh != null ? `₱${Number(previewRow.electricRatePhpPerKwh).toFixed(2)}/kWh` : "—"}</div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Email Status</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><StatusBadge status={previewRow.status as string} /></div></div>
               <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Project Status</div><div style={{ fontSize: 14, color: PROJECT_STATUS_COLORS[(previewRow.projectStatus as string) ?? "new"] ?? "var(--ad-text)" }}>{PROJECT_STATUS_OPTIONS.find(o => o.value === (previewRow.projectStatus ?? "new"))?.label ?? "New"}</div></div>
-              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></div>
+              {previewLocale && <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Site Language</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}><SubmissionLocaleBadge locale={previewLocale} standalone /></div></div>}
+              <div style={{ gridColumn: "1 / -1" }}><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Message</div><TranslatedField translation={previewTranslation} path="message"><div style={{ fontSize: 14, color: "var(--ad-text)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{(previewRow.message as string) || "—"}</div></TranslatedField></div>
             </div>
 
             {/* DUE / NUEC Energy Consumption Summary */}
@@ -797,7 +808,7 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                           return (
                             <tr key={i}>
                               <td style={{ ...tdBase, textAlign: "left" }}>
-                                <span style={{ fontWeight: 500 }}>{a.name}</span>
+                                <TranslatedField translation={previewTranslation} path={`loadProfile.${i}.name`} compact><span style={{ fontWeight: 500 }}>{a.name}</span></TranslatedField>
                                 {is24h && <span style={{ marginLeft: 6, fontSize: 10, background: "rgba(99,102,241,0.15)", color: "#6366f1", borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>24h</span>}
                                 <div style={{ fontSize: 10, color: "var(--ad-text3)", marginTop: 1 }}>{a.schedule || a.usageType}</div>
                               </td>
@@ -856,11 +867,11 @@ function SubmissionsTable({ apiKey, type }: { apiKey: string; type: "talk" | "qu
                     </span>
                   </td>
                   {type === "talk" ? (
-                    <><td>{row.name as string}</td><td style={{ fontSize: 12 }}>{row.email as string}</td>
+                    <><td>{row.name as string}<SubmissionLocaleBadge locale={row.locale} /></td><td style={{ fontSize: 12 }}>{row.email as string}</td>
                     <td style={{ fontSize: 12 }}>{[row.city, row.province].filter(Boolean).join(", ")}</td>
                     <td>{row.inquiryType as string}</td></>
                   ) : (
-                    <><td>{row.fullName as string}</td><td style={{ fontSize: 12 }}>{row.email as string}</td>
+                    <><td>{row.fullName as string}<SubmissionLocaleBadge locale={row.locale} /></td><td style={{ fontSize: 12 }}>{row.email as string}</td>
                     <td>{row.estimatedSystemSizeDisplayText as string}</td>
                     <td>{row.propertyClassification as string}</td></>
                   )}
@@ -1552,8 +1563,29 @@ function ProjectLivePreview({ form, imagePreview }: { form: ProjectForm; imagePr
   );
 }
 
+type TranslationTarget = { id: string; title: string };
+
+/** Opens the per-language translation editor for one database item; renders nothing until a target is chosen. */
+function EntityTranslationsModal({ apiKey, entityType, target, onClose }: {
+  apiKey: string; entityType: TranslatableEntityType; target: TranslationTarget | null; onClose: () => void;
+}) {
+  if (!target) return null;
+  return (
+    <ASTranslationEditorModal
+      key={`${entityType}:${target.id}`}
+      open
+      onClose={onClose}
+      apiKey={apiKey}
+      entityType={entityType}
+      entityId={target.id}
+      displayTitle={target.title}
+    />
+  );
+}
+
 function ProjectsManager({ apiKey }: { apiKey: string }) {
   const [projects, setProjects] = useState<ApiProject[]>([]);
+  const [translateTarget, setTranslateTarget] = useState<TranslationTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1723,6 +1755,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
+      <EntityTranslationsModal apiKey={apiKey} entityType="project" target={translateTarget} onClose={() => setTranslateTarget(null)} />
       <div className="ad-section-header">
         <div className="ad-section-title">Projects Portfolio</div>
         <button onClick={openAdd} className="ad-btn ad-btn--sm">+ Add Project</button>
@@ -2316,6 +2349,7 @@ function ProjectsManager({ apiKey }: { apiKey: string }) {
                     <div className="ad-table-actions">
                       <button onClick={() => setPreviewProject(p)} className="ad-btn ad-btn--ghost ad-btn--sm">View</button>
                       <button onClick={() => openEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm">Edit</button>
+                      <button onClick={() => setTranslateTarget({ id: p.id, title: p.title })} className="ad-btn ad-btn--ghost ad-btn--sm">Translations</button>
                       <button
                         onClick={() => handleTogglePublish(p)}
                         disabled={publishing === p.id}
@@ -3275,6 +3309,12 @@ function ComponentsManager({ apiKey, onGoToPackages }: { apiKey: string; onGoToP
   );
 }
 
+/** Site language a package inquiry was submitted from; null on records older than the field. */
+function inquiryLocale(inq: PackageInquiry): string | null {
+  const locale = (inq as PackageInquiry & { locale?: unknown }).locale;
+  return typeof locale === "string" && locale ? locale : null;
+}
+
 function PackageInquiriesManager({ apiKey }: { apiKey: string }) {
   const [searchParams] = useSearchParams();
   const [inquiries, setInquiries] = useState<PackageInquiry[]>([]);
@@ -3567,7 +3607,7 @@ ${materialsHtml}
                 {filtered.map(inq => (
                   <tr key={inq.id} className="ad-inq-tr">
                     <td className="ad-inq-td">
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{inq.name}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{inq.name}<SubmissionLocaleBadge locale={inquiryLocale(inq)} /></div>
                       <div className="ad-inq-ref">PKG-{inq.id.slice(0, 8).toUpperCase()}</div>
                     </td>
                     <td className="ad-inq-td">
@@ -3603,7 +3643,7 @@ ${materialsHtml}
               <div key={inq.id} className="ad-inq-card">
                 <div className="ad-inq-card-top">
                   <div>
-                    <div className="ad-inq-card-name">{inq.name}</div>
+                    <div className="ad-inq-card-name">{inq.name}<SubmissionLocaleBadge locale={inquiryLocale(inq)} /></div>
                     <div className="ad-inq-ref">{inq.email} · {inq.phone}</div>
                   </div>
                   <button className="ad-btn ad-btn--sm" onClick={() => setSelectedInquiry(inq)} style={{ flexShrink: 0 }}>Details</button>
@@ -3664,6 +3704,12 @@ ${materialsHtml}
                     <div className="ad-inq-modal-field-value" style={{ wordBreak: "break-all" }}>{value}</div>
                   </div>
                 ))}
+                {inquiryLocale(selectedInquiry) && (
+                  <div className="ad-inq-modal-field">
+                    <div className="ad-inq-modal-field-label">Site Language</div>
+                    <div className="ad-inq-modal-field-value"><SubmissionLocaleBadge locale={inquiryLocale(selectedInquiry)} standalone /></div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -3791,6 +3837,7 @@ const EMPTY_IP_RATING: IpRatingInput = { code: "", description: "" };
 
 function UtilitiesManager({ apiKey }: { apiKey: string }) {
   const [ratings, setRatings]         = useState<ApiIpRating[]>([]);
+  const [translateTarget, setTranslateTarget] = useState<TranslationTarget | null>(null);
   const [loading, setLoading]         = useState(true);
   const [form, setForm]               = useState<IpRatingInput>(EMPTY_IP_RATING);
   const [editingId, setEditingId]     = useState<string | null>(null);
@@ -3856,6 +3903,7 @@ function UtilitiesManager({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
+      <EntityTranslationsModal apiKey={apiKey} entityType="ipRating" target={translateTarget} onClose={() => setTranslateTarget(null)} />
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Utilities</div>
@@ -3949,6 +3997,7 @@ function UtilitiesManager({ apiKey }: { apiKey: string }) {
                     <td>
                       <div className="ad-table-actions">
                         <button onClick={() => openEdit(r)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm && editingId !== r.id}>Edit</button>
+                        <button onClick={() => setTranslateTarget({ id: r.id, title: `${r.code} — ${r.description}` })} className="ad-btn ad-btn--ghost ad-btn--sm">Translations</button>
                         <button onClick={() => setDeleteTarget(r)} disabled={!!deleting} className="ad-btn ad-btn--danger ad-btn--sm">Delete</button>
                       </div>
                     </td>
@@ -3977,13 +4026,14 @@ interface PkgPhaseSectionProps {
   peso: (v: number) => string;
   onPreview: (p: ApiSolarPackage) => void;
   onEdit: (p: ApiSolarPackage) => void;
+  onTranslate: (p: ApiSolarPackage) => void;
   onDelete: (p: ApiSolarPackage) => void;
   onToggle: (p: ApiSolarPackage) => void;
   deleting: string | null;
   toggling: string | null;
 }
 
-function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, onDelete, onToggle, deleting, toggling }: PkgPhaseSectionProps) {
+function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, onTranslate, onDelete, onToggle, deleting, toggling }: PkgPhaseSectionProps) {
   const [search, setSearch]     = useState("");
   const [showF,  setShowF]      = useState(false);
   const [fType,  setFType]      = useState(new Set<string>());
@@ -4162,6 +4212,7 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
                 <div className="ad-table-actions">
                   <button onClick={() => onPreview(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>View</button>
                   <button onClick={() => onEdit(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Edit</button>
+                  <button onClick={() => onTranslate(p)} className="ad-btn ad-btn--ghost ad-btn--sm" disabled={showForm}>Translations</button>
                   <button onClick={() => onDelete(p)} disabled={deleting === p.id || showForm} className="ad-btn ad-btn--danger ad-btn--sm" style={{ opacity: deleting === p.id ? 0.5 : 1 }}>{deleting === p.id ? "…" : "Delete"}</button>
                 </div>
               </div>
@@ -4175,6 +4226,7 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
 
 function PackagesManager({ apiKey }: { apiKey: string }) {
   const [packages, setPackages]       = useState<ApiSolarPackage[]>([]);
+  const [translateTarget, setTranslateTarget] = useState<TranslationTarget | null>(null);
   const [allComponents, setAllComponents] = useState<ApiSolarComponent[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showForm, setShowForm]       = useState(false);
@@ -4498,6 +4550,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
+      <EntityTranslationsModal apiKey={apiKey} entityType="package" target={translateTarget} onClose={() => setTranslateTarget(null)} />
       <div className="ad-section-header">
         <div>
           <div className="ad-section-title">Solar Packages Builder</div>
@@ -5271,6 +5324,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             peso={peso}
             onPreview={setPreviewPackage}
             onEdit={openEdit}
+            onTranslate={(p) => setTranslateTarget({ id: p.id, title: p.name })}
             onDelete={setDeleteTarget}
             onToggle={(p) => void handleToggleActive(p)}
             deleting={deleting}
@@ -5283,6 +5337,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
             peso={peso}
             onPreview={setPreviewPackage}
             onEdit={openEdit}
+            onTranslate={(p) => setTranslateTarget({ id: p.id, title: p.name })}
             onDelete={setDeleteTarget}
             onToggle={(p) => void handleToggleActive(p)}
             deleting={deleting}
@@ -5315,14 +5370,15 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
     return () => { cancelled = true; };
   }, [tick]);
 
-  const save = async (data: T) => {
+  const save = async (data: T): Promise<boolean> => {
     setSaving(true); setMsg("");
     try {
       const res = await adminUpsertContent(apiKey, contentKey, data, localeTag) as { success: boolean; data?: unknown };
       if (res?.data) setForm((f) => ({ ...f, ...(res.data as T) }));
       setMsg("✓ Saved successfully");
+      return true;
     }
-    catch (e) { setMsg(`Error: ${(e as Error).message}`); }
+    catch (e) { setMsg(`Error: ${(e as Error).message}`); return false; }
     finally { setSaving(false); }
   };
 
@@ -5336,12 +5392,29 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
-  return { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset };
+  // Machine-translated draft from English: fills only fields that are empty or still English; saved via Save.
+  const formRef = useRef(form);
+  useEffect(() => { formRef.current = form; }, [form]);
+  const draft: AutoTranslateDraftProps = {
+    apiKey,
+    contentKey,
+    defaults,
+    onMessage: setMsg,
+    onDraft: (english, translated) => {
+      const merged = TranslationLeaves.mergeDraft(formRef.current, english, translated);
+      setForm(merged.value);
+      return merged.filled;
+    },
+  };
+
+  return { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft };
 }
 
-function SectionEditorHeader({ title, onReset, resetPending, onConfirmReset, onCancelReset }: {
+function SectionEditorHeader({ title, onReset, resetPending, onConfirmReset, onCancelReset, draft }: {
   title: string; onReset: () => void;
   resetPending?: boolean; onConfirmReset?: () => void; onCancelReset?: () => void;
+  /** Shows "Auto-translate draft from English" while a non-English language is being edited. */
+  draft?: AutoTranslateDraftProps;
 }) {
   return (
     <>
@@ -5354,7 +5427,10 @@ function SectionEditorHeader({ title, onReset, resetPending, onConfirmReset, onC
       />
       <div className="ad-section-header" style={{ marginBottom: 16 }}>
         <div className="ad-section-title">{title}</div>
-        <button onClick={onReset} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+        <div className="ad-section-header-actions">
+          {draft && <AutoTranslateDraftButton {...draft} />}
+          <button onClick={onReset} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+        </div>
       </div>
     </>
   );
@@ -5415,12 +5491,12 @@ type HeroForm = { headerPart1: string; headerPart2: string; highlightWords: stri
 const DEFAULT_HERO_FORM: HeroForm = { headerPart1: "Affordable", headerPart2: "Solar Power for Every Filipino Home and Business", highlightWords: "Affordable", subtext: "We Provide Solar Solutions Tailored For Your Home And Business", primaryCta: "Calculate Your Savings", secondaryCta: "View Projects", primaryCtaUrl: "#calculator", secondaryCtaUrl: "/projects" };
 
 function HeroEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "hero", DEFAULT_HERO_FORM);
   const ch = (k: keyof HeroForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Hero Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Hero Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -5480,13 +5556,13 @@ const DEFAULT_METRICS_FORM: MetricsForm = {
 };
 
 function MetricsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "metrics", DEFAULT_METRICS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "metrics", DEFAULT_METRICS_FORM);
   const updateItem = (idx: number, key: "value" | "label", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Metrics / Stats" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Metrics / Stats" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         <p style={{ fontSize: 13, color: "var(--ad-text2)", marginBottom: 16 }}>These numbers appear in the stats strip below the hero section.</p>
@@ -5518,7 +5594,7 @@ const DEFAULT_PARTNERS_FORM: PartnersForm = {
 };
 
 function PartnersEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } =
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft: autoDraft } =
     useSectionEditor(apiKey, "partners", DEFAULT_PARTNERS_FORM);
 
   type ModalDraft = Omit<PartnerItem, "id">;
@@ -5585,7 +5661,7 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
-      <SectionEditorHeader title="Partners / Logos" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Partners / Logos" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={autoDraft} />
       <Toast msg={msg} />
 
       <ConfirmDeleteModal
@@ -5754,7 +5830,7 @@ function PartnersEditor({ apiKey }: { apiKey: string }) {
  * automatically; admins only decorate it with a logo and display order.
  */
 function InverterBrandsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } =
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } =
     useSectionEditor<InverterBrandsContent>(apiKey, "inverter-brands", DEFAULT_INVERTER_BRANDS_CONTENT);
 
   const [inventoryBrands, setInventoryBrands] = useState<string[]>([]);
@@ -5821,7 +5897,7 @@ function InverterBrandsEditor({ apiKey }: { apiKey: string }) {
 
   return (
     <div>
-      <SectionEditorHeader title="Inverter Brands" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Inverter Brands" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
 
       <div className="ad-card">
@@ -5922,13 +5998,13 @@ const DEFAULT_BENEFITS_FORM: BenefitsForm = {
 };
 
 function BenefitsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "benefits", DEFAULT_BENEFITS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "benefits", DEFAULT_BENEFITS_FORM);
   const updateItem = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Benefits Banner" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Benefits Banner" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         {form.items.map((item, i) => (
@@ -5956,11 +6032,11 @@ const DEFAULT_TROPICS_FORM: TropicsForm = {
 };
 
 function TropicsEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "tropics", DEFAULT_TROPICS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "tropics", DEFAULT_TROPICS_FORM);
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Tropics Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Tropics Section" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -6022,7 +6098,17 @@ async function geocodePhLocation(location: string): Promise<[number, number] | n
 }
 
 function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
-  const { loading, msg, form, setForm, save } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  const { loading, saving, msg, form, setForm, save, draft: autoDraft } = useSectionEditor(apiKey, "clientJourney", DEFAULT_JOURNEY_FORM);
+  // Entries normally save one at a time; a machine-translated draft changes many, so it gets an explicit Save.
+  const [draftPending, setDraftPending] = useState(false);
+  const journeyDraft: AutoTranslateDraftProps = {
+    ...autoDraft,
+    onDraft: (english, translated) => {
+      const filled = autoDraft.onDraft(english, translated);
+      if (filled > 0) setDraftPending(true);
+      return filled;
+    },
+  };
   const [geocoding, setGeocoding] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
   const [modalMode, setModalMode] = useState<"add" | "edit" | "view" | null>(null);
@@ -6058,6 +6144,7 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
     const newForm = { ...form, entries: newEntries };
     setForm(newForm);
     void save(newForm);
+    setDraftPending(false);
     closeModal();
   };
 
@@ -6067,8 +6154,17 @@ function ClientJourneyEditor({ apiKey }: { apiKey: string }) {
     <div>
       <div className="ad-section-header" style={{ marginBottom: 16 }}>
         <div className="ad-section-title">Client Journey</div>
+        <div className="ad-section-header-actions">
+          <AutoTranslateDraftButton {...journeyDraft} />
+        </div>
       </div>
       <Toast msg={msg} />
+      {draftPending && (
+        <div className="ad-tr-draft-banner" role="status">
+          <span>Machine-translated draft loaded. Review the entries below, then save.</span>
+          <button onClick={() => { void save(form).then((ok) => { if (ok) setDraftPending(false); }); }} disabled={saving} className="ad-btn ad-btn--sm">{saving ? "Saving…" : "Save Draft"}</button>
+        </div>
+      )}
 
       <ConfirmDeleteModal
         open={!!deleteTarget}
@@ -6234,13 +6330,13 @@ const DEFAULT_EXCELLENCE_FORM: ExcellenceForm = {
 };
 
 function ExcellenceEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "excellence", DEFAULT_EXCELLENCE_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "excellence", DEFAULT_EXCELLENCE_FORM);
   const updateItem = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, items: f.items.map((item, i) => i === idx ? { ...item, [key]: val } : item) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Engineered Excellence" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Engineered Excellence" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         {form.items.map((item, i) => (
@@ -6272,13 +6368,13 @@ const DEFAULT_PROCESS_FORM: ProcessForm = {
 };
 
 function ProcessEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "process", DEFAULT_PROCESS_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "process", DEFAULT_PROCESS_FORM);
   const updateStep = (idx: number, key: "title" | "description", val: string) =>
     setForm((f) => ({ ...f, steps: f.steps.map((s, i) => i === idx ? { ...s, [key]: val } : s) }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Process Steps" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Process Steps" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div style={{ marginBottom: 24 }}>
@@ -6307,12 +6403,12 @@ type CtaForm = { title: string; description: string; primaryCta: string; seconda
 const DEFAULT_CTA_FORM: CtaForm = { title: "Ready to engineer your energy independence?", description: "Take control of your energy bills. Get a free quote or talk to an expert", primaryCta: "Get a free Quote", secondaryCta: "Talk to an Expert" };
 
 function CtaEditor({ apiKey }: { apiKey: string }) {
-  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
+  const { loading, saving, msg, form, setForm, save, resetPending, startReset, cancelReset, confirmReset, draft } = useSectionEditor(apiKey, "cta", DEFAULT_CTA_FORM);
   const ch = (k: keyof CtaForm) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading…</div>;
   return (
     <div>
-      <SectionEditorHeader title="Call to Action" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} />
+      <SectionEditorHeader title="Call to Action" onReset={startReset} resetPending={resetPending} onConfirmReset={confirmReset} onCancelReset={cancelReset} draft={draft} />
       <Toast msg={msg} />
       <div className="ad-card">
         <div className="ad-form-grid">
@@ -6380,6 +6476,17 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
   const [resetPending, setResetPending] = useState(false);
 
+  const footerDraft: AutoTranslateDraftProps = {
+    apiKey,
+    contentKey: "footer",
+    onMessage: setMsg,
+    onDraft: (english, translated) => {
+      const merged = TranslationLeaves.mergeDraft(buildPayload(), english, translated);
+      populate(merged.value);
+      return merged.filled;
+    },
+  };
+
   const handleReset = async () => {
     setResetPending(false);
     try { await adminResetContent(apiKey, "footer", localeTag); setMsg("✓ Footer reset to default"); await load(); }
@@ -6399,7 +6506,10 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
       />
       <div className="ad-section-header" style={{ marginBottom: 16 }}>
         <div className="ad-section-title">Footer</div>
-        <button onClick={() => setResetPending(true)} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+        <div className="ad-section-header-actions">
+          <AutoTranslateDraftButton {...footerDraft} />
+          <button onClick={() => setResetPending(true)} className="ad-btn ad-btn--danger ad-btn--sm">Reset to Default</button>
+        </div>
       </div>
       <Toast msg={msg} />
       <div className="ad-card" style={{ marginBottom: 16 }}>
@@ -6516,6 +6626,25 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
+  const legalKey = subTab === "disclaimer" ? "legalDisclaimer" : subTab;
+  const legalDraft: AutoTranslateDraftProps = {
+    apiKey,
+    contentKey: legalKey,
+    defaults: subTab === "disclaimer" ? EMPTY_DISCLAIMER : EMPTY_LEGAL_DOC,
+    onMessage: setMsg,
+    onDraft: (english, translated) => {
+      if (subTab === "disclaimer") {
+        const merged = TranslationLeaves.mergeDraft(disclaimer, english, translated);
+        setDisclaimer(merged.value);
+        return merged.filled;
+      }
+      const current = subTab === "privacyPolicy" ? privacyPolicy : termsConditions;
+      const merged = TranslationLeaves.mergeDraft(current, english, translated);
+      (subTab === "privacyPolicy" ? setPrivacyPolicy : setTermsConditions)(merged.value);
+      return merged.filled;
+    },
+  };
+
   if (loading) return <div style={{ color: "var(--ad-text2)", padding: 24 }}>Loading legal content…</div>;
 
   const activeDoc = subTab === "privacyPolicy" ? privacyPolicy : subTab === "termsConditions" ? termsConditions : null;
@@ -6537,6 +6666,12 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
           <div style={{ fontSize: 13, color: "var(--ad-text2)", marginTop: 4 }}>
             Manage the Privacy Policy, Terms &amp; Conditions, and the draft-disclaimer banner shown on both public pages.
           </div>
+        </div>
+        <div className="ad-section-header-actions">
+          <AutoTranslateDraftButton
+            {...legalDraft}
+            label={`Auto-translate ${subTab === "disclaimer" ? "disclaimer" : subTab === "privacyPolicy" ? "privacy policy" : "terms"} from English`}
+          />
         </div>
       </div>
       <Toast msg={msg} />
@@ -7339,6 +7474,7 @@ function StepEditor({ step, onSave, onCancel, saving }: {
 
 function JourneyStepsManager({ apiKey }: { apiKey: string }) {
   const [steps, setSteps]       = useState<ApiJourneyStep[]>([]);
+  const [translateTarget, setTranslateTarget] = useState<TranslationTarget | null>(null);
   const [loading, setLoading]   = useState(true);
   const [editStep, setEditStep] = useState<ApiJourneyStep | null>(null);
   const [creating, setCreating] = useState(false);
@@ -7432,6 +7568,7 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
 
   return (
     <div className="ad-section">
+      <EntityTranslationsModal apiKey={apiKey} entityType="journeyStep" target={translateTarget} onClose={() => setTranslateTarget(null)} />
       <div className="ad-section-header">
         <h2 className="ad-section-title">Client Journey Steps</h2>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -7505,6 +7642,7 @@ function JourneyStepsManager({ apiKey }: { apiKey: string }) {
                   <td>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: '4px 6px' }}>
                       <button className="ad-btn ad-btn--sm" onClick={() => setEditStep(step)}>Edit</button>
+                      <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => setTranslateTarget({ id: step.id, title: step.title })}>Translations</button>
                       <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => { setPreviewInitialId(step.id); setPreviewOpen(true); }}>Preview</button>
                       <button className="ad-btn ad-btn--ghost ad-btn--sm" onClick={() => void handleToggleStatus(step)}>
                         {step.status === 'published' ? 'Unpublish' : 'Publish'}

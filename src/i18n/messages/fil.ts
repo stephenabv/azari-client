@@ -1,3 +1,7 @@
+import { quotationFil } from "./features/quotation/fil";
+import { inquiryFil } from "./features/inquiry/fil";
+import { pagesFil } from "./features/pages/fil";
+import { systemFil } from "./features/system/fil";
 import type { DeepPartial, Messages } from "./types";
 
 /** Filipino. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const fil: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "I-filter ayon sa brand ng inverter:", heading: "Brand ng inverter", all: "Lahat ng brand" },
+  quotation: quotationFil,
+  inquiry: inquiryFil,
+  pages: pagesFil,
+  system: systemFil,
 };

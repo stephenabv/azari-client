@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import logoAnimated from "../assets/animations/logo-animated.svg";
+import { useT } from "../i18n";
 
 const SCROLL_LOCK_CLASS = "as-page-loader-open";
 
@@ -13,6 +14,8 @@ const SCROLL_LOCK_CLASS = "as-page-loader-open";
  * ever mounts and there is no markup to hydrate.
  */
 export default function ASPageLoader() {
+  const t = useT();
+
   useEffect(() => {
     // Freeze the outgoing page so it cannot scroll behind the overlay.
     document.body.classList.add(SCROLL_LOCK_CLASS);
@@ -25,7 +28,7 @@ export default function ASPageLoader() {
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="as-page-loader" role="status" aria-live="polite" aria-label="Loading page">
+    <div className="as-page-loader" role="status" aria-live="polite" aria-label={t("system.pageLoader.ariaLabel")}>
       <img src={logoAnimated} alt="" className="as-page-loader-logo" aria-hidden="true" />
     </div>,
     document.body,

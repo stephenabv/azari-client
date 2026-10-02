@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
+import { useT } from "../i18n";
 
 type PartnerItem = {
   id: string;
@@ -50,6 +51,7 @@ function PartnerLogo({ item }: { item: PartnerItem }) {
 export default function ASPartners() {
   const [visible, setVisible] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
+  const t = useT();
 
   const content = useContent<PartnersContent>("partners", DEFAULT_PARTNERS_CONTENT);
 
@@ -92,7 +94,7 @@ export default function ASPartners() {
     <section className={`as-partners${visible ? " is-visible" : ""}`}>
       <p className="as-partners-label">{content.title}</p>
 
-      <div ref={trackRef} className="as-partners-track" aria-label="Partner logos">
+      <div ref={trackRef} className="as-partners-track" aria-label={t("system.partners.ariaLabel")}>
         {items.map((item) => (
           <div key={item.id} className="as-partners-item">
             {item.websiteUrl ? (

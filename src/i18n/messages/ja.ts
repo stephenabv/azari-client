@@ -1,3 +1,7 @@
+import { quotationJa } from "./features/quotation/ja";
+import { inquiryJa } from "./features/inquiry/ja";
+import { pagesJa } from "./features/pages/ja";
+import { systemJa } from "./features/system/ja";
 import type { DeepPartial, Messages } from "./types";
 
 /** Japanese. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const ja: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "インバーターのブランドで絞り込み：", heading: "インバーターのブランド", all: "すべてのブランド" },
+  quotation: quotationJa,
+  inquiry: inquiryJa,
+  pages: pagesJa,
+  system: systemJa,
 };

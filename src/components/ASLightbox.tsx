@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useScrollLock } from "../hooks/useScrollLock";
 import logoAnimated from "../assets/animations/logo-animated.svg";
+import { useT } from "../i18n";
 
 /** Pointer travel, in px, that commits a swipe instead of snapping back. */
 const SWIPE_COMMIT_PX = 70;
@@ -14,7 +15,7 @@ export interface ASLightboxProps {
   index: number;
   onIndexChange: (next: number) => void;
   onClose: () => void;
-  /** Used to build each image's alt text, e.g. "Gallery photo 3 of 12". */
+  /** Used to build each image's alt text, e.g. "Gallery photo 3 of 12". Defaults to a localized "Gallery photo". */
   label?: string;
 }
 
@@ -33,7 +34,9 @@ const wrap = (i: number, length: number) => ((i % length) + length) % length;
  * which both keeps the page behind it still and returns the reader to the
  * same scroll offset on close.
  */
-export default function ASLightbox({ images, index, onIndexChange, onClose, label = "Gallery photo" }: ASLightboxProps) {
+export default function ASLightbox({ images, index, onIndexChange, onClose, label: labelProp }: ASLightboxProps) {
+  const t = useT();
+  const label = labelProp ?? t("pages.lightbox.defaultLabel");
   const total = images.length;
 
   // Tracking which src has decoded, rather than a boolean reset on every
@@ -149,7 +152,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
       className="as-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={`${label} viewer`}
+      aria-label={t("pages.lightbox.viewer", { label })}
       tabIndex={-1}
       onClick={onClose}
     >
@@ -161,7 +164,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
           type="button"
           className="as-lightbox-btn as-lightbox-close"
           onClick={onClose}
-          aria-label="Close image viewer"
+          aria-label={t("pages.lightbox.close")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" width="20" height="20" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -183,7 +186,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
             type="button"
             className="as-lightbox-btn as-lightbox-nav as-lightbox-nav--prev"
             onClick={goPrev}
-            aria-label="Previous image"
+            aria-label={t("pages.lightbox.previous")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
               <polyline points="15 18 9 12 15 6" />
@@ -198,7 +201,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
           <img
             key={src}
             src={src}
-            alt={`${label} ${position}`}
+            alt={t("pages.lightbox.imageAlt", { label, n: index + 1, total })}
             className={`as-lightbox-img${loaded ? " is-loaded" : ""}${isDragging ? " is-dragging" : ""}`}
             style={dragX ? { transform: `translateX(${dragX}px)` } : undefined}
             draggable={false}
@@ -212,7 +215,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
             type="button"
             className="as-lightbox-btn as-lightbox-nav as-lightbox-nav--next"
             onClick={goNext}
-            aria-label="Next image"
+            aria-label={t("pages.lightbox.next")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22" aria-hidden="true">
               <polyline points="9 18 15 12 9 6" />
@@ -230,7 +233,7 @@ export default function ASLightbox({ images, index, onIndexChange, onClose, labe
                 type="button"
                 className={`as-lightbox-thumb${i === index ? " is-active" : ""}`}
                 onClick={() => goTo(i)}
-                aria-label={`Show ${label.toLowerCase()} ${i + 1} of ${total}`}
+                aria-label={t("pages.lightbox.thumb", { n: i + 1, total })}
                 aria-current={i === index}
                 ref={i === index ? activeThumbRef : undefined}
               >

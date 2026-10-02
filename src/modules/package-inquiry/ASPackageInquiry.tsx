@@ -5,6 +5,7 @@ import { submitPackageInquiry, computeMonthlySavings } from "../../services/ASCo
 import { formatCapacity } from "../../lib/units";
 import LocationAutocompleteInput from "../../components/ASLocationAutocomplete";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLocale, useT, type MessageKey } from "../../i18n";
 
 type Props = {
   isOpen: boolean;
@@ -14,16 +15,17 @@ type Props = {
 };
 
 type FormState = { name: string; location: string; email: string; phone: string };
-type FormErrors = Partial<Record<keyof FormState, string>>;
+/** Field errors hold message keys; they are translated at render time. */
+type FormErrors = Partial<Record<keyof FormState, MessageKey>>;
 
 function validate(f: FormState): FormErrors {
   const e: FormErrors = {};
-  if (!f.name.trim()) e.name = "Name is required.";
-  if (!f.location.trim()) e.location = "Location is required.";
-  if (!f.email.trim()) e.email = "Email is required.";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = "Enter a valid email address.";
-  if (!f.phone.trim()) e.phone = "Phone number is required.";
-  else if (!/^9\d{9}$/.test(f.phone.trim())) e.phone = "Enter a valid 10-digit number starting with 9.";
+  if (!f.name.trim()) e.name = "inquiry.package.errors.nameRequired";
+  if (!f.location.trim()) e.location = "inquiry.package.errors.locationRequired";
+  if (!f.email.trim()) e.email = "inquiry.package.errors.emailRequired";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email = "inquiry.package.errors.emailInvalid";
+  if (!f.phone.trim()) e.phone = "inquiry.package.errors.phoneRequired";
+  else if (!/^9\d{9}$/.test(f.phone.trim())) e.phone = "inquiry.package.errors.phoneInvalid";
   return e;
 }
 
@@ -35,7 +37,11 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [submitFailed, setSubmitFailed] = useState(false);
+  const t = useT();
+  const locale = useLocale();
+
+  const formatPeso = (value: number) => value.toLocaleString(locale.numberFormat);
 
   useEffect(() => {
     if (isOpen) return;
@@ -43,7 +49,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
       setForm(EMPTY);
       setErrors({});
       setSuccess(false);
-      setSubmitError("");
+      setSubmitFailed(false);
     }, 260);
     return () => clearTimeout(t);
   }, [isOpen]);
@@ -65,7 +71,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
     const errs = validate(form);
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setIsSubmitting(true);
-    setSubmitError("");
+    setSubmitFailed(false);
     try {
 
       const savings = selection
@@ -89,14 +95,18 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
           qty:          selection?.qty,
           components:   selection?.components,
         },
+        locale: locale.tag,
       });
       setSuccess(true);
     } catch (err) {
       // apiFetch throws "rate_limited:<sec>" when it gets 429 and fires the
       // global banner. Suppress the in-form error so only the banner shows.
       const msg = err instanceof Error ? err.message : "";
+      // The server's message is English; log it for debugging and show the
+      // visitor a localized message instead.
       if (!msg.startsWith("rate_limited")) {
-        setSubmitError(msg || "Something went wrong. Please try again.");
+        console.error("Package inquiry failed:", msg);
+        setSubmitFailed(true);
       }
     } finally {
       setIsSubmitting(false);
@@ -116,7 +126,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
         aria-modal="true"
         onClick={e => e.stopPropagation()}
       >
-        <button type="button" className="as-inq-close" onClick={handleClose} aria-label="Close">×</button>
+        <button type="button" className="as-inq-close" onClick={handleClose} aria-label={t("inquiry.common.close")}>×</button>
 
         {success && pkg ? (
           <div className="as-inq-success">
@@ -126,10 +136,8 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
               </svg>
             </div>
 
-            <h2 className="as-inq-success-title">Inquiry Submitted</h2>
-            <p className="as-inq-success-desc">
-              Thank you! We've received your inquiry. One of our solar experts will get back to you within 1–2 business days.
-            </p>
+            <h2 className="as-inq-success-title">{t("inquiry.package.successTitle")}</h2>
+            <p className="as-inq-success-desc">{t("inquiry.package.successBody")}</p>
 
             {(() => {
               const inverterComp = pkg.components?.find(pc => pc.component.category === "Inverter");
@@ -140,12 +148,19 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
               return (
                 <div className="as-inq-success-pkg">
                   <div className="as-inq-success-pkg-name">{systemName}</div>
-                  <div className="as-inq-success-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  <div className="as-inq-success-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  <div className="as-inq-success-detail-row">
+                    {t("inquiry.package.loadCapacity", { value: formatCapacity(inverterKw, "power", { unit: "kW" }) })}
+                  </div>
+                  <div className="as-inq-success-detail-row">
+                    {t("inquiry.package.monthlySaving", { min: formatPeso(savings.min), max: formatPeso(savings.max) })}
+                  </div>
                   {comps && comps.length > 0 && (
                     <ul className="as-inq-success-components">
                       {comps.map((c, i) => (
-                        <li key={i}>{c.quantity}pc{c.quantity > 1 ? "s" : ""} {c.brand} {c.name}</li>
+                        <li key={i}>
+                          {t(c.quantity > 1 ? "inquiry.package.componentQtyMany" : "inquiry.package.componentQtyOne", { count: c.quantity })}{" "}
+                          {c.brand} {c.name}
+                        </li>
                       ))}
                     </ul>
                   )}
@@ -154,15 +169,13 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
             })()}
 
             <button type="button" className="as-inq-success-close-btn" onClick={handleClose}>
-              Close
+              {t("inquiry.common.close")}
             </button>
           </div>
         ) : (
           <div className="as-inq-form-panel">
-            <h2 className="as-inq-title">Inquire this System</h2>
-            <p className="as-inq-intro">
-              You're almost there! Provide your details below. Our team will reach out to schedule your free site assessment.
-            </p>
+            <h2 className="as-inq-title">{t("inquiry.package.title")}</h2>
+            <p className="as-inq-intro">{t("inquiry.package.intro")}</p>
 
             {pkg && (() => {
               const inverterComp = pkg.components?.find(pc => pc.component.category === "Inverter");
@@ -171,53 +184,57 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
               const savings      = selection?.savings    ?? computeMonthlySavings(pkg.solarKwp);
               return (
                 <div className="as-inq-pkg-summary">
-                  <div className="as-inq-pkg-summary-label">System</div>
+                  <div className="as-inq-pkg-summary-label">{t("inquiry.package.system")}</div>
                   <div className="as-inq-pkg-summary-name">{systemName}</div>
-                  <div className="as-inq-detail-row">Load Capacity: {formatCapacity(inverterKw, "power", { unit: "kW" })}</div>
-                  <div className="as-inq-detail-row">Monthly Saving: ₱{savings.min.toLocaleString()} – ₱{savings.max.toLocaleString()}</div>
+                  <div className="as-inq-detail-row">
+                    {t("inquiry.package.loadCapacity", { value: formatCapacity(inverterKw, "power", { unit: "kW" }) })}
+                  </div>
+                  <div className="as-inq-detail-row">
+                    {t("inquiry.package.monthlySaving", { min: formatPeso(savings.min), max: formatPeso(savings.max) })}
+                  </div>
                 </div>
               );
             })()}
 
             <div className="as-inq-field">
-              <label className="as-inq-label">Name</label>
+              <label className="as-inq-label">{t("inquiry.package.fields.name")}</label>
               <input
                 className={`as-inq-input${errors.name ? " has-error" : ""}`}
                 type="text"
                 value={form.name}
                 onChange={e => setField("name", e.target.value)}
-                placeholder="Juan dela Cruz"
+                placeholder={t("inquiry.package.fields.namePlaceholder")}
                 autoComplete="name"
               />
-              {errors.name && <span className="as-inq-field-error">{errors.name}</span>}
+              {errors.name && <span className="as-inq-field-error">{t(errors.name)}</span>}
             </div>
 
             <div className="as-inq-field">
-              <label className="as-inq-label">Location</label>
+              <label className="as-inq-label">{t("inquiry.package.fields.location")}</label>
               <LocationAutocompleteInput
                 value={form.location}
                 onChange={v => setField("location", v)}
-                placeholder="Ex. Tagbilaran City"
+                placeholder={t("inquiry.package.fields.locationPlaceholder")}
                 inputClassName={`as-inq-input${errors.location ? " has-error" : ""}`}
               />
-              {errors.location && <span className="as-inq-field-error">{errors.location}</span>}
+              {errors.location && <span className="as-inq-field-error">{t(errors.location)}</span>}
             </div>
 
             <div className="as-inq-field">
-              <label className="as-inq-label">Email address</label>
+              <label className="as-inq-label">{t("inquiry.package.fields.email")}</label>
               <input
                 className={`as-inq-input${errors.email ? " has-error" : ""}`}
                 type="email"
                 value={form.email}
                 onChange={e => setField("email", e.target.value)}
-                placeholder="juandelacruz@gmail.com"
+                placeholder={t("inquiry.package.fields.emailPlaceholder")}
                 autoComplete="email"
               />
-              {errors.email && <span className="as-inq-field-error">{errors.email}</span>}
+              {errors.email && <span className="as-inq-field-error">{t(errors.email)}</span>}
             </div>
 
             <div className="as-inq-field">
-              <label className="as-inq-label">Phone number</label>
+              <label className="as-inq-label">{t("inquiry.package.fields.phone")}</label>
               <div className={`as-inq-phone-wrap${errors.phone ? " has-error" : ""}`}>
                 <span className="as-inq-phone-prefix">+63</span>
                 <input
@@ -225,23 +242,23 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
                   type="tel"
                   value={form.phone}
                   onChange={e => setField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  placeholder="9123456789"
+                  placeholder={t("inquiry.package.fields.phonePlaceholder")}
                   inputMode="numeric"
                   autoComplete="tel-local"
                 />
               </div>
-              {errors.phone && <span className="as-inq-field-error">{errors.phone}</span>}
+              {errors.phone && <span className="as-inq-field-error">{t(errors.phone)}</span>}
             </div>
 
-            {submitError && <div className="as-inq-submit-error">{submitError}</div>}
+            {submitFailed && (
+              <div className="as-inq-submit-error" role="alert">{t("inquiry.package.errors.submitFailed")}</div>
+            )}
 
-            <p className="as-inq-privacy">
-              We value your privacy. Your information is only used for your solar assessment &amp; inquiries.
-            </p>
+            <p className="as-inq-privacy">{t("inquiry.package.privacy")}</p>
 
             <div className="as-inq-actions">
               <button type="button" className="as-inq-cancel-btn" onClick={handleClose}>
-                Cancel
+                {t("inquiry.common.cancel")}
               </button>
               <button
                 type="button"
@@ -249,7 +266,7 @@ export default function ASPackageInquiry({ isOpen, pkg, selection, onClose }: Pr
                 onClick={() => void handleSubmit()}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting…" : "Submit Inquiry"}
+                {isSubmitting ? t("inquiry.package.submitting") : t("inquiry.package.submit")}
               </button>
             </div>
           </div>

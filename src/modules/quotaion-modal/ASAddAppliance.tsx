@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { calculateDayNightHours, DAY_BOUNDARY } from "../../models/calculation";
-import type { QuotationAppliance } from "../../models/quotation";
+import { formatLocalTime, type QuotationAppliance } from "../../models/quotation";
 import iconDropdown from "../../assets/icons/icon-dropdown.svg";
+import { useLocale, useT, type MessageKey } from "../../i18n";
 
 type AddApplianceModalProps = {
   onClose: () => void;
@@ -17,14 +18,23 @@ type ScheduleItem = {
 type RatingUnit = "W" | "HP" | "Ton";
 type ScheduleType = "scheduled" | "estimate" | "always-on";
 
+type ApplianceError = {
+  key: Extract<MessageKey, `quotation.appliance.errors.${string}`>;
+  params?: Readonly<Record<string, string | number>>;
+};
+
 const ALWAYS_ON_DAY_HOURS = (DAY_BOUNDARY.endMinutes - DAY_BOUNDARY.startMinutes) / 60;
 const ALWAYS_ON_NIGHT_HOURS = 24 - ALWAYS_ON_DAY_HOURS;
 
-const RATING_UNITS: { value: RatingUnit; label: string }[] = [
-  { value: "W", label: "Watts" },
-  { value: "HP", label: "HP" },
-  { value: "Ton", label: "Ton" },
+const RATING_UNITS: { value: RatingUnit; labelKey: MessageKey; hintKey: MessageKey }[] = [
+  { value: "W", labelKey: "quotation.appliance.units.watts", hintKey: "quotation.appliance.hintWatts" },
+  { value: "HP", labelKey: "quotation.appliance.units.hp", hintKey: "quotation.appliance.hintHp" },
+  { value: "Ton", labelKey: "quotation.appliance.units.ton", hintKey: "quotation.appliance.hintTon" },
 ];
+
+/** Day/night windows shown next to hour totals (mirrors DAY_BOUNDARY). */
+const DAY_RANGE = "08:00–18:00";
+const NIGHT_RANGE = "18:00–08:00";
 
 const TO_WATTS: Record<RatingUnit, number> = {
   W: 1,
@@ -60,6 +70,10 @@ function normalizeDecimalInput(value: string) {
   return cleaned;
 }
 
+/**
+ * English "hh:mm AM" text. Used for the submitted `schedule` value, which
+ * must stay English regardless of the visitor's language.
+ */
 function formatTimeDisplay(value: string) {
   if (!value) return "--:-- --";
   const [hourRaw, minute] = value.split(":").map(Number);
@@ -73,13 +87,17 @@ export default function AddApplianceModal({
   onSubmit,
   initial,
 }: AddApplianceModalProps) {
+  const t = useT();
+  const { tag: localeTag } = useLocale();
   const isEditing = !!initial;
 
   const [name, setName] = useState(() => initial?.name ?? "");
   const [watts, setWatts] = useState(() => initial ? String(initial.watts) : "");
   const [ratingUnit, setRatingUnit] = useState<RatingUnit>("W");
   const [quantity, setQuantity] = useState(() => initial ? String(initial.quantity) : "");
-  const [error, setError] = useState("");
+  const [error, setErrorState] = useState<ApplianceError | null>(null);
+  const setError = (key: ApplianceError["key"] | null, params?: ApplianceError["params"]) =>
+    setErrorState(key ? { key, params } : null);
 
   const [scheduleType, setScheduleType] = useState<ScheduleType>(() => {
     if (initial?.usageType === "24/7") return "always-on";
@@ -131,7 +149,7 @@ export default function AddApplianceModal({
     setSchedules((current) =>
       current.map((item, i) => (i === index ? { ...item, [field]: value } : item))
     );
-    setError("");
+    setError(null);
   };
 
   const handleAddSchedule = () => {
@@ -140,7 +158,7 @@ export default function AddApplianceModal({
 
   const handleRemoveSchedule = (index: number) => {
     setSchedules((current) => current.filter((_, i) => i !== index));
-    setError("");
+    setError(null);
   };
 
   const handleSubmit = () => {
@@ -149,19 +167,19 @@ export default function AddApplianceModal({
     const quantityValue = Number(quantity);
 
     if (!cleanName) {
-      setError("Please enter an appliance name.");
+      setError("quotation.appliance.errors.name");
       return;
     }
     if (cleanName.length > 80) {
-      setError("Appliance name must not exceed 80 characters.");
+      setError("quotation.appliance.errors.nameLength");
       return;
     }
     if (Number.isNaN(wattsValue) || wattsValue <= 0) {
-      setError("Please enter a valid watt rating.");
+      setError("quotation.appliance.errors.watts");
       return;
     }
     if (Number.isNaN(quantityValue) || quantityValue <= 0) {
-      setError("Please enter a valid quantity.");
+      setError("quotation.appliance.errors.quantity");
       return;
     }
 
@@ -182,7 +200,7 @@ export default function AddApplianceModal({
 
     if (scheduleType === "estimate") {
       if (totalHours <= 0 || totalHours > 24) {
-        setError("Total estimated usage must be between 1 and 24 hours.");
+        setError("quotation.appliance.errors.estimateRange");
         return;
       }
       onSubmit({
@@ -201,19 +219,22 @@ export default function AddApplianceModal({
 
     const validSchedules = schedules.filter((item) => item.from && item.to);
     if (!validSchedules.length) {
-      setError("Please add at least one complete schedule usage.");
+      setError("quotation.appliance.errors.scheduleMissing");
       return;
     }
     if (totalHours <= 0 || totalHours > 24) {
-      setError("Total schedule usage must be between 1 and 24 hours.");
+      setError("quotation.appliance.errors.scheduleRange");
       return;
     }
     for (let i = 0; i < validSchedules.length; i++) {
       for (let j = i + 1; j < validSchedules.length; j++) {
         if (schedulesOverlap(validSchedules[i], validSchedules[j])) {
-          setError(
-            `Schedule entries overlap: ${formatTimeDisplay(validSchedules[i].from)}–${formatTimeDisplay(validSchedules[i].to)} conflicts with ${formatTimeDisplay(validSchedules[j].from)}–${formatTimeDisplay(validSchedules[j].to)}.`
-          );
+          const range = (item: ScheduleItem) =>
+            `${formatLocalTime(item.from, localeTag)}–${formatLocalTime(item.to, localeTag)}`;
+          setError("quotation.appliance.errors.overlap", {
+            first: range(validSchedules[i]),
+            second: range(validSchedules[j]),
+          });
           return;
         }
       }
@@ -236,36 +257,54 @@ export default function AddApplianceModal({
     });
   };
 
+  const hours = (value: number) => t("quotation.appliance.hoursValue", { value: value.toFixed(1) });
+
+  const scheduleSummary = (
+    <div className="as-schedule-summary">
+      <span>
+        {t("quotation.appliance.summaryDay", { range: DAY_RANGE })} <strong>{hours(totalDayHours)}</strong>
+      </span>
+      <span>
+        {t("quotation.appliance.summaryNight", { range: NIGHT_RANGE })} <strong>{hours(totalNightHours)}</strong>
+      </span>
+      <span>
+        {t("quotation.appliance.summaryTotal")} <strong>{hours(totalHours)}</strong>
+      </span>
+    </div>
+  );
+
   return (
     <div className="as-modal-backdrop">
       <div className="as-modal as-appliance-modal">
-        <button className="as-modal-close" onClick={onClose} type="button">
+        <button
+          className="as-modal-close"
+          onClick={onClose}
+          type="button"
+          aria-label={t("quotation.common.close")}
+        >
           ×
         </button>
 
-        <h2>{isEditing ? "Edit Appliance" : "Add Appliance"}</h2>
+        <h2>{t(isEditing ? "quotation.appliance.editTitle" : "quotation.appliance.addTitle")}</h2>
 
-        <p>
-          Tell us about your appliances and how long you use them.
-          This helps our engineers design a system sized perfectly to wipe out your monthly electricity bill.
-        </p>
+        <p>{t("quotation.appliance.intro")}</p>
 
         <div className="as-appliance-form">
           <label className="as-appliance-field as-appliance-field-full">
-            <span>Appliance / Load Name</span>
+            <span>{t("quotation.appliance.nameLabel")}</span>
             <input
-              placeholder="Ex. 1.5HP Inverter Aircon"
+              placeholder={t("quotation.appliance.namePlaceholder")}
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                setError("");
+                setError(null);
               }}
             />
           </label>
 
           <div className="as-appliance-grid">
             <label className="as-appliance-field">
-              <span>Rating (Watts)</span>
+              <span>{t("quotation.appliance.ratingLabel")}</span>
 
               <div className="as-appliance-input-with-unit">
                 <input
@@ -275,20 +314,21 @@ export default function AddApplianceModal({
                   value={watts}
                   onChange={(e) => {
                     setWatts(normalizeDecimalInput(e.target.value));
-                    setError("");
+                    setError(null);
                   }}
                 />
 
                 <div className="as-appliance-unit-select">
                   <select
                     value={ratingUnit}
+                    aria-label={t("quotation.appliance.unitLabel")}
                     onChange={(e) => {
                       setRatingUnit(e.target.value as RatingUnit);
-                      setError("");
+                      setError(null);
                     }}
                   >
                     {RATING_UNITS.map((u) => (
-                      <option key={u.value} value={u.value}>{u.label}</option>
+                      <option key={u.value} value={u.value}>{t(u.labelKey)}</option>
                     ))}
                   </select>
                   <img src={iconDropdown} alt="" aria-hidden="true" className="as-appliance-unit-select-icon" />
@@ -296,14 +336,12 @@ export default function AddApplianceModal({
               </div>
 
               <em>
-                {ratingUnit === "W" && "Check the sticker on your unit."}
-                {ratingUnit === "HP" && "1 HP = 746 W. Common for motors and compressors."}
-                {ratingUnit === "Ton" && "1 Ton = 3,517 W. Common for AC cooling capacity."}
+                {t(RATING_UNITS.find((u) => u.value === ratingUnit)?.hintKey ?? "quotation.appliance.hintWatts")}
               </em>
             </label>
 
             <label className="as-appliance-field">
-              <span>Quantity</span>
+              <span>{t("quotation.appliance.quantity")}</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -311,14 +349,14 @@ export default function AddApplianceModal({
                 value={quantity}
                 onChange={(e) => {
                   setQuantity(normalizeDecimalInput(e.target.value));
-                  setError("");
+                  setError(null);
                 }}
               />
             </label>
           </div>
 
           <div className="as-appliance-schedule">
-            <p>SCHEDULE TYPES</p>
+            <p>{t("quotation.appliance.scheduleTypes")}</p>
 
             <div className="as-schedule-type-selector">
               <label className="as-schedule-type-option">
@@ -326,27 +364,27 @@ export default function AddApplianceModal({
                   type="radio"
                   name="scheduleType"
                   checked={scheduleType === "scheduled"}
-                  onChange={() => { setScheduleType("scheduled"); setError(""); }}
+                  onChange={() => { setScheduleType("scheduled"); setError(null); }}
                 />
-                <span>Schedule Usage</span>
+                <span>{t("quotation.appliance.typeScheduled")}</span>
               </label>
               <label className="as-schedule-type-option">
                 <input
                   type="radio"
                   name="scheduleType"
                   checked={scheduleType === "estimate"}
-                  onChange={() => { setScheduleType("estimate"); setError(""); }}
+                  onChange={() => { setScheduleType("estimate"); setError(null); }}
                 />
-                <span>Estimate Usage per day</span>
+                <span>{t("quotation.appliance.typeEstimate")}</span>
               </label>
               <label className="as-schedule-type-option">
                 <input
                   type="radio"
                   name="scheduleType"
                   checked={scheduleType === "always-on"}
-                  onChange={() => { setScheduleType("always-on"); setError(""); }}
+                  onChange={() => { setScheduleType("always-on"); setError(null); }}
                 />
-                <span>Running 24/7</span>
+                <span>{t("quotation.appliance.typeAlwaysOn")}</span>
               </label>
             </div>
 
@@ -355,7 +393,7 @@ export default function AddApplianceModal({
                 {schedules.map((item, index) => (
                   <div className="as-schedule-row" key={index}>
                     <label>
-                      <span>From</span>
+                      <span>{t("quotation.appliance.from")}</span>
                       <div className="as-appliance-time-select">
                         <input
                           type="time"
@@ -367,7 +405,7 @@ export default function AddApplianceModal({
                     </label>
 
                     <label>
-                      <span>To</span>
+                      <span>{t("quotation.appliance.to")}</span>
                       <div className="as-appliance-time-select">
                         <input
                           type="time"
@@ -382,6 +420,7 @@ export default function AddApplianceModal({
                       <button
                         type="button"
                         className="as-schedule-remove"
+                        aria-label={t("quotation.appliance.removeSchedule")}
                         onClick={() => handleRemoveSchedule(index)}
                       >
                         ×
@@ -395,22 +434,16 @@ export default function AddApplianceModal({
                   className="as-add-schedule-btn"
                   onClick={handleAddSchedule}
                 >
-                  + Add Schedule Usage
+                  {t("quotation.appliance.addSchedule")}
                 </button>
 
-                {totalHours > 0 && (
-                  <div className="as-schedule-summary">
-                    <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
-                    <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
-                    <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
-                  </div>
-                )}
+                {totalHours > 0 && scheduleSummary}
               </>
             ) : scheduleType === "estimate" ? (
               <>
                 <div className="as-appliance-grid">
                   <label className="as-appliance-field">
-                    <span>Day Time Usage <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>(08:00–18:00)</em></span>
+                    <span>{t("quotation.appliance.dayUsage")} <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>({DAY_RANGE})</em></span>
                     <div className="as-appliance-input-with-unit">
                       <input
                         type="text"
@@ -419,15 +452,15 @@ export default function AddApplianceModal({
                         value={dayEstimateHours}
                         onChange={(e) => {
                           setDayEstimateHours(normalizeDecimalInput(e.target.value));
-                          setError("");
+                          setError(null);
                         }}
                       />
-                      <small>hour</small>
+                      <small>{t("quotation.appliance.hourUnit")}</small>
                     </div>
                   </label>
 
                   <label className="as-appliance-field">
-                    <span>Night Time Usage <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>(18:00–08:00)</em></span>
+                    <span>{t("quotation.appliance.nightUsage")} <em style={{ fontStyle: "normal", opacity: 0.6, fontWeight: 400 }}>({NIGHT_RANGE})</em></span>
                     <div className="as-appliance-input-with-unit">
                       <input
                         type="text"
@@ -436,62 +469,52 @@ export default function AddApplianceModal({
                         value={nightEstimateHours}
                         onChange={(e) => {
                           setNightEstimateHours(normalizeDecimalInput(e.target.value));
-                          setError("");
+                          setError(null);
                         }}
                       />
-                      <small>hour</small>
+                      <small>{t("quotation.appliance.hourUnit")}</small>
                     </div>
                   </label>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 11, opacity: 0.6 }}>Quick presets:</span>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}>{t("quotation.appliance.presets")}</span>
                   <button
                     type="button"
                     className="as-add-schedule-btn"
                     style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
-                    onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("0"); setError(""); }}
+                    onClick={() => { setDayEstimateHours("10"); setNightEstimateHours("0"); setError(null); }}
                   >
-                    Day only (10h)
+                    {t("quotation.appliance.presetDay")}
                   </button>
                   <button
                     type="button"
                     className="as-add-schedule-btn"
                     style={{ padding: "3px 10px", fontSize: 11, marginTop: 0 }}
-                    onClick={() => { setDayEstimateHours("0"); setNightEstimateHours("14"); setError(""); }}
+                    onClick={() => { setDayEstimateHours("0"); setNightEstimateHours("14"); setError(null); }}
                   >
-                    Night only (14h)
+                    {t("quotation.appliance.presetNight")}
                   </button>
                 </div>
 
-                {totalHours > 0 && (
-                  <div className="as-schedule-summary">
-                    <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
-                    <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
-                    <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
-                  </div>
-                )}
+                {totalHours > 0 && scheduleSummary}
               </>
             ) : (
               <>
                 <p style={{ fontSize: 12, opacity: 0.7, margin: "4px 0 0" }}>
-                  This appliance runs continuously, so usage is fixed at the full day/night split.
+                  {t("quotation.appliance.alwaysOnNote")}
                 </p>
-                <div className="as-schedule-summary">
-                  <span>Day (08:00–18:00): <strong>{totalDayHours.toFixed(1)}h</strong></span>
-                  <span>Night (18:00–08:00): <strong>{totalNightHours.toFixed(1)}h</strong></span>
-                  <span>Total: <strong>{totalHours.toFixed(1)}h</strong></span>
-                </div>
+                {scheduleSummary}
               </>
             )}
           </div>
 
-          {error && <small className="as-field-error">{error}</small>}
+          {error && <small className="as-field-error">{t(error.key, error.params)}</small>}
         </div>
 
         <div className="as-modal-actions">
           <button className="as-btn-secondary" onClick={onClose} type="button">
-            Cancel
+            {t("quotation.common.cancel")}
           </button>
 
           <button
@@ -499,7 +522,7 @@ export default function AddApplianceModal({
             onClick={handleSubmit}
             type="button"
           >
-            {isEditing ? "Save Changes" : "Add Appliance"}
+            {t(isEditing ? "quotation.appliance.save" : "quotation.appliance.add")}
           </button>
         </div>
       </div>

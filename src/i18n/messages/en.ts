@@ -1,3 +1,8 @@
+import { quotationEn } from "./features/quotation/en";
+import { inquiryEn } from "./features/inquiry/en";
+import { pagesEn } from "./features/pages/en";
+import { systemEn } from "./features/system/en";
+
 /** English source strings. Other locales mirror these keys; missing keys fall back here. */
 export const en = {
   meta: {
@@ -119,4 +124,8 @@ export const en = {
     heading: "Inverter brand",
     all: "All brands",
   },
+  quotation: quotationEn,
+  inquiry: inquiryEn,
+  pages: pagesEn,
+  system: systemEn,
 } as const;

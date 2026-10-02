@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, Geometry } from "geojson";
@@ -8,6 +8,9 @@ import iconPrev from "../assets/icons/icon-prev.svg";
 import iconNext from "../assets/icons/icon-next.svg";
 import iconWatchVideo from "../assets/icons/icon-watch-video.svg";
 import { useContent } from "../hooks/useContent";
+import { useT, type MessageKey } from "../i18n";
+
+type Translate = ReturnType<typeof useT>;
 
 type JourneyEntry = {
   id: string;
@@ -22,17 +25,28 @@ type ClientJourneyContent = {
   entries: JourneyEntry[];
 };
 
-const DEFAULT_JOURNEY: ClientJourneyContent = {
-  entries: [
-    { id: "1", name: "Santos Family", location: "Quezon City, Metro Manila", testimonial: "Our Meralco bill dropped by 87% in the first month. The team handled the entire Net-Metering application perfectly, and now we literally earn credits while we sleep. It's the best investment we've made for our home's future.", videoUrl: "", coords: [121.05, 14.68] },
-    { id: "2", name: "Cruz Commercial", location: "Cebu City, Cebu", testimonial: "Operating costs dropped significantly since we installed our solar array. The team handled everything from permits to final inspection. Our system gives us enough buffer even through the peak season.", videoUrl: "", coords: [123.90, 10.32] },
-    { id: "3", name: "Reyes Residence", location: "Davao City, Davao del Sur", testimonial: "We were skeptical at first, but the numbers don't lie. Within 18 months we recovered a significant portion of our investment. The monitoring app lets us see exactly how much we save in real time.", videoUrl: "", coords: [125.61, 7.07] },
-    { id: "4", name: "De Leon Residence", location: "Angeles City, Pampanga", testimonial: "Professional installation completed in just two days. Our home now runs entirely on solar during daytime hours. We highly recommend Azari to anyone considering the switch to renewable energy.", videoUrl: "", coords: [120.59, 15.15] },
-    { id: "5", name: "Garcia Business", location: "Iloilo City, Iloilo", testimonial: "As a business owner, the ROI was clear from the start. Our electricity expenses went from our highest operating cost to nearly negligible. The after-sales support has been exceptional as well.", videoUrl: "", coords: [122.57, 10.72] },
-    { id: "6", name: "Torres Family", location: "Batangas City, Batangas", testimonial: "Consistent monthly savings since day one. The process from quotation to installation was seamless, and the monitoring app keeps us informed about our energy generation at all times.", videoUrl: "", coords: [121.05, 13.76] },
-    { id: "7", name: "Chua Enterprise", location: "Cagayan de Oro, Misamis Oriental", testimonial: "We installed a 50kWp commercial system across our warehouse rooftops. The project was completed on schedule and within budget. We're already planning to expand to our other facilities.", videoUrl: "", coords: [124.63, 8.48] },
-  ],
-};
+type DefaultEntry = Omit<JourneyEntry, "testimonial"> & { testimonialKey: MessageKey };
+
+/**
+ * Placeholder stories shown until (or instead of, if the request fails) the
+ * admin-managed "clientJourney" content arrives. Names and places are proper
+ * nouns; only the quotes are localized.
+ */
+const DEFAULT_ENTRIES: readonly DefaultEntry[] = [
+  { id: "1", name: "Santos Family", location: "Quezon City, Metro Manila", testimonialKey: "pages.clientJourney.testimonials.santos", videoUrl: "", coords: [121.05, 14.68] },
+  { id: "2", name: "Cruz Commercial", location: "Cebu City, Cebu", testimonialKey: "pages.clientJourney.testimonials.cruz", videoUrl: "", coords: [123.90, 10.32] },
+  { id: "3", name: "Reyes Residence", location: "Davao City, Davao del Sur", testimonialKey: "pages.clientJourney.testimonials.reyes", videoUrl: "", coords: [125.61, 7.07] },
+  { id: "4", name: "De Leon Residence", location: "Angeles City, Pampanga", testimonialKey: "pages.clientJourney.testimonials.deLeon", videoUrl: "", coords: [120.59, 15.15] },
+  { id: "5", name: "Garcia Business", location: "Iloilo City, Iloilo", testimonialKey: "pages.clientJourney.testimonials.garcia", videoUrl: "", coords: [122.57, 10.72] },
+  { id: "6", name: "Torres Family", location: "Batangas City, Batangas", testimonialKey: "pages.clientJourney.testimonials.torres", videoUrl: "", coords: [121.05, 13.76] },
+  { id: "7", name: "Chua Enterprise", location: "Cagayan de Oro, Misamis Oriental", testimonialKey: "pages.clientJourney.testimonials.chua", videoUrl: "", coords: [124.63, 8.48] },
+];
+
+function buildDefaultJourney(t: Translate): ClientJourneyContent {
+  return {
+    entries: DEFAULT_ENTRIES.map(({ testimonialKey, ...entry }) => ({ ...entry, testimonial: t(testimonialKey) })),
+  };
+}
 
 const SVG_W = 200;
 const SVG_H = 370;
@@ -94,6 +108,7 @@ function getVideoEmbedUrl(url: string): string | null {
 }
 
 function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const t = useT();
   const isDirectVideo = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
   const embedUrl = getVideoEmbedUrl(url);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -115,7 +130,7 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
   return createPortal(
     <div className="as-video-backdrop" onClick={handleClose}>
       <div className="as-video-container" onClick={(e) => e.stopPropagation()}>
-        <button className="as-video-close" onClick={handleClose} aria-label="Close video">×</button>
+        <button className="as-video-close" onClick={handleClose} aria-label={t("pages.clientJourney.closeVideo")}>×</button>
         {isDirectVideo ? (
           <video ref={videoRef} src={url} autoPlay controls className="as-video-player" />
         ) : embedUrl ? (
@@ -125,7 +140,7 @@ function VideoModal({ url, onClose }: { url: string; onClose: () => void }) {
             className="as-video-frame"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
-            title="Client testimonial video"
+            title={t("pages.clientJourney.videoTitle")}
           />
         ) : null}
       </div>
@@ -144,6 +159,7 @@ function PhilippinesMap({
   onMarkerClick: (i: number) => void;
 }) {
   const map = usePhilippinesMap();
+  const t = useT();
 
   return (
     <svg
@@ -151,7 +167,7 @@ function PhilippinesMap({
       viewBox={`0 0 ${SVG_W} ${SVG_H}`}
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="Philippines map showing client locations"
+      aria-label={t("pages.clientJourney.mapLabel")}
       focusable="false"
     >
       <defs>
@@ -203,8 +219,10 @@ function PhilippinesMap({
 }
 
 export default function ASClientJourney() {
-  const content = useContent<ClientJourneyContent>("clientJourney", DEFAULT_JOURNEY);
-  const entries = content.entries?.length ? content.entries : DEFAULT_JOURNEY.entries;
+  const t = useT();
+  const defaultJourney = useMemo(() => buildDefaultJourney(t), [t]);
+  const content = useContent<ClientJourneyContent>("clientJourney", defaultJourney);
+  const entries = content.entries?.length ? content.entries : defaultJourney.entries;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [slideWidth, setSlideWidth] = useState(420);
@@ -275,7 +293,7 @@ export default function ASClientJourney() {
 
       <div className="as-journey-left">
         <h2 className="as-journey-title">
-          Our clients journey to<br />Energy Independence
+          {t("pages.clientJourney.titleLine1")}<br />{t("pages.clientJourney.titleLine2")}
         </h2>
 
         <div
@@ -307,7 +325,7 @@ export default function ASClientJourney() {
                     onClick={() => { if (entry.videoUrl) setVideoUrl(entry.videoUrl); }}
                     style={entry.videoUrl ? undefined : { opacity: 0.4, cursor: "default" }}
                   >
-                    <img src={iconWatchVideo} alt="Watch the video" draggable={false} />
+                    <img src={iconWatchVideo} alt={t("pages.clientJourney.watchVideo")} draggable={false} />
                   </button>
                 </div>
 
@@ -328,7 +346,7 @@ export default function ASClientJourney() {
             className="as-journey-nav-btn"
             onClick={() => goTo(activeIndex - 1)}
             disabled={activeIndex === 0}
-            aria-label="Previous"
+            aria-label={t("pages.clientJourney.previous")}
           >
             <img src={iconPrev} alt="" aria-hidden="true" draggable={false} />
           </button>
@@ -337,7 +355,7 @@ export default function ASClientJourney() {
             className="as-journey-nav-btn"
             onClick={() => goTo(activeIndex + 1)}
             disabled={activeIndex === entries.length - 1}
-            aria-label="Next"
+            aria-label={t("pages.clientJourney.next")}
           >
             <img src={iconNext} alt="" aria-hidden="true" draggable={false} />
           </button>

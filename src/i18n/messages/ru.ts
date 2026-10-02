@@ -1,3 +1,7 @@
+import { quotationRu } from "./features/quotation/ru";
+import { inquiryRu } from "./features/inquiry/ru";
+import { pagesRu } from "./features/pages/ru";
+import { systemRu } from "./features/system/ru";
 import type { DeepPartial, Messages } from "./types";
 
 /** Russian. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const ru: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "Бренд инвертора:", heading: "Бренд инвертора", all: "Все бренды" },
+  quotation: quotationRu,
+  inquiry: inquiryRu,
+  pages: pagesRu,
+  system: systemRu,
 };

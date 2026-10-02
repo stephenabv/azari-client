@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import ASImgLoader from "./ASImgLoader";
-import { useLocalizedPath, useT, type MessageKey } from "../i18n";
+import { useLocale, useLocalizedPath, useT, type MessageKey } from "../i18n";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
 type ProjectCategory =
@@ -75,6 +75,7 @@ const CATEGORY_LABELS: Partial<Record<string, MessageKey>> = {
 
 export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   const t = useT();
+  const locale = useLocale();
   const localize = useLocalizedPath();
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
@@ -86,7 +87,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   useEffect(() => {
     // Already server-rendered; skip the duplicate request on hydration.
     if (seeded.length > 0) return;
-    fetchProjects()
+    fetchProjects(locale.tag)
       .then((data) => setProjects(data.map(apiToProject)))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps

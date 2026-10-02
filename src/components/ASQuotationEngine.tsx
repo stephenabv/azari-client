@@ -20,11 +20,13 @@ import {
 } from "../models/calculation";
 import type { EngineResult, SystemPurpose, SystemType } from "../models/calculation";
 import { SOLAR_PACKAGES, fetchPackagesFromApi, type SolarPackage } from "../models/packages";
-import type {
-  QuotationAppliance,
-  UploadedBill,
-  ProposalRequestFormData,
+import {
+  formatLocalTime,
+  type QuotationAppliance,
+  type UploadedBill,
+  type ProposalRequestFormData,
 } from "../models/quotation";
+import { useLocale, useT, type MessageKey } from "../i18n";
 
 import residentialIcon from "../assets/logos/quotation-page/residential.svg";
 import residentialSelectedIcon from "../assets/logos/quotation-page/residential-selected.svg";
@@ -40,6 +42,8 @@ type ModalType =
   | "system-error"
   | null;
 
+type Translate = ReturnType<typeof useT>;
+
 type QuoteNavigationState = {
   monthlyBill?: number;
   electricRate?: number;
@@ -53,47 +57,75 @@ const UPLOAD_CONFIG = {
   allowedExtensions: [".pdf", ".png", ".jpg", ".jpeg"],
 };
 
-const propertyTypes = [
+/**
+ * `value` is the English classification submitted to the team (payload
+ * `property.classification`); the title/description keys are display only.
+ */
+const propertyTypes: Array<{
+  value: string;
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
+  icon: string;
+  selectedIcon: string;
+}> = [
   {
-    title: "Residential",
+    value: "Residential",
+    titleKey: "quotation.property.residential.title",
+    descriptionKey: "quotation.property.residential.description",
     icon: residentialIcon,
     selectedIcon: residentialSelectedIcon,
-    description: "Standard detached housing or townhouses. Optimized for rooftop efficiency.",
   },
   {
-    title: "Commercial",
+    value: "Commercial",
+    titleKey: "quotation.property.commercial.title",
+    descriptionKey: "quotation.property.commercial.description",
     icon: commercialIcon,
     selectedIcon: commercialSelectedIcon,
-    description: "Office buildings, retail spaces, and warehouses. Higher load capacity sizing.",
   },
   {
-    title: "Industrial",
+    value: "Industrial",
+    titleKey: "quotation.property.industrial.title",
+    descriptionKey: "quotation.property.industrial.description",
     icon: industrialIcon,
     selectedIcon: industrialSelectedIcon,
-    description: "Manufacturing plants and large facilities. High-voltage integration focused.",
   },
 ];
 
-const systemPurposes: Array<{ id: SystemPurpose; label: string; description: string }> = [
+const systemPurposes: Array<{ id: SystemPurpose; labelKey: MessageKey; descriptionKey: MessageKey }> = [
   {
     id: "zero-bill",
-    label: "Zero Bill / Off-Grid",
-    description: "Eliminate your electricity bill completely. Covers full day and night load with solar and battery.",
+    labelKey: "quotation.purpose.zeroBill.label",
+    descriptionKey: "quotation.purpose.zeroBill.description",
   },
   {
     id: "monthly-savings",
-    label: "Monthly Savings",
-    description: "Target a specific monthly savings amount. Size the system to offset a portion of your electricity bill.",
+    labelKey: "quotation.purpose.monthlySavings.label",
+    descriptionKey: "quotation.purpose.monthlySavings.description",
   },
   {
     id: "peak-shaving",
-    label: "Peak Shaving",
-    description: "Reduce peak demand charges. Battery discharges during peak hours to lower your maximum grid draw.",
+    labelKey: "quotation.purpose.peakShaving.label",
+    descriptionKey: "quotation.purpose.peakShaving.description",
   },
 ];
 
-function formatNumber(value: number) {
-  return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+function formatNumber(value: number, numberFormat: string) {
+  return value.toLocaleString(numberFormat, { maximumFractionDigits: 0 });
+}
+
+/**
+ * Translated schedule text for an appliance row. The stored `schedule` /
+ * `usageType` values stay English because they are submitted as-is.
+ */
+function describeSchedule(item: QuotationAppliance, t: Translate, localeTag: string): string {
+  if (item.usageType === "24/7") return t("quotation.schedule.alwaysOn");
+  if (item.usageType === "Estimated") return t("quotation.schedule.estimated");
+  if (item.scheduleItems.length > 0) {
+    return item.scheduleItems
+      .map((s) => `${formatLocalTime(s.from, localeTag)} - ${formatLocalTime(s.to, localeTag)}`)
+      .join(", ");
+  }
+  return item.schedule;
 }
 
 
@@ -143,7 +175,8 @@ function ElectricRateField({
   str: string;
   onChange: (v: string) => void;
 }) {
-  const [error, setError] = useState("");
+  const t = useT();
+  const [error, setError] = useState<"" | "min" | "max">("");
 
   const clampedNum = Math.min(
     ELECTRIC_RATE_CONFIG.max,
@@ -159,9 +192,9 @@ function ElectricRateField({
     }
     const n = Number(cleaned);
     if (n < ELECTRIC_RATE_CONFIG.min) {
-      setError(`Minimum value is ₱${ELECTRIC_RATE_CONFIG.min} / kWh`);
+      setError("min");
     } else if (n > ELECTRIC_RATE_CONFIG.max) {
-      setError(`Maximum value is ₱${ELECTRIC_RATE_CONFIG.max} / kWh`);
+      setError("max");
     } else {
       setError("");
     }
@@ -204,11 +237,17 @@ function ElectricRateField({
               onChange={(e) => handleTextChange(e.target.value)}
               onBlur={handleBlur}
             />
-            <small>/ kWh</small>
+            <small>{t("quotation.rate.perKwh")}</small>
           </div>
         </div>
       </div>
-      {error && <p className="as-rate-error">{error}</p>}
+      {error && (
+        <p className="as-rate-error">
+          {error === "min"
+            ? t("quotation.rate.min", { value: ELECTRIC_RATE_CONFIG.min })
+            : t("quotation.rate.max", { value: ELECTRIC_RATE_CONFIG.max })}
+        </p>
+      )}
     </div>
   );
 }
@@ -230,14 +269,17 @@ function LoadProfileSection({
   onRemove: (id: string) => void;
   onEdit: (appliance: QuotationAppliance) => void;
 }) {
+  const t = useT();
+  const { tag: localeTag, numberFormat } = useLocale();
+
   return (
     <div className="as-form-section">
       <div className="as-load-header">
         <div className="as-section-label">
           <span>{label}</span>
           <p>
-            Detailed Load Profile{" "}
-            {!required && <small>(Optional)</small>}
+            {t("quotation.sections.loadProfile")}{" "}
+            {!required && <small>{t("quotation.sections.optional")}</small>}
           </p>
         </div>
 
@@ -246,24 +288,24 @@ function LoadProfileSection({
           className="as-add-btn"
           onClick={onAdd}
         >
-          + Add Appliance
+          {t("quotation.load.add")}
         </button>
       </div>
 
       <div className="as-load-table" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="as-load-table-inner">
           <div className="as-load-row as-load-head">
-            <span>Appliance / Load Name</span>
-            <span>Rating (Watts)</span>
-            <span>Qty</span>
-            <span>Hrs/Day</span>
-            <span>Daily Wh</span>
+            <span>{t("quotation.load.colName")}</span>
+            <span>{t("quotation.load.colRating")}</span>
+            <span>{t("quotation.load.colQty")}</span>
+            <span>{t("quotation.load.colHours")}</span>
+            <span>{t("quotation.load.colDailyWh")}</span>
             <span />
           </div>
 
           {appliances.length === 0 ? (
             <div className="as-load-empty">
-              Add appliances to create a detailed load profile.
+              {t("quotation.load.empty")}
             </div>
           ) : (
             <>
@@ -271,16 +313,17 @@ function LoadProfileSection({
                 <div className="as-load-row" key={item.id}>
                   <span>
                     <strong>{item.name}</strong>
-                    <small>{item.schedule}</small>
+                    <small>{describeSchedule(item, t, localeTag)}</small>
                   </span>
-                  <span>{formatNumber(item.watts)}</span>
+                  <span>{formatNumber(item.watts, numberFormat)}</span>
                   <span><b>{item.quantity}</b></span>
                   <span>{item.hours}</span>
-                  <span>{formatNumber(item.usage)}</span>
+                  <span>{formatNumber(item.usage, numberFormat)}</span>
                   <span className="as-load-actions">
                     <button
                       type="button"
                       className="as-load-edit-btn"
+                      aria-label={t("quotation.load.edit", { name: item.name })}
                       onClick={() => onEdit(item)}
                     >
                       ✎
@@ -288,6 +331,7 @@ function LoadProfileSection({
                     <button
                       type="button"
                       className="as-load-remove-btn"
+                      aria-label={t("quotation.load.remove", { name: item.name })}
                       onClick={() => onRemove(item.id)}
                     >
                       ×
@@ -297,8 +341,8 @@ function LoadProfileSection({
               ))}
 
               <div className="as-load-total">
-                <span>Total Watt-Hours</span>
-                <strong>{formatNumber(totalDailyUsageWh)}</strong>
+                <span>{t("quotation.load.total")}</span>
+                <strong>{formatNumber(totalDailyUsageWh, numberFormat)}</strong>
               </div>
             </>
           )}
@@ -310,6 +354,8 @@ function LoadProfileSection({
 
 export default function ASQuotationEngine() {
   const location = useLocation();
+  const t = useT();
+  const locale = useLocale();
   const quoteState = (location.state ?? {}) as QuoteNavigationState;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -326,9 +372,9 @@ export default function ASQuotationEngine() {
 
 
   const [modal, setModal] = useState<ModalType>(null);
-  const [formError, setFormError] = useState("");
-  const [uploadError, setUploadError] = useState("");
-  const [peakDurationError, setPeakDurationError] = useState("");
+  const [formError, setFormError] = useState<MessageKey | "">("");
+  const [uploadError, setUploadError] = useState<MessageKey | "">("");
+  const [peakDurationError, setPeakDurationError] = useState<MessageKey | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState<EngineResult | null>(null);
   const [packageCatalog, setPackageCatalog] = useState<SolarPackage[]>(SOLAR_PACKAGES);
@@ -358,19 +404,15 @@ export default function ASQuotationEngine() {
   const closeModal = () => setModal(null);
 
 
-  useEffect(() => {
-    if (systemPurpose === "zero-bill" && selectedProperty !== "Residential") {
-      setSystemPurpose("monthly-savings");
-    }
-  }, [selectedProperty, systemPurpose]);
-
+  // Zero Bill is Residential-only; the property card's onClick resets the
+  // purpose in the same event, so no effect is needed to enforce it.
 
   useScrollLock(Boolean(modal));
 
 
   useEffect(() => {
-    fetchPackagesFromApi().then(setPackageCatalog).catch(() => { });
-  }, []);
+    fetchPackagesFromApi(locale.tag).then(setPackageCatalog).catch(() => { });
+  }, [locale.tag]);
 
   const { duec, nwec, totalDailyUsageWh } = useMemo(
     () => computeDailyLoadMetrics(appliances),
@@ -467,13 +509,13 @@ export default function ASQuotationEngine() {
 
     if (!isAllowedFileType(file)) {
       setUploadedBill(null);
-      setUploadError("Only PDF, PNG, JPG, and JPEG files are allowed.");
+      setUploadError("quotation.errors.fileType");
       return;
     }
 
     if (file.size > UPLOAD_CONFIG.maxSizeInBytes) {
       setUploadedBill(null);
-      setUploadError("File must not exceed 10MB.");
+      setUploadError("quotation.errors.fileSize");
       return;
     }
 
@@ -492,34 +534,34 @@ export default function ASQuotationEngine() {
   };
 
 
-  const validateBeforeProposal = (): string => {
-    if (!selectedProperty) return "Please select a property classification.";
+  const validateBeforeProposal = (): MessageKey | "" => {
+    if (!selectedProperty) return "quotation.errors.property";
 
     if (systemPurpose === "monthly-savings") {
-      if (savingsTarget.num <= 0) return "Please enter a monthly savings target.";
-      if (electricRateMS.num <= 0) return "Please enter a valid electricity rate.";
+      if (savingsTarget.num <= 0) return "quotation.errors.savingsTarget";
+      if (electricRateMS.num <= 0) return "quotation.errors.rate";
     }
 
     if (systemPurpose === "peak-shaving") {
-      if (peakPower.num <= 0) return "Please enter your peak power demand.";
+      if (peakPower.num <= 0) return "quotation.errors.peakPower";
       if (peakPower.num <= allowedGridPower.num) {
-        return "Peak power must be greater than the allowed grid power.";
+        return "quotation.errors.peakVsGrid";
       }
-      if (peakDuration.num <= 0 || peakDuration.num > 24) return "Please enter a valid peak duration (between 0 and 24 hours).";
+      if (peakDuration.num <= 0 || peakDuration.num > 24) return "quotation.errors.peakDuration";
     }
 
     if (systemPurpose === "zero-bill") {
       if (!hasBill && appliances.length === 0) {
-        return "Please enter a bill or add appliances to size the system.";
+        return "quotation.errors.billOrAppliances";
       }
       if (hasBill) {
-        if (monthlyBillZB.num <= 0) return "Please enter your monthly electricity bill.";
-        if (electricRateZB.num <= 0) return "Please enter a valid electricity rate.";
+        if (monthlyBillZB.num <= 0) return "quotation.errors.monthlyBill";
+        if (electricRateZB.num <= 0) return "quotation.errors.rate";
       }
     }
 
     if (!engineResult) {
-      return "Unable to compute system size. Please check your inputs.";
+      return "quotation.errors.compute";
     }
 
     return "";
@@ -567,6 +609,7 @@ export default function ASQuotationEngine() {
         appliances,
         uploadedBill,
         proposalForm,
+        locale: locale.tag,
       });
 
       if (result.isRealSuccess) {
@@ -596,7 +639,7 @@ export default function ASQuotationEngine() {
       <div className="as-form-section">
         <div className="as-section-label">
           <span>03</span>
-          <p>System Type</p>
+          <p>{t("quotation.sections.systemType")}</p>
         </div>
 
         <div className="as-quote-mode-toggle" data-active={systemType === "hybrid" ? 0 : 1}>
@@ -605,14 +648,14 @@ export default function ASQuotationEngine() {
             className={systemType === "hybrid" ? "is-active" : ""}
             onClick={() => { setSystemType("hybrid"); setFormError(""); }}
           >
-            Hybrid (with Battery)
+            {t("quotation.systemType.hybrid")}
           </button>
           <button
             type="button"
             className={systemType === "grid-tied" ? "is-active" : ""}
             onClick={() => { setSystemType("grid-tied"); setFormError(""); }}
           >
-            Grid-Tied (No Battery)
+            {t("quotation.systemType.gridTied")}
           </button>
         </div>
       </div>
@@ -620,12 +663,12 @@ export default function ASQuotationEngine() {
       <div className="as-form-section">
         <div className="as-section-label">
           <span>04</span>
-          <p>Monthly Savings Target</p>
+          <p>{t("quotation.sections.savingsTarget")}</p>
         </div>
 
         <div className="as-consumption-grid" style={{ gridTemplateColumns: "1fr" }}>
           <div className="as-input-card">
-            <label>Target Monthly Savings</label>
+            <label>{t("quotation.savings.label")}</label>
             <div className="as-currency-input">
               <span>₱</span>
               <input
@@ -638,9 +681,9 @@ export default function ASQuotationEngine() {
                   setFormError("");
                 }}
               />
-              <small>PHP / mo</small>
+              <small>{t("quotation.savings.unit")}</small>
             </div>
-            <p>The amount you want to reduce from your monthly bill.</p>
+            <p>{t("quotation.savings.hint")}</p>
           </div>
         </div>
       </div>
@@ -648,7 +691,7 @@ export default function ASQuotationEngine() {
       <div className="as-form-section">
         <div className="as-section-label">
           <span>05</span>
-          <p>Electricity Rate</p>
+          <p>{t("quotation.sections.electricityRate")}</p>
         </div>
 
         <ElectricRateField
@@ -674,12 +717,12 @@ export default function ASQuotationEngine() {
       <div className="as-form-section">
         <div className="as-section-label">
           <span>03</span>
-          <p>Peak Shaving Parameters</p>
+          <p>{t("quotation.sections.peakShaving")}</p>
         </div>
 
         <div className="as-consumption-grid">
           <div className="as-input-card">
-            <label>Peak Power Demand</label>
+            <label>{t("quotation.peak.powerLabel")}</label>
             <div className="as-currency-input">
               <input
                 type="text"
@@ -693,11 +736,11 @@ export default function ASQuotationEngine() {
               />
               <small>kW</small>
             </div>
-            <p>Your facility's maximum power demand during peak hours.</p>
+            <p>{t("quotation.peak.powerHint")}</p>
           </div>
 
           <div className="as-input-card">
-            <label>Allowed Grid Power</label>
+            <label>{t("quotation.peak.gridLabel")}</label>
             <div className="as-currency-input">
               <input
                 type="text"
@@ -711,11 +754,11 @@ export default function ASQuotationEngine() {
               />
               <small>kW</small>
             </div>
-            <p>Maximum grid draw allowed. Battery covers the rest.</p>
+            <p>{t("quotation.peak.gridHint")}</p>
           </div>
 
           <div className="as-input-card">
-            <label>Peak Duration</label>
+            <label>{t("quotation.peak.durationLabel")}</label>
             <div className="as-currency-input">
               <input
                 type="text"
@@ -729,9 +772,9 @@ export default function ASQuotationEngine() {
                     e.target.value === "" || e.target.value === "."
                       ? ""
                       : Number(e.target.value) > 24
-                        ? "Maximum is 24 hours."
+                        ? "quotation.peak.durationMax"
                         : Number(e.target.value) <= 0
-                          ? "Must be greater than 0."
+                          ? "quotation.peak.durationMin"
                           : ""
                   );
                 }}
@@ -745,10 +788,10 @@ export default function ASQuotationEngine() {
                   }
                 }}
               />
-              <small>hrs</small>
+              <small>{t("quotation.peak.durationUnit")}</small>
             </div>
-            <p>Decimals count as minutes (e.g. 1.5 = 1h 30m). Max 24 hrs.</p>
-            {peakDurationError && <p className="as-rate-error">{peakDurationError}</p>}
+            <p>{t("quotation.peak.durationHint")}</p>
+            {peakDurationError && <p className="as-rate-error">{t(peakDurationError)}</p>}
           </div>
         </div>
       </div>
@@ -763,7 +806,7 @@ export default function ASQuotationEngine() {
           <div className="as-form-section">
             <div className="as-section-label">
               <span>03</span>
-              <p>Consumption Data</p>
+              <p>{t("quotation.sections.consumption")}</p>
             </div>
 
             <div className="as-consumption-grid">
@@ -794,7 +837,7 @@ export default function ASQuotationEngine() {
                       {uploadedBill.name}{" "}
                       <span>{formatFileSize(uploadedBill.size)}</span>
                     </p>
-                    <small>Click to replace uploaded bill</small>
+                    <small>{t("quotation.bill.replace")}</small>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -802,26 +845,26 @@ export default function ASQuotationEngine() {
                         handleRemoveUploadedBill();
                       }}
                     >
-                      Remove
+                      {t("quotation.bill.remove")}
                     </button>
                   </>
                 ) : (
                   <>
                     <p>
-                      <span className="upload-highlight">Upload your electricity bill</span>{" "}
-                      or drag and drop
+                      <span className="upload-highlight">{t("quotation.bill.upload")}</span>{" "}
+                      {t("quotation.bill.dragDrop")}
                     </p>
-                    <small>PDF, PNG, JPG up to 10MB</small>
+                    <small>{t("quotation.bill.formats")}</small>
                   </>
                 )}
 
                 {uploadError && (
-                  <small className="as-form-error">{uploadError}</small>
+                  <small className="as-form-error">{t(uploadError)}</small>
                 )}
               </div>
 
               <div className="as-input-card">
-                <label>Average Monthly Bill</label>
+                <label>{t("quotation.bill.averageLabel")}</label>
                 <div className="as-currency-input">
                   <span>₱</span>
                   <input
@@ -834,9 +877,9 @@ export default function ASQuotationEngine() {
                       setFormError("");
                     }}
                   />
-                  <small>PHP</small>
+                  <small>{t("quotation.bill.currency")}</small>
                 </div>
-                <p>Based on your recent electricity bill.</p>
+                <p>{t("quotation.bill.averageHint")}</p>
               </div>
             </div>
           </div>
@@ -844,7 +887,7 @@ export default function ASQuotationEngine() {
           <div className="as-form-section">
             <div className="as-section-label">
               <span>04</span>
-              <p>Typical Electricity Rate</p>
+              <p>{t("quotation.sections.typicalRate")}</p>
             </div>
             <ElectricRateField
               num={electricRateZB.num}
@@ -905,8 +948,8 @@ export default function ASQuotationEngine() {
     <section className="as-quote-page">
       <div className="as-quote-container">
         <header className="as-quote-header">
-          <h1>Solar Power System Calculator</h1>
-          <p>Configure your institutional-grade solar system.</p>
+          <h1>{t("quotation.header.title")}</h1>
+          <p>{t("quotation.header.subtitle")}</p>
 
           <div className="as-quote-mode-toggle as-bill-toggle" data-active={hasBill ? 0 : 1}>
             <button
@@ -914,14 +957,14 @@ export default function ASQuotationEngine() {
               className={hasBill ? "is-active" : ""}
               onClick={() => { setHasBill(true); setFormError(""); }}
             >
-              I have a bill
+              {t("quotation.header.hasBill")}
             </button>
             <button
               type="button"
               className={!hasBill ? "is-active" : ""}
               onClick={() => { setHasBill(false); setFormError(""); }}
             >
-              No bill yet
+              {t("quotation.header.noBill")}
             </button>
           </div>
         </header>
@@ -932,18 +975,18 @@ export default function ASQuotationEngine() {
             <div className="as-form-section">
               <div className="as-section-label">
                 <span>01</span>
-                <p>Property Classification</p>
+                <p>{t("quotation.sections.property")}</p>
               </div>
 
               <div className="as-property-grid">
                 {propertyTypes.map((item) => (
                   <button
-                    key={item.title}
+                    key={item.value}
                     type="button"
-                    className={`as-property-card ${selectedProperty === item.title ? "is-selected" : ""}`}
+                    className={`as-property-card ${selectedProperty === item.value ? "is-selected" : ""}`}
                     onClick={() => {
-                      setSelectedProperty(item.title);
-                      if (item.title !== "Residential" && systemPurpose === "zero-bill") {
+                      setSelectedProperty(item.value);
+                      if (item.value !== "Residential" && systemPurpose === "zero-bill") {
                         setSystemPurpose("monthly-savings");
                         setFormError("");
                         setAppliances([]);
@@ -952,12 +995,12 @@ export default function ASQuotationEngine() {
                   >
                     <div className="as-property-bg">
                       <span className="as-property-icon">
-                        <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
+                        <img src={selectedProperty === item.value ? item.selectedIcon : item.icon} alt={t(item.titleKey)} />
                       </span>
                       <span className="as-property-check" />
                     </div>
-                    <span className="as-card-title">{item.title}</span>
-                    <p>{item.description}</p>
+                    <span className="as-card-title">{t(item.titleKey)}</span>
+                    <p>{t(item.descriptionKey)}</p>
                   </button>
                 ))}
               </div>
@@ -967,7 +1010,7 @@ export default function ASQuotationEngine() {
             <div className="as-form-section">
               <div className="as-section-label">
                 <span>02</span>
-                <p>System Purpose</p>
+                <p>{t("quotation.sections.purpose")}</p>
               </div>
 
               <div className="as-property-grid">
@@ -985,8 +1028,8 @@ export default function ASQuotationEngine() {
                       }}
                     >
                       <span className="as-property-check" />
-                      <span className="as-card-title">{item.label}</span>
-                      <p>{item.description}</p>
+                      <span className="as-card-title">{t(item.labelKey)}</span>
+                      <p>{t(item.descriptionKey)}</p>
                     </button>
                   ))}
               </div>
@@ -999,29 +1042,40 @@ export default function ASQuotationEngine() {
               {systemPurpose === "zero-bill" && zeroBillContent}
             </div>
 
-            {formError && <div className="as-page-error">{formError}</div>}
+            {formError && <div className="as-page-error">{t(formError)}</div>}
           </main>
 
           {/* Summary panel */}
           <aside className="as-quote-summary">
             <div className="as-summary-card">
-              <p className="as-summary-title">Recommended System Specifications</p>
-              <p>Inverter Capacity and Types</p>
+              <p className="as-summary-title">{t("quotation.summary.title")}</p>
+              <p>{t("quotation.summary.inverter")}</p>
               <p className="as-summary-value">
                 {engineResult
-                  ? `${engineResult.inverterKw}kW ${engineResult.systemType === "grid-tied" ? "Grid-Tie" : "Hybrid"}`
+                  ? t("quotation.summary.inverterValue", {
+                    kw: engineResult.inverterKw,
+                    type: t(
+                      engineResult.systemType === "grid-tied"
+                        ? "quotation.summary.gridTie"
+                        : "quotation.summary.hybrid"
+                    ),
+                  })
                   : "—"}
               </p>
 
-              <p>Solar Panel Capacity</p>
-              <p className="as-summary-value">
-                {engineResult ? `~${engineResult.solarKwp.toFixed(1)} kWp` : "—"}
-              </p>
-
-              <p>Storage Capacity</p>
+              <p>{t("quotation.summary.solar")}</p>
               <p className="as-summary-value">
                 {engineResult
-                  ? engineResult.storageKwh > 0 ? `${engineResult.storageKwh} kWh` : "No Battery"
+                  ? t("quotation.summary.solarValue", { kwp: engineResult.solarKwp.toFixed(1) })
+                  : "—"}
+              </p>
+
+              <p>{t("quotation.summary.storage")}</p>
+              <p className="as-summary-value">
+                {engineResult
+                  ? engineResult.storageKwh > 0
+                    ? t("quotation.summary.storageValue", { kwh: engineResult.storageKwh })
+                    : t("quotation.summary.noBattery")
                   : "—"}
               </p>
 
@@ -1030,7 +1084,7 @@ export default function ASQuotationEngine() {
                 onClick={handleOpenProposal}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Submitting..." : "Request Proposal"}
+                {isSubmitting ? t("quotation.summary.submitting") : t("quotation.summary.submit")}
               </button>
             </div>
           </aside>

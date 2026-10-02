@@ -1,4 +1,4 @@
-import type { FieldErrors } from "./common";
+import type { MessageKey } from "../i18n/messages";
 import {
   SOLAR_CONSTANTS,
   formatSystemSize,
@@ -41,6 +41,11 @@ export type ProposalRequestFormData = {
 };
 
 export type ProposalRequestField = keyof ProposalRequestFormData;
+
+/** Message key of a proposal-form validation error, translated at render time. */
+export type ProposalRequestErrorKey = Extract<MessageKey, `quotation.validation.${string}`>;
+
+export type ProposalRequestErrors = Partial<Record<ProposalRequestField, ProposalRequestErrorKey>>;
 
 export type QuoteSummary = {
   monthlyKwh: number;
@@ -107,6 +112,8 @@ export type QuotationRequestPayload = {
     sizeBytes: number;
     sizeDisplay: string;
   } | null;
+  /** BCP-47 tag of the language the visitor used; every other field stays English. */
+  locale: string;
 };
 
 export type QuotationBuilderParams = {
@@ -123,6 +130,8 @@ export type QuotationBuilderParams = {
   appliances: QuotationAppliance[];
   uploadedBill: UploadedBill | null;
   proposalForm?: ProposalRequestFormData;
+  /** BCP-47 tag of the visitor's language (e.g. "en-PH", "fil"). */
+  locale: string;
 };
 
 export type QuotationSubmissionResult = {
@@ -149,6 +158,18 @@ function formatFileSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(2)}MB`;
 }
 
+/** Locale-aware "HH:mm" text for an "HH:mm" time value. Display only, never submitted. */
+export function formatLocalTime(value: string, localeTag: string): string {
+  if (!value) return "--:--";
+  const [hour, minute] = value.split(":").map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return value;
+  return new Intl.DateTimeFormat(localeTag, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(2000, 0, 1, hour, minute)));
+}
+
 export function sanitizeProposalRequestForm(
   formData: ProposalRequestFormData
 ): ProposalRequestFormData {
@@ -164,56 +185,44 @@ export function sanitizeProposalRequestForm(
 export function validateProposalRequestField(
   field: ProposalRequestField,
   value: string
-): string {
+): ProposalRequestErrorKey | "" {
   const trimmedValue = value.trim();
 
   if (field === "fullName") {
-    if (!trimmedValue) return "Name is required.";
-    if (trimmedValue.length < 2) return "Name must be at least 2 characters.";
-    if (trimmedValue.length > 80) return "Name must not exceed 80 characters.";
-    if (!nameRegex.test(trimmedValue)) {
-      return "Name can only contain letters, numbers, spaces, hyphen, and period.";
-    }
+    if (!trimmedValue) return "quotation.validation.nameRequired";
+    if (trimmedValue.length < 2) return "quotation.validation.nameMin";
+    if (trimmedValue.length > 80) return "quotation.validation.nameMax";
+    if (!nameRegex.test(trimmedValue)) return "quotation.validation.nameChars";
   }
 
   if (field === "location") {
-    if (!trimmedValue) return "Location is required.";
-    if (trimmedValue.length < 3) {
-      return "Location must be at least 3 characters.";
-    }
-    if (trimmedValue.length > 160) {
-      return "Location must not exceed 160 characters.";
-    }
-    if (!locationRegex.test(trimmedValue)) {
-      return "Location contains invalid characters.";
-    }
+    if (!trimmedValue) return "quotation.validation.locationRequired";
+    if (trimmedValue.length < 3) return "quotation.validation.locationMin";
+    if (trimmedValue.length > 160) return "quotation.validation.locationMax";
+    if (!locationRegex.test(trimmedValue)) return "quotation.validation.locationChars";
   }
 
   if (field === "email") {
     const email = trimmedValue.toLowerCase();
     const emailDomain = email.split("@")[1];
 
-    if (!email) return "Email address is required.";
-    if (email.length > 120) return "Email must not exceed 120 characters.";
-    if (!emailRegex.test(email)) return "Please enter a valid email address.";
+    if (!email) return "quotation.validation.emailRequired";
+    if (email.length > 120) return "quotation.validation.emailMax";
+    if (!emailRegex.test(email)) return "quotation.validation.emailInvalid";
     if (emailDomain && blockedEmailDomains.includes(emailDomain)) {
-      return "Disposable or temporary email domains are not allowed.";
+      return "quotation.validation.emailDisposable";
     }
   }
 
   if (field === "phone") {
     const phone = trimmedValue.replace(/[\s-]/g, "");
 
-    if (!phone) return "Phone number is required.";
-    if (!phoneRegex.test(phone)) {
-      return "Enter a valid telephone or cellphone number. Example: +639123456789, 09123456789, or 0381234567.";
-    }
+    if (!phone) return "quotation.validation.phoneRequired";
+    if (!phoneRegex.test(phone)) return "quotation.validation.phoneInvalid";
   }
 
   if (field === "message") {
-    if (trimmedValue.length > 500) {
-      return "Additional notes must not exceed 500 characters.";
-    }
+    if (trimmedValue.length > 500) return "quotation.validation.messageMax";
   }
 
   return "";
@@ -221,8 +230,8 @@ export function validateProposalRequestField(
 
 export function validateProposalRequestForm(
   data: ProposalRequestFormData
-): FieldErrors<ProposalRequestField> {
-  const errors: FieldErrors<ProposalRequestField> = {};
+): ProposalRequestErrors {
+  const errors: ProposalRequestErrors = {};
 
   (Object.entries(data) as Array<[ProposalRequestField, string]>).forEach(
     ([field, value]) => {
@@ -317,6 +326,7 @@ export function buildQuotationRequestPayload(
           sizeDisplay: formatFileSize(params.uploadedBill.size),
         }
       : null,
+    locale: params.locale,
   };
 }
 

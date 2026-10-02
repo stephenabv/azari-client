@@ -1,3 +1,7 @@
+import { quotationCeb } from "./features/quotation/ceb";
+import { inquiryCeb } from "./features/inquiry/ceb";
+import { pagesCeb } from "./features/pages/ceb";
+import { systemCeb } from "./features/system/ceb";
 import type { DeepPartial, Messages } from "./types";
 
 /** Cebuano. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const ceb: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "I-filter sumala sa brand sa inverter:", heading: "Brand sa inverter", all: "Tanang brand" },
+  quotation: quotationCeb,
+  inquiry: inquiryCeb,
+  pages: pagesCeb,
+  system: systemCeb,
 };

@@ -1,5 +1,6 @@
 import type { EngineResult } from "../../models/calculation";
 import { findMatchingPackages, type SolarPackage } from "../../models/packages";
+import { useLocale, useT } from "../../i18n";
 
 type ProposalSubmittedModalProps = {
   onClose: () => void;
@@ -8,12 +9,8 @@ type ProposalSubmittedModalProps = {
   catalog: SolarPackage[];
 };
 
-function formatPeso(value: number) {
-  return `₱${value.toLocaleString("en-PH")}`;
-}
-
-function phaseLabel(phase: SolarPackage["phase"]) {
-  return phase === "single" ? "Single Phase" : "Three Phase";
+function formatPeso(value: number, numberFormat: string) {
+  return `₱${value.toLocaleString(numberFormat)}`;
 }
 
 export default function ProposalSubmittedModal({
@@ -22,6 +19,11 @@ export default function ProposalSubmittedModal({
   propertyType,
   catalog,
 }: ProposalSubmittedModalProps) {
+  const t = useT();
+  const { numberFormat } = useLocale();
+  const peso = (value: number) => formatPeso(value, numberFormat);
+
+  // propertyType is the English classification value ("Residential", ...), not a display label.
   const preferredPhase =
     propertyType === "Residential" ? "single" : "three";
 
@@ -30,31 +32,42 @@ export default function ProposalSubmittedModal({
     : [];
 
   const systemLabel = engineResult
-    ? `${engineResult.solarKwp.toFixed(2)} kWp ${engineResult.systemType === "grid-tied" ? "Grid-Tied" : "Hybrid"}`
-    : "Custom Solar System";
+    ? t("quotation.submitted.systemLabel", {
+        size: engineResult.solarKwp.toFixed(2),
+        type: t(
+          engineResult.systemType === "grid-tied"
+            ? "quotation.submitted.gridTied"
+            : "quotation.submitted.hybrid"
+        ),
+      })
+    : t("quotation.submitted.customSystem");
+
+  // Render the system label in bold inside the translated sentence.
+  const [customBefore, customAfter = ""] = t("quotation.submitted.custom").split("{system}");
 
   return (
     <div className="as-modal-backdrop">
       <div className="as-modal as-submitted-modal">
         <div className="as-success-icon">✓</div>
 
-        <h2>Request Submitted</h2>
+        <h2>{t("quotation.submitted.title")}</h2>
 
-        <p>
-          Our renewable energy advisor will review your profile and reach out
-          shortly with a tailored proposal.
-        </p>
+        <p>{t("quotation.submitted.body")}</p>
 
         <div className="as-submitted-requirement">
-          <span>Your estimated system requirement</span>
+          <span>{t("quotation.submitted.requirement")}</span>
           <div className="as-submitted-req-specs">
-            <span>{engineResult?.solarKwp.toFixed(2) ?? "—"} kWp Solar</span>
-            <span>{engineResult?.inverterKw ?? "—"} kW Inverter</span>
+            <span>
+              {t("quotation.submitted.solarSpec", { value: engineResult?.solarKwp.toFixed(2) ?? "—" })}
+            </span>
+            <span>
+              {t("quotation.submitted.inverterSpec", { value: engineResult?.inverterKw ?? "—" })}
+            </span>
             {engineResult && engineResult.storageKwh > 0 && (
-              <span>{engineResult.storageKwh} kWh Battery</span>
+              <span>{t("quotation.submitted.batterySpec", { value: engineResult.storageKwh })}</span>
             )}
             {engineResult && engineResult.storageKwh === 0 && (
-              <span>No Battery (Grid-Tied)</span>
+              <span>{t("quotation.submitted.noBattery")}</span>
             )}
           </div>
         </div>
@@ -62,7 +75,7 @@ export default function ProposalSubmittedModal({
         {packages.length > 0 && (
           <div className="as-pkg-section">
             <p className="as-pkg-section-label">
-              Matching packages for your {systemLabel}
+              {t("quotation.submitted.matching", { system: systemLabel })}
             </p>
 
             <div className="as-pkg-grid">
@@ -72,59 +85,68 @@ export default function ProposalSubmittedModal({
                   className={`as-pkg-card${i === 0 ? " is-recommended" : ""}`}
                 >
                   {i === 0 && (
-                    <span className="as-pkg-badge">Best Match</span>
+                    <span className="as-pkg-badge">{t("quotation.submitted.bestMatch")}</span>
                   )}
 
                   <div className="as-pkg-name">{pkg.name}</div>
 
                   <div className="as-pkg-specs">
                     <div>
-                      <span>Solar</span>
+                      <span>{t("quotation.submitted.solar")}</span>
                       <strong>{pkg.solarKwp} kWp</strong>
                     </div>
                     <div>
-                      <span>Inverter</span>
+                      <span>{t("quotation.submitted.inverter")}</span>
                       <strong>{pkg.inverterKw} kW</strong>
                     </div>
                     <div>
-                      <span>Battery</span>
+                      <span>{t("quotation.submitted.battery")}</span>
                       <strong>{pkg.storageKwh} kWh</strong>
                     </div>
                   </div>
 
-                  <div className="as-pkg-phase">{phaseLabel(pkg.phase)} · Hybrid</div>
+                  <div className="as-pkg-phase">
+                    {t("quotation.submitted.phaseHybrid", {
+                      phase: t(
+                        pkg.phase === "single"
+                          ? "quotation.submitted.singlePhase"
+                          : "quotation.submitted.threePhase"
+                      ),
+                    })}
+                  </div>
 
                   <div className="as-pkg-price">
-                    <span>Starting at</span>
-                    <strong>{formatPeso(pkg.totalPrice)}</strong>
+                    <span>{t("quotation.submitted.startingAt")}</span>
+                    <strong>{peso(pkg.totalPrice)}</strong>
                   </div>
 
                   <div className="as-pkg-bill-range">
-                    For bills {formatPeso(pkg.monthlyBillRange[0])}–{formatPeso(pkg.monthlyBillRange[1])}/mo
+                    {t("quotation.submitted.billRange", {
+                      min: peso(pkg.monthlyBillRange[0]),
+                      max: peso(pkg.monthlyBillRange[1]),
+                    })}
                   </div>
                 </div>
               ))}
             </div>
 
-            <p className="as-pkg-disclaimer">
-              Prices are indicative and based on standard configurations.
-              Final pricing is subject to site survey and specific requirements.
-            </p>
+            <p className="as-pkg-disclaimer">{t("quotation.submitted.disclaimer")}</p>
           </div>
         )}
 
         {packages.length === 0 && engineResult && (
           <div className="as-pkg-custom">
             <p>
-              Your system requirement (<strong>{systemLabel}</strong>) exceeds our
-              standard catalog. Our engineers will design a custom solution for you.
+              {customBefore}
+              <strong>{systemLabel}</strong>
+              {customAfter}
             </p>
           </div>
         )}
 
         <div className="as-modal-actions">
           <button className="as-btn-primary" onClick={onClose} type="button">
-            Close
+            {t("quotation.common.close")}
           </button>
         </div>
       </div>

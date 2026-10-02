@@ -1,3 +1,7 @@
+import { quotationZh } from "./features/quotation/zh";
+import { inquiryZh } from "./features/inquiry/zh";
+import { pagesZh } from "./features/pages/zh";
+import { systemZh } from "./features/system/zh";
 import type { DeepPartial, Messages } from "./types";
 
 /** Simplified Chinese. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const zh: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "按逆变器品牌筛选：", heading: "逆变器品牌", all: "所有品牌" },
+  quotation: quotationZh,
+  inquiry: inquiryZh,
+  pages: pagesZh,
+  system: systemZh,
 };

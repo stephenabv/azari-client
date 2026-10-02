@@ -4,12 +4,12 @@ import { useLoaderData } from "react-router";
 import "../../src/assets/styles/contents/as_project_detail.less";
 import ASProjectDetails from "../../src/pages/ASProjectDetail";
 import type { ASProjectDetailsModel } from "../../src/services/ASContent";
-import { apiGet } from "../lib/api.server";
+import { apiGet, localizedApiPath } from "../lib/api.server";
 import { socialImageUrl } from "../lib/seo";
 
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = params["id"] ?? "";
-  const result = await apiGet<ASProjectDetailsModel>(`/api/projects/${id}`);
+  const result = await apiGet<ASProjectDetailsModel>(localizedApiPath(`/api/projects/${encodeURIComponent(id)}`, request));
 
   // A project that does not exist — or is unpublished, which the public API
   // reports the same way — is genuinely absent, so answer with a real 404
@@ -36,7 +36,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 // React Router 8 passes the loader result as `loaderData`. The previous `data`
 // argument was always undefined here, so every project page served the generic
 // fallback title and description.
-export const meta = localizedMeta<typeof loader>(({ loaderData, params }) => {
+export const meta = localizedMeta<typeof loader>(({ loaderData, params }, t) => {
   const project = loaderData as
     | { title?: string; subtitle?: string; imageUrl?: string }
     | undefined;
@@ -46,10 +46,14 @@ export const meta = localizedMeta<typeof loader>(({ loaderData, params }) => {
   // The loader throws for a missing project, so meta only runs with real data.
   // The canonical is always this project's own URL — never /projects, which
   // would tell Google the page is a duplicate of the index.
-  const title = `${project?.title ?? "Solar Project"} — Azari Solar`;
+  const title = t("system.meta.projectDetail.title", {
+    name: project?.title ?? t("system.meta.projectDetail.fallbackName"),
+  });
   const description =
     project?.subtitle ??
-    `${project?.title ?? "Solar project"} by Azari Solar in Bohol, Philippines.`;
+    (project?.title
+      ? t("system.meta.projectDetail.description", { name: project.title })
+      : t("system.meta.projectDetail.fallbackDescription"));
   const image = socialImageUrl(project?.imageUrl);
 
   return [

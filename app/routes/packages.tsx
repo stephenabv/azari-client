@@ -1,7 +1,7 @@
 import { localizedMeta } from "../lib/i18n-meta";
-import { useLoaderData } from "react-router";
+import { useLoaderData, type LoaderFunctionArgs } from "react-router";
 import type { ApiSolarPackage } from "../../src/services/ASContent";
-import { apiGetList } from "../lib/api.server";
+import { apiGetList, localizedApiPath } from "../lib/api.server";
 import "../../src/assets/styles/contents/as_packages.less";
 import "../../src/assets/styles/contents/as_package_inquiry.less";
 import "../../src/assets/styles/contents/as_quotation.less";
@@ -32,8 +32,8 @@ export const meta = localizedMeta((_args, t) => [
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
 ]);
 
-export async function loader() {
-  return apiGetList<ApiSolarPackage>("/api/packages");
+export async function loader({ request }: LoaderFunctionArgs) {
+  return apiGetList<ApiSolarPackage>(localizedApiPath("/api/packages", request));
 }
 
 export default function Packages() {

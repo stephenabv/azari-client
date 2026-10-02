@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { splitAtSlot, useSecondsLabel } from "../hooks/useSecondsLabel";
+import { useT } from "../i18n";
 import { subscribeRateLimit, type RateLimitInfo } from "../services/ASContent";
 
 const RADIUS       = 54;
@@ -8,6 +10,8 @@ export default function ASRateLimitWall() {
   const [info, setInfo]           = useState<RateLimitInfo | null>(null);
   const [remaining, setRemaining] = useState(0);
   const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const t                         = useT();
+  const seconds                   = useSecondsLabel();
 
   useEffect(() => {
     return subscribeRateLimit((incoming) => {
@@ -38,9 +42,10 @@ export default function ASRateLimitWall() {
 
   const pct    = Math.min(100, (remaining / info.retryAfterSec) * 100);
   const offset = CIRCUMFERENCE * (1 - pct / 100);
+  const [resumeBefore, resumeAfter] = splitAtSlot(t("system.rateLimit.resume"), "time");
 
   return (
-    <div className="as-rl-wall" role="alertdialog" aria-modal="true" aria-label="Rate limit exceeded">
+    <div className="as-rl-wall" role="alertdialog" aria-modal="true" aria-label={t("system.rateLimit.ariaLabel")}>
       <div className="as-rl-card">
 
         <p className="as-rl-logo">azari<span>.solar</span></p>
@@ -62,15 +67,16 @@ export default function ASRateLimitWall() {
           </svg>
           <div className="as-rl-ring-center" aria-live="polite">
             <span className="as-rl-ring-count">{remaining}</span>
-            <span className="as-rl-ring-unit">seconds</span>
+            <span className="as-rl-ring-unit">{seconds.unit(remaining)}</span>
           </div>
         </div>
 
-        <h2 className="as-rl-heading">Too Many Requests</h2>
+        <h2 className="as-rl-heading">{t("system.rateLimit.title")}</h2>
         <p className="as-rl-desc">
-          You've been temporarily throttled due to too many requests.
-          Access will automatically resume in{" "}
-          <strong>{remaining} second{remaining !== 1 ? "s" : ""}</strong>.
+          {t("system.rateLimit.body")}{" "}
+          {resumeBefore}
+          <strong>{seconds.count(remaining)}</strong>
+          {resumeAfter}
         </p>
 
         <div className="as-rl-bar-track" aria-hidden="true">

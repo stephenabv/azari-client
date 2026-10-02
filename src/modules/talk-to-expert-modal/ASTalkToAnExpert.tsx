@@ -5,6 +5,7 @@ import "./as_talktoexpert.less";
 import ASSystemError from "../system-error/ASSystemError";
 import LocationAutocompleteInput, { type NominatimResult } from "../../components/ASLocationAutocomplete";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { useLocale, useT, type MessageKey } from "../../i18n";
 import {
   buildTalkToExpertPayload,
   validateTalkToExpertField,
@@ -19,22 +20,26 @@ type ASTalkToAnExpertProps = {
   onClose: () => void;
 };
 
-type ASFooterConfig = {
-  contact_email?: string;
-  headline?: string;
-  intro?: string;
-  subheadline?: string;
-  subtext?: string;
-};
+const CONTACT_EMAIL = "sales@azari.solar";
 
-const DEFAULT_CONFIG: ASFooterConfig = {
-  contact_email: "sales@azari.solar",
-  headline: "Let's Connect.",
-  intro:
-    "Have questions about solar? Whether you're curious about savings or just want to know if your roof is ready, we're here to help. No technical jargon, just honest advice.",
-  subheadline: "Simple. Tough. Reliable.",
-  subtext:
-    "Bringing the power of the sun to every Filipino home. We handle the hard parts—the permits, the engineering, and the utility sync—so you can just enjoy the savings.",
+/** Inquiry types in display order; the value is the English code the API receives. */
+const INQUIRY_TYPES: readonly TalkInquiryType[] = ["general", "quote", "consultation"];
+
+/**
+ * The shared validators in models/talk-to-expert return English sentences.
+ * They are mapped to message keys here so the visitor reads them in their
+ * language; anything unmapped is shown as-is.
+ */
+const VALIDATION_MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
+  "Please enter your name.": "inquiry.talk.errors.nameRequired",
+  "Please enter your email address.": "inquiry.talk.errors.emailRequired",
+  "Please enter a valid email address.": "inquiry.talk.errors.emailInvalid",
+  "Please enter your mobile number.": "inquiry.talk.errors.phoneRequired",
+  "Please enter a valid Philippine mobile number.": "inquiry.talk.errors.phoneInvalid",
+  "Please select a province.": "inquiry.talk.errors.provinceRequired",
+  "Please select a city.": "inquiry.talk.errors.cityRequired",
+  "Please enter your message.": "inquiry.talk.errors.messageRequired",
+  "Message must be at least 10 characters.": "inquiry.talk.errors.messageTooShort",
 };
 
 const EMPTY_FORM: TalkToExpertFormData = {
@@ -51,7 +56,16 @@ export default function ASTalkToAnExpert({
 }: ASTalkToAnExpertProps) {
   const [isClosing, setIsClosing] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const config: ASFooterConfig = DEFAULT_CONFIG;
+  const t = useT();
+  const locale = useLocale();
+
+  const errorText = (message: string | undefined): string => {
+    if (!message) return "";
+    const key = Object.prototype.hasOwnProperty.call(VALIDATION_MESSAGE_KEYS, message)
+      ? VALIDATION_MESSAGE_KEYS[message]
+      : undefined;
+    return key ? t(key) : message;
+  };
 
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
@@ -140,9 +154,10 @@ export default function ASTalkToAnExpert({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(
-          buildTalkToExpertPayload(form, selectedProvince, selectedCity)
-        ),
+        body: JSON.stringify({
+          ...buildTalkToExpertPayload(form, selectedProvince, selectedCity),
+          locale: locale.tag,
+        }),
       });
 
       if (handleRateLimitResponse(response)) {
@@ -188,7 +203,7 @@ export default function ASTalkToAnExpert({
           type="button"
           className="as-talk-close"
           onClick={handleClose}
-          aria-label="Close modal"
+          aria-label={t("inquiry.talk.closeAria")}
         >
           ×
         </button>
@@ -200,10 +215,10 @@ export default function ASTalkToAnExpert({
                 <path d="M7 18.5L14.5 26L29 11" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3>Message Sent!</h3>
-            <p>Thank you for reaching out. Our team will get back to you within 24 hours.</p>
+            <h3>{t("inquiry.talk.successTitle")}</h3>
+            <p>{t("inquiry.talk.successBody")}</p>
             <button type="button" className="as-talk-send as-talk-success-btn" onClick={handleClose}>
-              Done
+              {t("inquiry.talk.done")}
             </button>
           </div>
         ) : (
@@ -211,36 +226,28 @@ export default function ASTalkToAnExpert({
             <div className="as-talk-info">
               <div>
                 <h2>
-                  {config.headline?.includes("Connect") ? (
-                    <>
-                      {config.headline.replace("Connect", "")}
-                      <span>Connect</span>.
-                    </>
-                  ) : (
-                    config.headline
-                  )}
+                  {t("inquiry.talk.headlineLead")}
+                  <span>{t("inquiry.talk.headlineAccent")}</span>
+                  {t("inquiry.talk.headlineTail")}
                 </h2>
 
-                <p className="as-talk-intro">{config.intro}</p>
+                <p className="as-talk-intro">{t("inquiry.talk.intro")}</p>
 
-                <a
-                  href={`mailto:${config.contact_email}`}
-                  className="as-talk-email"
-                >
-                  {config.contact_email}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="as-talk-email">
+                  {CONTACT_EMAIL}
                 </a>
               </div>
 
               <div>
-                <h3>{config.subheadline}</h3>
-                <p className="as-talk-subtext">{config.subtext}</p>
+                <h3>{t("inquiry.talk.subheadline")}</h3>
+                <p className="as-talk-subtext">{t("inquiry.talk.subtext")}</p>
               </div>
             </div>
 
             <form className="as-talk-form" onSubmit={handleSubmit} noValidate>
               <div className="as-talk-row">
                 <label className="as-talk-field">
-                  <span>How should we address you?</span>
+                  <span>{t("inquiry.talk.fields.name")}</span>
 
                   <input
                     type="text"
@@ -252,12 +259,12 @@ export default function ASTalkToAnExpert({
                   />
 
                   {errors.name && (
-                    <small className="as-talk-warning">{errors.name}</small>
+                    <small className="as-talk-warning">{errorText(errors.name)}</small>
                   )}
                 </label>
 
                 <label className="as-talk-field">
-                  <span>Email Address</span>
+                  <span>{t("inquiry.talk.fields.email")}</span>
 
                   <input
                     type="email"
@@ -269,14 +276,14 @@ export default function ASTalkToAnExpert({
                   />
 
                   {errors.email && (
-                    <small className="as-talk-warning">{errors.email}</small>
+                    <small className="as-talk-warning">{errorText(errors.email)}</small>
                   )}
                 </label>
               </div>
 
               <div className="as-talk-row">
                 <label className="as-talk-field">
-                  <span>Mobile Number</span>
+                  <span>{t("inquiry.talk.fields.phone")}</span>
 
                   <input
                     type="tel"
@@ -288,12 +295,12 @@ export default function ASTalkToAnExpert({
                   />
 
                   {errors.phone && (
-                    <small className="as-talk-warning">{errors.phone}</small>
+                    <small className="as-talk-warning">{errorText(errors.phone)}</small>
                   )}
                 </label>
 
                 <label className="as-talk-field">
-                  <span>Province</span>
+                  <span>{t("inquiry.talk.fields.province")}</span>
 
                   <LocationAutocompleteInput
                     value={selectedProvince}
@@ -325,19 +332,19 @@ export default function ASTalkToAnExpert({
                         }));
                       }
                     }}
-                    placeholder="e.g., Metro Manila"
+                    placeholder={t("inquiry.talk.fields.provincePlaceholder")}
                     inputClassName={errors.province ? "has-warning" : ""}
                   />
 
                   {errors.province && (
-                    <small className="as-talk-warning">{errors.province}</small>
+                    <small className="as-talk-warning">{errorText(errors.province)}</small>
                   )}
                 </label>
               </div>
 
               <div className="as-talk-row">
                 <label className="as-talk-field">
-                  <span>City</span>
+                  <span>{t("inquiry.talk.fields.city")}</span>
 
                   <LocationAutocompleteInput
                     value={selectedCity}
@@ -369,17 +376,17 @@ export default function ASTalkToAnExpert({
                         }));
                       }
                     }}
-                    placeholder="e.g., Cebu City"
+                    placeholder={t("inquiry.talk.fields.cityPlaceholder")}
                     inputClassName={errors.city ? "has-warning" : ""}
                   />
 
                   {errors.city && (
-                    <small className="as-talk-warning">{errors.city}</small>
+                    <small className="as-talk-warning">{errorText(errors.city)}</small>
                   )}
                 </label>
 
                 <label className="as-talk-field">
-                  <span>How can we help?</span>
+                  <span>{t("inquiry.talk.fields.inquiryType")}</span>
 
                   <select
                     value={form.inquiryType}
@@ -390,15 +397,17 @@ export default function ASTalkToAnExpert({
                       )
                     }
                   >
-                    <option value="general">General inquiry</option>
-                    <option value="quote">Request quotation</option>
-                    <option value="consultation">Consultation</option>
+                    {INQUIRY_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {t(`inquiry.talk.inquiryTypes.${type}`)}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
 
               <label className="as-talk-field">
-                <span>Message</span>
+                <span>{t("inquiry.talk.fields.message")}</span>
 
                 <textarea
                   value={form.message}
@@ -409,7 +418,7 @@ export default function ASTalkToAnExpert({
                 />
 
                 {errors.message && (
-                  <small className="as-talk-warning">{errors.message}</small>
+                  <small className="as-talk-warning">{errorText(errors.message)}</small>
                 )}
               </label>
 
@@ -419,7 +428,7 @@ export default function ASTalkToAnExpert({
                   className="as-talk-cancel"
                   onClick={handleClose}
                 >
-                  Cancel
+                  {t("inquiry.common.cancel")}
                 </button>
 
                 <button
@@ -427,7 +436,7 @@ export default function ASTalkToAnExpert({
                   className="as-talk-send"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Sending..." : "Send Message"}
+                  {isSubmitting ? t("inquiry.talk.sending") : t("inquiry.talk.send")}
                 </button>
               </div>
             </form>

@@ -402,9 +402,9 @@ export interface ProjectInput {
   storageKwh?: number;
 }
 
-export async function fetchProjects(): Promise<ApiProject[]> {
+export async function fetchProjects(locale?: string): Promise<ApiProject[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/projects`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/projects${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiProject[] };
     return json.data ?? [];
@@ -413,9 +413,9 @@ export async function fetchProjects(): Promise<ApiProject[]> {
   }
 }
 
-export async function fetchProjectById(id: string): Promise<ApiProject | null> {
+export async function fetchProjectById(id: string, locale?: string): Promise<ApiProject | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/projects/${id}`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/projects/${encodeURIComponent(id)}${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const json = await res.json() as { success: boolean; data: ApiProject };
     return json.data ?? null;
@@ -647,9 +647,9 @@ export interface PackageInput {
   components?: PackageComponentLine[];
 }
 
-export async function fetchPublicPackages(): Promise<ApiSolarPackage[]> {
+export async function fetchPublicPackages(locale?: string): Promise<ApiSolarPackage[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/packages`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/packages${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiSolarPackage[] };
     return json.data ?? [];
@@ -850,6 +850,8 @@ export async function submitPackageInquiry(data: {
   packageId: string;
   packageName: string;
   packageDetails: PackageDetails;
+  /** Visitor's BCP-47 locale tag; the server uses it to translate free text. */
+  locale?: string;
 }) {
   const res = await apiFetch(`${API_BASE}/packages/inquiries`, {
     method: 'POST',
@@ -893,9 +895,9 @@ export async function adminDeletePackageInquiry(apiKey: string, id: string) {
   return res.json();
 }
 
-export async function fetchPublicIpRatings(): Promise<ApiIpRating[]> {
+export async function fetchPublicIpRatings(locale?: string): Promise<ApiIpRating[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/ip-ratings`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/ip-ratings${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiIpRating[] };
     return json.data ?? [];
@@ -1035,9 +1037,9 @@ export interface ApiJourneyStep {
 
 export type JourneyStepInput = Omit<ApiJourneyStep, 'id' | 'createdAt' | 'updatedAt'>;
 
-export async function fetchClientJourney(): Promise<ApiJourneyStep[]> {
+export async function fetchClientJourney(locale?: string): Promise<ApiJourneyStep[]> {
   try {
-    const res = await apiFetch(`${API_BASE}/client-journey`, { headers: { Accept: 'application/json' } });
+    const res = await apiFetch(`${API_BASE}/client-journey${localeQuery(locale)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) return [];
     const json = (await res.json()) as { success: boolean; data: ApiJourneyStep[] };
     return json.data ?? [];

@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from "react";
 import ASTropicsCards from "./ASTropicsCards";
 import { useContent } from "../hooks/useContent";
+import { DEFAULT_LOCALE, useLocale, useT } from "../i18n";
 
 type TropicsContent = {
   header: string;
@@ -31,15 +32,25 @@ export default function ASTropicsSection() {
   const [showText, setShowText] = useState(false);
   const tropics = useContent<TropicsContent>("tropics", DEFAULT_TROPICS);
   const metrics = useContent<MetricsContent>("metrics", DEFAULT_METRICS);
-  const installedValue = metrics.items.find((i) => i.label === "INSTALLED")?.value ?? "0";
+  const t = useT();
+  // Metric labels are translated per locale, so "INSTALLED" only matches in
+  // English; elsewhere fall back to the first metric by order, which is the
+  // installed-capacity figure.
+  const installedValue =
+    (metrics.items.find((i) => i.label === "INSTALLED") ??
+      [...metrics.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0])?.value ?? "0";
 
   const headerParts = tropics.header
     .split(/\n|<br\s*\/?\s*>/i)
     .map((part) => part.trim())
     .filter(Boolean);
 
-  const headerTop = headerParts[0] ?? "Solar Energy for the";
-  const headerBottom = headerParts[1] ?? "Tropics";
+  // English keeps its long-standing two-line rendering exactly. In other
+  // languages a single-line (translated) header renders as-is; only an empty
+  // header falls back to the built-in two-line wording.
+  const isEnglish = useLocale() === DEFAULT_LOCALE;
+  const headerTop = headerParts[0] ?? t("system.tropics.headerTop");
+  const headerBottom = headerParts[1] ?? (isEnglish || !headerParts.length ? t("system.tropics.headerBottom") : undefined);
 
   // Normalize domain form ("azari.solar") to brand name wherever it appears as company name
   const normalizedSubtext = tropics.subtext.replace(/azari\.solar/gi, "Azari Solar");
@@ -88,8 +99,14 @@ export default function ASTropicsSection() {
 
       <div className={`as-tropics-text ${showText ? "is-shown" : ""}`}>
         <p className="header">
-          {headerTop} <br />
-          {headerBottom}
+          {headerTop}
+          {headerBottom && (
+            <>
+              {" "}
+              <br />
+              {headerBottom}
+            </>
+          )}
         </p>
 
         <p className="subtext">

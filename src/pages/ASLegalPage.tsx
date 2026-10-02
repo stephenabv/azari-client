@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { useContent } from "../hooks/useContent";
 import type { ContentKey } from "../services/ASContent";
+import { useT } from "../i18n";
 
 type LegalSection = { heading: string; body: string };
 
@@ -57,6 +58,7 @@ function renderBody(body: string) {
 export default function ASLegalPage({ contentKey }: { contentKey: ContentKey }) {
   const legal = useContent<LegalContent>(contentKey, EMPTY_LEGAL);
   const disclaimer = useContent<LegalDisclaimer>("legalDisclaimer", DEFAULT_DISCLAIMER);
+  const t = useT();
 
   return (
     <div className="as-legal-page">
@@ -64,9 +66,9 @@ export default function ASLegalPage({ contentKey }: { contentKey: ContentKey }) 
         <h1 className="as-legal-title">{legal.title || " "}</h1>
         {(legal.effectiveDate || legal.lastUpdated) && (
           <div className="as-legal-meta">
-            {legal.effectiveDate && <span>Effective Date: {legal.effectiveDate}</span>}
+            {legal.effectiveDate && <span>{t("pages.legal.effectiveDate", { date: legal.effectiveDate })}</span>}
             {legal.effectiveDate && legal.lastUpdated && <span className="as-legal-meta-dot">•</span>}
-            {legal.lastUpdated && <span>Last Updated: {legal.lastUpdated}</span>}
+            {legal.lastUpdated && <span>{t("pages.legal.lastUpdated", { date: legal.lastUpdated })}</span>}
           </div>
         )}
       </div>

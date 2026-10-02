@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useT } from "../i18n";
 
 const CHUNK_RELOAD_FLAG = "azari_chunk_reload_v1";
 
@@ -62,46 +63,72 @@ export default class ASErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.hasError) return this.props.children;
 
-    const { context = "this section", className } = this.props;
+    const { context, className } = this.props;
     const { error, errorId, isChunkError } = this.state;
-    const isDev = import.meta.env.DEV;
 
     return (
-      <div className={`as-error-boundary${className ? ` ${className}` : ""}`} role="alert">
-        <div className="as-error-boundary-inner">
-          <div className="as-error-boundary-icon" aria-hidden="true">⚠</div>
-          <h2 className="as-error-boundary-title">Something went wrong</h2>
-
-          {isChunkError ? (
-            <p className="as-error-boundary-msg">
-              A new version of the app is available. Reload to continue.
-            </p>
-          ) : (
-            <p className="as-error-boundary-msg">
-              {`We couldn't load ${context}. This is likely a temporary issue.`}
-            </p>
-          )}
-
-          {isDev && error && (
-            <pre className="as-error-boundary-stack">
-              {error.message}
-              {"\n\n"}
-              {error.stack}
-            </pre>
-          )}
-
-          {!isDev && errorId && (
-            <p className="as-error-boundary-code">Error code: {errorId}</p>
-          )}
-
-          <button
-            className="as-error-boundary-retry"
-            onClick={isChunkError ? () => window.location.reload() : this.handleReset}
-          >
-            {isChunkError ? "Reload page" : "Try again"}
-          </button>
-        </div>
-      </div>
+      <ErrorFallback
+        context={context}
+        className={className}
+        error={error}
+        errorId={errorId}
+        isChunkError={isChunkError}
+        onRetry={this.handleReset}
+      />
     );
   }
+}
+
+interface FallbackProps {
+  context?: string;
+  className?: string;
+  error: Error | null;
+  errorId: string | null;
+  isChunkError: boolean;
+  onRetry: () => void;
+}
+
+/** Function component so the fallback can read the active locale via hooks. */
+function ErrorFallback({ context, className, error, errorId, isChunkError, onRetry }: FallbackProps) {
+  const t = useT();
+  const isDev = import.meta.env.DEV;
+
+  return (
+    <div className={`as-error-boundary${className ? ` ${className}` : ""}`} role="alert">
+      <div className="as-error-boundary-inner">
+        <div className="as-error-boundary-icon" aria-hidden="true">⚠</div>
+        <h2 className="as-error-boundary-title">{t("system.errorBoundary.title")}</h2>
+
+        <p className="as-error-boundary-msg">
+          {isChunkError
+            ? t("system.errorBoundary.chunkMessage")
+            : t("system.errorBoundary.message", {
+                context: context ?? t("system.errorBoundary.defaultContext"),
+              })}
+        </p>
+
+        {isDev && error && (
+          <pre className="as-error-boundary-stack">
+            {error.message}
+            {"\n\n"}
+            {error.stack}
+          </pre>
+        )}
+
+        {!isDev && errorId && (
+          <p className="as-error-boundary-code">
+            {t("system.errorBoundary.errorCode", { code: errorId })}
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="as-error-boundary-retry"
+          onClick={isChunkError ? () => window.location.reload() : onRetry}
+        >
+          {isChunkError ? t("system.errorBoundary.reload") : t("system.errorBoundary.retry")}
+        </button>
+      </div>
+    </div>
+  );
 }

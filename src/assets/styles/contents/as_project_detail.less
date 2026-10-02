@@ -69,22 +69,36 @@
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
 
-  img {
-    display: block;
-    width: 75px;
-    height: 75px;
+  // Text pill (was an SVG with "Go back" drawn in) so the label can be translated.
+  .as-pd-back-label {
+    display: inline-flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid rgba(227, 227, 227, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    font-family: @pd-font-inter;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
     transition: opacity 0.2s ease, transform 0.2s ease;
   }
 
-  &:hover img {
+  // Same hit area the icon had, so the pill sits where the old image did.
+  min-height: 75px;
+
+  &:hover .as-pd-back-label {
     opacity: 0.75;
     transform: translateX(-3px);
   }
 
   &:focus { outline: none; }
 
-  &:focus-visible img {
-    filter: drop-shadow(0 0 6px rgba(252, 97, 90, 0.6));
+  &:focus-visible .as-pd-back-label {
+    box-shadow: 0 0 0 2px rgba(252, 97, 90, 0.6);
   }
 }
 
@@ -150,6 +164,9 @@
   background-repeat: no-repeat;
   padding: 16px 20px;
   width: 165px;
+  // Grows only when a single word (e.g. Russian "Однофазная") is wider than
+  // the card, instead of breaking it mid-word; English values are unchanged.
+  min-width: min-content;
   flex-shrink: 0;
   text-align: center;
   overflow: hidden;
@@ -162,7 +179,7 @@
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .as-pd-hero-stat-label {
@@ -171,7 +188,10 @@
   color: rgba(255, 255, 255, 0.5);
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  white-space: nowrap;
+  // Wraps rather than clips: translated labels (e.g. Russian, Filipino) can
+  // run past the card's fixed width.
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
 @keyframes pd-play-grow {
@@ -1159,10 +1179,12 @@
     z-index: 3;
     left: 20px;
     top: calc(var(--navbar-height, 75px) + 20px);
+    min-height: 48px;
 
-    img {
-      width: 48px;
-      height: 48px;
+    .as-pd-back-label {
+      height: 28px;
+      padding: 0 12px;
+      font-size: 11px;
     }
   }
 
@@ -1351,10 +1373,11 @@
 
   .as-pd-back-btn--mobile {
     left: 16px;
+    min-height: 40px;
 
-    img {
-      width: 40px;
-      height: 40px;
+    .as-pd-back-label {
+      height: 26px;
+      padding: 0 10px;
     }
   }
 

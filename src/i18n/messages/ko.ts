@@ -1,3 +1,7 @@
+import { quotationKo } from "./features/quotation/ko";
+import { inquiryKo } from "./features/inquiry/ko";
+import { pagesKo } from "./features/pages/ko";
+import { systemKo } from "./features/system/ko";
 import type { DeepPartial, Messages } from "./types";
 
 /** Korean. Draft translation — have a fluent speaker review before launch. */
@@ -102,4 +106,8 @@ export const ko: DeepPartial<Messages> = {
     },
   },
   brandFilter: { label: "인버터 브랜드로 필터:", heading: "인버터 브랜드", all: "모든 브랜드" },
+  quotation: quotationKo,
+  inquiry: inquiryKo,
+  pages: pagesKo,
+  system: systemKo,
 };

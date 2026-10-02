@@ -2,21 +2,20 @@ import { localizedMeta } from "../lib/i18n-meta";
 import "../../src/assets/styles/contents/as_legal_page.less";
 import ASLegalPage from "../../src/pages/ASLegalPage";
 
-export const meta = localizedMeta(() => [
-  { title: "Terms and Conditions — Azari Solar" },
+export const meta = localizedMeta((_args, t) => [
+  { title: t("system.meta.termsConditions.title") },
   {
     name: "description",
-    content:
-      "The terms and conditions governing your use of azari.solar and Azari Solar's quotation, consultation, and installation services.",
+    content: t("system.meta.termsConditions.description"),
   },
   { name: "robots", content: "index, follow" },
   { tagName: "link", rel: "canonical", href: "https://azari.solar/terms-and-conditions" },
   { property: "og:type", content: "website" },
   { property: "og:url", content: "https://azari.solar/terms-and-conditions" },
-  { property: "og:title", content: "Terms and Conditions — Azari Solar" },
+  { property: "og:title", content: t("system.meta.termsConditions.title") },
   {
     property: "og:description",
-    content: "The terms and conditions governing your use of azari.solar.",
+    content: t("system.meta.termsConditions.shareDescription"),
   },
 ]);
 
