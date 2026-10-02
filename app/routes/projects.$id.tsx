@@ -1,5 +1,4 @@
-import { localizedMeta } from "../lib/i18n-meta";
-import type { LoaderFunctionArgs } from "react-router";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
 import "../../src/assets/styles/contents/as_project_detail.less";
 import ASProjectDetails from "../../src/pages/ASProjectDetail";
@@ -36,7 +35,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
 // React Router 8 passes the loader result as `loaderData`. The previous `data`
 // argument was always undefined here, so every project page served the generic
 // fallback title and description.
-export const meta = localizedMeta<typeof loader>(({ loaderData, params }) => {
+export const meta: MetaFunction<typeof loader> = ({ loaderData, params }) => {
   const project = loaderData as
     | { title?: string; subtitle?: string; imageUrl?: string }
     | undefined;
@@ -67,7 +66,7 @@ export const meta = localizedMeta<typeof loader>(({ loaderData, params }) => {
     { name: "twitter:description", content: description },
     { name: "twitter:image", content: image },
   ];
-});
+};
 
 export default function ProjectDetail() {
   const project = useLoaderData<typeof loader>();

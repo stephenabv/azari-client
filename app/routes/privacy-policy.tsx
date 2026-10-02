@@ -1,8 +1,8 @@
-import { localizedMeta } from "../lib/i18n-meta";
+import type { MetaFunction } from "react-router";
 import "../../src/assets/styles/contents/as_legal_page.less";
 import ASLegalPage from "../../src/pages/ASLegalPage";
 
-export const meta = localizedMeta(() => [
+export const meta: MetaFunction = () => [
   { title: "Privacy Policy — Azari Solar" },
   {
     name: "description",
@@ -18,7 +18,7 @@ export const meta = localizedMeta(() => [
     property: "og:description",
     content: "How Azari Solar collects, uses, and protects your personal data.",
   },
-]);
+];
 
 export default function PrivacyPolicy() {
   return <ASLegalPage contentKey="privacyPolicy" />;

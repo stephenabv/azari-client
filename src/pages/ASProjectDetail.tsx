@@ -18,7 +18,6 @@ import { BentoCard } from "../components/ASBentoCard";
 import ASImgLoader from "../components/ASImgLoader";
 import ASLightbox from "../components/ASLightbox";
 import { useScrollLock } from "../hooks/useScrollLock";
-import { useLocalizedPath } from "../i18n";
 
 function getVideoEmbedUrl(url: string): string | null {
   if (!url.trim()) return null;
@@ -658,7 +657,6 @@ export default function ASProjectDetails({
   initialProject = null,
 }: ASProjectDetailsProps = {}) {
   const { id } = useParams<{ id: string }>();
-  const localize = useLocalizedPath();
   const [project, setProject] = useState<ASProjectDetailsModel | null>(
     initialProject,
   );
@@ -699,7 +697,7 @@ export default function ASProjectDetails({
           <p className="as-pd-not-found-desc">
             This project may have been removed or the link is incorrect.
           </p>
-          <Link className="as-pd-not-found-btn" to={localize("/projects")}>
+          <Link className="as-pd-not-found-btn" to="/projects">
             Back to Projects
           </Link>
         </div>

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocalizedNavigate } from "../i18n";
+import { useNavigate } from "react-router";
 
 export default function ASComingSoon() {
-  const navigate = useLocalizedNavigate();
+  const navigate = useNavigate();
   const redirectSeconds = 10;
   const [countdown, setCountdown] = useState(redirectSeconds);
 

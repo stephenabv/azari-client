@@ -1,14 +1,7 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
-import ASAdminLocalePicker from "../modules/admin-content-locale/ASAdminLocalePicker";
-import {
-  AdminContentLocaleContext,
-  parseAdminLocale,
-  useContentLocaleTag,
-} from "../modules/admin-content-locale/AdminContentLocale";
-import { DEFAULT_LOCALE, type LocaleDefinition } from "../i18n/locales";
 import { INVERTER_CATEGORY, normalizeAttribute } from "../services/packages/PackageFilter";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, type InverterBrandMeta, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 import {
@@ -5295,7 +5288,6 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 }
 
 function useSectionEditor<T extends object>(apiKey: string, contentKey: string, defaults: T) {
-  const localeTag = useContentLocaleTag(contentKey);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -5305,7 +5297,7 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    adminGetAllContent(apiKey, localeTag)
+    adminGetAllContent(apiKey)
       .then((res) => {
         if (cancelled) return;
         const item = (res.data as Array<{ key: string; data: unknown }>).find((i) => i.key === contentKey);
@@ -5318,7 +5310,7 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
   const save = async (data: T) => {
     setSaving(true); setMsg("");
     try {
-      const res = await adminUpsertContent(apiKey, contentKey, data, localeTag) as { success: boolean; data?: unknown };
+      const res = await adminUpsertContent(apiKey, contentKey, data) as { success: boolean; data?: unknown };
       if (res?.data) setForm((f) => ({ ...f, ...(res.data as T) }));
       setMsg("✓ Saved successfully");
     }
@@ -5332,7 +5324,7 @@ function useSectionEditor<T extends object>(apiKey: string, contentKey: string, 
   const cancelReset = () => setResetPending(false);
   const confirmReset = async () => {
     setResetPending(false);
-    try { await adminResetContent(apiKey, contentKey, localeTag); setMsg("✓ Reset to default"); setTick((t) => t + 1); }
+    try { await adminResetContent(apiKey, contentKey); setMsg("✓ Reset to default"); setTick((t) => t + 1); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
@@ -6333,7 +6325,6 @@ type FooterLink = { name: string; url: string };
 type FooterContent = { phone: string; email: string; socials: Record<string, FooterLink>; footer_text: { credits: string; privacy_policy: FooterLink; terms_conditions: FooterLink } };
 
 function FooterEditor({ apiKey }: { apiKey: string }) {
-  const localeTag = useContentLocaleTag("footer");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -6357,7 +6348,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await adminGetAllContent(apiKey, localeTag);
+      const res = await adminGetAllContent(apiKey);
       const item = res.data.find((i: { key: string }) => i.key === "footer");
       if (item) populate(item.data as Partial<FooterContent>);
     } finally { setLoading(false); }
@@ -6373,7 +6364,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
   const handleSave = async () => {
     setSaving(true); setMsg("");
-    try { await adminUpsertContent(apiKey, "footer", buildPayload(), localeTag); setMsg("✓ Footer saved successfully"); }
+    try { await adminUpsertContent(apiKey, "footer", buildPayload()); setMsg("✓ Footer saved successfully"); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
     finally { setSaving(false); }
   };
@@ -6382,7 +6373,7 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
   const handleReset = async () => {
     setResetPending(false);
-    try { await adminResetContent(apiKey, "footer", localeTag); setMsg("✓ Footer reset to default"); await load(); }
+    try { await adminResetContent(apiKey, "footer"); setMsg("✓ Footer reset to default"); await load(); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
@@ -6468,8 +6459,6 @@ const EMPTY_DISCLAIMER: LegalDisclaimerForm = { enabled: true, text: "" };
 type LegalSubTab = "disclaimer" | "privacyPolicy" | "termsConditions";
 
 function LegalEditor({ apiKey }: { apiKey: string }) {
-  // Disclaimer, privacy policy and terms are all per-language keys.
-  const localeTag = useContentLocaleTag("legalDisclaimer");
   const [subTab, setSubTab] = useState<LegalSubTab>("disclaimer");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -6482,7 +6471,7 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await adminGetAllContent(apiKey, localeTag);
+      const res = await adminGetAllContent(apiKey);
       const d = res.data.find((i) => i.key === "legalDisclaimer");
       const p = res.data.find((i) => i.key === "privacyPolicy");
       const t = res.data.find((i) => i.key === "termsConditions");
@@ -6496,7 +6485,7 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
 
   const handleSaveDisclaimer = async () => {
     setSaving(true); setMsg("");
-    try { await adminUpsertContent(apiKey, "legalDisclaimer", disclaimer, localeTag); setMsg("✓ Disclaimer saved"); }
+    try { await adminUpsertContent(apiKey, "legalDisclaimer", disclaimer); setMsg("✓ Disclaimer saved"); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
     finally { setSaving(false); }
   };
@@ -6504,7 +6493,7 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
   const handleSaveDoc = async (key: "privacyPolicy" | "termsConditions", doc: LegalDocForm) => {
     setSaving(true); setMsg("");
     try {
-      await adminUpsertContent(apiKey, key, doc, localeTag);
+      await adminUpsertContent(apiKey, key, doc);
       setMsg(`✓ ${key === "privacyPolicy" ? "Privacy Policy" : "Terms and Conditions"} saved`);
     } catch (e) { setMsg(`Error: ${(e as Error).message}`); }
     finally { setSaving(false); }
@@ -6512,7 +6501,7 @@ function LegalEditor({ apiKey }: { apiKey: string }) {
 
   const handleReset = async (key: "privacyPolicy" | "termsConditions") => {
     setResetTarget(null);
-    try { await adminResetContent(apiKey, key, localeTag); setMsg("✓ Reset to default"); await load(); }
+    try { await adminResetContent(apiKey, key); setMsg("✓ Reset to default"); await load(); }
     catch (e) { setMsg(`Error: ${(e as Error).message}`); }
   };
 
@@ -7530,12 +7519,6 @@ function NavIcon({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Content tabs whose text has per-language versions; they show the language picker. */
-const LOCALIZED_CONTENT_TABS: ReadonlySet<string> = new Set([
-  "hero", "metrics", "partners", "benefits", "tropics", "journey",
-  "excellence", "process", "cta", "footer", "legal",
-]);
-
 export default function ASAdmin() {
   const [apiKey, setApiKey] = useState<string>(() =>
     typeof window !== "undefined" ? (sessionStorage.getItem("azari_admin_key") ?? "") : ""
@@ -7551,18 +7534,6 @@ export default function ASAdmin() {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.set("tab", id);
-      return next;
-    }, { replace: true });
-  };
-  const [contentLocale, setContentLocaleState] = useState<LocaleDefinition>(() =>
-    parseAdminLocale(searchParams.get("lang")),
-  );
-  const setContentLocale = (locale: LocaleDefinition) => {
-    setContentLocaleState(locale);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (locale === DEFAULT_LOCALE) next.delete("lang");
-      else next.set("lang", locale.code);
       return next;
     }, { replace: true });
   };
@@ -7706,35 +7677,28 @@ export default function ASAdmin() {
         </nav>
 
         <main className="ad-main">
-          {LOCALIZED_CONTENT_TABS.has(tab) && (
-            <ASAdminLocalePicker value={contentLocale} onChange={setContentLocale} />
-          )}
-          <AdminContentLocaleContext.Provider value={contentLocale}>
-            <Fragment key={contentLocale.code}>
-              {tab === "overview"          && <OverviewTab stats={stats} />}
-              {tab === "inquiries"         && <SubmissionsTable apiKey={apiKey} type="talk" />}
-              {tab === "quotations"        && <SubmissionsTable apiKey={apiKey} type="quotations" />}
-              {tab === "projects"          && <ProjectsManager apiKey={apiKey} />}
-              {tab === "inventory"         && <ComponentsManager apiKey={apiKey} onGoToPackages={() => navigate("packages")} />}
-              {tab === "packages"          && <PackagesManager apiKey={apiKey} />}
-              {tab === "inverter-brands"   && <InverterBrandsEditor apiKey={apiKey} />}
-              {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
-              {tab === "utilities"         && <UtilitiesManager apiKey={apiKey} />}
-              {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
-              {tab === "hero"              && <HeroEditor apiKey={apiKey} />}
-              {tab === "metrics"           && <MetricsEditor apiKey={apiKey} />}
-              {tab === "partners"          && <PartnersEditor apiKey={apiKey} />}
-              {tab === "benefits"          && <BenefitsEditor apiKey={apiKey} />}
-              {tab === "tropics"           && <TropicsEditor apiKey={apiKey} />}
-              {tab === "journey"           && <ClientJourneyEditor apiKey={apiKey} />}
-              {tab === "journey-steps"    && <JourneyStepsManager apiKey={apiKey} />}
-              {tab === "excellence"        && <ExcellenceEditor apiKey={apiKey} />}
-              {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
-              {tab === "cta"               && <CtaEditor apiKey={apiKey} />}
-              {tab === "footer"            && <FooterEditor apiKey={apiKey} />}
-              {tab === "legal"             && <LegalEditor apiKey={apiKey} />}
-            </Fragment>
-          </AdminContentLocaleContext.Provider>
+          {tab === "overview"          && <OverviewTab stats={stats} />}
+          {tab === "inquiries"         && <SubmissionsTable apiKey={apiKey} type="talk" />}
+          {tab === "quotations"        && <SubmissionsTable apiKey={apiKey} type="quotations" />}
+          {tab === "projects"          && <ProjectsManager apiKey={apiKey} />}
+          {tab === "inventory"         && <ComponentsManager apiKey={apiKey} onGoToPackages={() => navigate("packages")} />}
+          {tab === "packages"          && <PackagesManager apiKey={apiKey} />}
+          {tab === "inverter-brands"   && <InverterBrandsEditor apiKey={apiKey} />}
+          {tab === "package-inquiries" && <PackageInquiriesManager apiKey={apiKey} />}
+          {tab === "utilities"         && <UtilitiesManager apiKey={apiKey} />}
+          {tab === "sections"          && <SectionsManager apiKey={apiKey} />}
+          {tab === "hero"              && <HeroEditor apiKey={apiKey} />}
+          {tab === "metrics"           && <MetricsEditor apiKey={apiKey} />}
+          {tab === "partners"          && <PartnersEditor apiKey={apiKey} />}
+          {tab === "benefits"          && <BenefitsEditor apiKey={apiKey} />}
+          {tab === "tropics"           && <TropicsEditor apiKey={apiKey} />}
+          {tab === "journey"           && <ClientJourneyEditor apiKey={apiKey} />}
+          {tab === "journey-steps"    && <JourneyStepsManager apiKey={apiKey} />}
+          {tab === "excellence"        && <ExcellenceEditor apiKey={apiKey} />}
+          {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
+          {tab === "cta"               && <CtaEditor apiKey={apiKey} />}
+          {tab === "footer"            && <FooterEditor apiKey={apiKey} />}
+          {tab === "legal"             && <LegalEditor apiKey={apiKey} />}
         </main>
       </div>
     </div>

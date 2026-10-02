@@ -3,7 +3,6 @@ import { Link } from "react-router";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
 import { useContent } from "../hooks/useContent";
-import { useLocalizedPath } from "../i18n";
 
 type CtaContent = {
   title: string;
@@ -26,7 +25,6 @@ export default function ASCallToAction() {
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
   const cta = useContent<CtaContent>("cta", DEFAULT_CTA);
-  const localize = useLocalizedPath();
 
   const titlePrefix = cta.title.includes("energy independence")
     ? cta.title.split("energy independence")[0].trimEnd()
@@ -73,7 +71,7 @@ export default function ASCallToAction() {
 
         <div className="as-cta-actions">
           <Link
-            to={localize("/solar-calculator")}
+            to="/solar-calculator"
             className="as-cta-primary"
           >
             {cta.primaryCta.replace(/\s*↗\s*$/, "")}

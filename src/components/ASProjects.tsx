@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
 import ASImgLoader from "./ASImgLoader";
-import { useLocalizedPath, useT, type MessageKey } from "../i18n";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
 type ProjectCategory =
@@ -59,23 +58,7 @@ type ASProjectsProps = {
   initialProjects?: ApiProject[];
 };
 
-const FILTER_LABELS: Record<ProjectCategory, MessageKey> = {
-  "All Projects": "projects.filters.all",
-  "Recent Projects": "projects.filters.recent",
-  "Residential Projects": "projects.filters.residential",
-  "Commercial Projects": "projects.filters.commercial",
-  "Industrial Projects": "projects.filters.industrial",
-};
-
-const CATEGORY_LABELS: Partial<Record<string, MessageKey>> = {
-  Residential: "projects.category.residential",
-  Commercial: "projects.category.commercial",
-  Industrial: "projects.category.industrial",
-};
-
 export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
-  const t = useT();
-  const localize = useLocalizedPath();
   const [activeFilter, setActiveFilter] =
     useState<ProjectCategory>("All Projects");
 
@@ -118,15 +101,26 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
   }, [projects, activeFilter]);
 
   const hasProjectData = projects.length > 0;
-  const emptyTitle = t(hasProjectData ? "projects.emptyFilteredTitle" : "projects.emptyTitle");
-  const emptyDescription = t(hasProjectData ? "projects.emptyFilteredBody" : "projects.emptyBody");
+  const emptyTitle = hasProjectData
+    ? "Nothing in this view yet"
+    : "Portfolio updates incoming";
+
+  const emptyDescription = hasProjectData
+    ? "Try a different filter to see other completed installations, savings snapshots, and system details."
+    : "Project records have not been published yet. When the portfolio is available, this section will show completed installations, estimated savings, and system details.";
 
   return (
     <section className="as-projects-section">
       <div className="as-projects-header">
-        <h1 className="as-projects-title">{t("projects.title")}</h1>
+        <h1 className="as-projects-title">
+          Our Solar Installations Portfolio
+        </h1>
 
-        <p className="as-projects-description">{t("projects.description")}</p>
+        <p className="as-projects-description">
+          Proven Resilience. Quantifiable Savings. Explore our nationwide
+          portfolio of engineering excellence—built for the tropics and designed
+          for maximum ROI.
+        </p>
       </div>
 
       <div className="as-projects-filters">
@@ -148,7 +142,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
               }`}
             onClick={() => setActiveFilter(filter)}
           >
-            {t(FILTER_LABELS[filter])}
+            {filter}
           </button>
         ))}
       </div>
@@ -174,7 +168,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
             <Link
               className="as-project-card"
               key={project.id}
-              to={localize(`/projects/${project.id}`)}
+              to={`/projects/${project.id}`}
               style={{ animationDelay: `${index * 90}ms`, cursor: "pointer" }}
               aria-label={project.title}
             >
@@ -191,7 +185,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
 
               <div className="as-project-card-content">
                 <div className="as-project-card-top">
-                  <p>{CATEGORY_LABELS[project.category] ? t(CATEGORY_LABELS[project.category]!) : project.category}</p>
+                  <p>{project.category}</p>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
                     <line x1="5" y1="19" x2="19" y2="5" />
                     <polyline points="5 5 19 5 19 19" />
@@ -202,14 +196,14 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
 
                 <div className="as-project-card-stats">
                   <div>
-                    <span>{t("projects.system")}</span>
+                    <span>System</span>
                     <strong>{project.system}</strong>
                   </div>
 
                   <div>
-                    <span>{t("projects.estimatedSavings")}</span>
+                    <span>Estimated Savings</span>
                     <strong>
-                      {project.savings} <small>{t("projects.tenYear")}</small>
+                      {project.savings} <small>(10-Year)</small>
                     </strong>
                   </div>
                 </div>
