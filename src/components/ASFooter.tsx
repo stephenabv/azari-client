@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
+import { DEFAULT_LOCALE, useLocale, useLocalizedPath, useT } from "../i18n";
+import ASLanguageSwitcher from "./ASLanguageSwitcher";
 
 type FooterLink = {
   name: string;
@@ -17,6 +19,27 @@ type FooterData = {
     terms_conditions?: FooterLink;
   };
 };
+
+const SITE_HOST = "azari.solar";
+
+/**
+ * Same-site footer links (stored as absolute azari.solar URLs in content)
+ * point to the visitor's language. English and external links are untouched.
+ */
+function useLocalizedHref(): (url: string | undefined) => string | undefined {
+  const locale = useLocale();
+  const localize = useLocalizedPath();
+  return useMemo(() => (url) => {
+    if (!url || locale === DEFAULT_LOCALE) return url;
+    try {
+      const parsed = new URL(url, `https://${SITE_HOST}`);
+      if (parsed.hostname !== SITE_HOST) return url;
+      return `${localize(parsed.pathname)}${parsed.search}${parsed.hash}`;
+    } catch {
+      return url;
+    }
+  }, [locale, localize]);
+}
 
 const DEFAULT_FOOTER: Required<FooterData> = {
   id: "",
@@ -54,6 +77,8 @@ export default function ASFooter() {
   const hasAnimated = useRef(false);
 
   const [isShown, setIsShown] = useState(false);
+  const t = useT();
+  const localizeHref = useLocalizedHref();
   const resolvedFooter = useContent<Required<FooterData>>("footer", DEFAULT_FOOTER);
 
   const socials = useMemo(() => {
@@ -124,7 +149,7 @@ export default function ASFooter() {
 
           <div className="as-footer-bottom-links">
             <a
-              href={resolvedFooter.footer_text?.privacy_policy?.url}
+              href={localizeHref(resolvedFooter.footer_text?.privacy_policy?.url)}
               target="_blank"
               rel="noreferrer"
             >
@@ -132,16 +157,16 @@ export default function ASFooter() {
             </a>
 
             <a
-              href={resolvedFooter.footer_text?.terms_conditions?.url}
+              href={localizeHref(resolvedFooter.footer_text?.terms_conditions?.url)}
               target="_blank"
               rel="noreferrer"
             >
               {resolvedFooter.footer_text?.terms_conditions?.name}
             </a>
 
-            <span>
-              © {new Date().getFullYear()} Azari Solar. All Rights Reserved.
-            </span>
+            <span>{t("footer.rights", { year: new Date().getFullYear() })}</span>
+
+            <ASLanguageSwitcher />
           </div>
         </div>
       </div>

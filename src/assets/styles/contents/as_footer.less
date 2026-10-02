@@ -117,7 +117,21 @@
 
 .as-footer-bottom-links {
   display: flex;
+  align-items: center;
   gap: 24px;
+}
+
+.as-language-switcher {
+  .as-select-trigger {
+    min-height: 32px;
+    min-width: 0;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .as-select-popover {
+    min-width: 180px;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -160,6 +174,20 @@
   .as-footer-bottom-links {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .as-language-switcher {
+    margin-top: 8px;
+  }
+}
+
+// Tablet: the stacked footer centres the switcher, so centre its popover too.
+// Phones use the shared bottom sheet instead.
+@media (min-width: 577px) and (max-width: 768px) {
+  .as-language-switcher .as-select-popover {
+    right: 50%;
+    transform: translateX(50%);
+    animation: none;
   }
 }
 
