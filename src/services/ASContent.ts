@@ -1,7 +1,13 @@
 
 import { SOLAR_CONSTANTS } from '../models/calculation';
+import { DEFAULT_LOCALE } from '../i18n/locales';
 
 const API_BASE = '/api';
+
+/** `?locale=` suffix for a content request; empty for the default (English) locale. */
+function localeQuery(locale?: string): string {
+  return locale && locale !== DEFAULT_LOCALE.tag ? `?locale=${encodeURIComponent(locale)}` : '';
+}
 
 
 
@@ -58,9 +64,23 @@ export type ContentKey =
   | 'privacyPolicy'
   | 'termsConditions';
 
-export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
+/**
+ * Content that holds visitor-facing text and can be translated per locale.
+ * Settings-like keys (visibility toggles, brand logos) are shared by every
+ * language and are always read in English.
+ */
+export const LOCALIZABLE_CONTENT_KEYS: ReadonlySet<string> = new Set([
+  'hero', 'metrics', 'excellence', 'process', 'tropics', 'clientJourney', 'cta',
+  'benefits', 'footer', 'partners', 'legalDisclaimer', 'privacyPolicy', 'termsConditions',
+]);
+
+/**
+ * @param locale BCP 47 tag; omitted or the default locale requests English,
+ *   exactly as before. Untranslated content falls back to English server-side.
+ */
+export async function fetchContent<T = unknown>(key: ContentKey, locale?: string): Promise<T | null> {
   try {
-    const res = await apiFetch(`${API_BASE}/content/${key}`, {
+    const res = await apiFetch(`${API_BASE}/content/${key}${localeQuery(locale)}`, {
       headers: { Accept: 'application/json' }
     });
     if (!res.ok) return null;
@@ -86,8 +106,8 @@ export async function fetchAllContent(): Promise<Record<string, unknown> | null>
 
 
 
-export async function adminGetAllContent(apiKey: string) {
-  const res = await apiFetch(`${API_BASE}/admin/content`, {
+export async function adminGetAllContent(apiKey: string, locale?: string) {
+  const res = await apiFetch(`${API_BASE}/admin/content${localeQuery(locale)}`, {
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });
   if (res.status === 401) throw new Error('Invalid API key.');
@@ -95,8 +115,8 @@ export async function adminGetAllContent(apiKey: string) {
   return (await res.json()) as { success: boolean; data: Array<{ key: string; data: unknown; isCustomized: boolean; updatedAt: string | null }> };
 }
 
-export async function adminUpsertContent(apiKey: string, key: string, data: unknown) {
-  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
+export async function adminUpsertContent(apiKey: string, key: string, data: unknown, locale?: string) {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}${localeQuery(locale)}`, {
     method: 'PUT',
     headers: {
       'x-admin-api-key': apiKey,
@@ -113,8 +133,8 @@ export async function adminUpsertContent(apiKey: string, key: string, data: unkn
   return res.json();
 }
 
-export async function adminResetContent(apiKey: string, key: string) {
-  const res = await apiFetch(`${API_BASE}/admin/content/${key}`, {
+export async function adminResetContent(apiKey: string, key: string, locale?: string) {
+  const res = await apiFetch(`${API_BASE}/admin/content/${key}${localeQuery(locale)}`, {
     method: 'DELETE',
     headers: { 'x-admin-api-key': apiKey, Accept: 'application/json' }
   });

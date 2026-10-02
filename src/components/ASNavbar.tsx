@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { useContent } from "../hooks/useContent";
+import { useLocale, useLocalizedPath, useNeutralPath, useT, type MessageKey } from "../i18n";
 
 import lightModeToggle from "../assets/images/light-toggle-v2.png";
 import darkModeToggle from "../assets/images/dark-toggle-v2.png";
@@ -9,6 +10,23 @@ type ASNavbarProps = {
   theme: "light-theme" | "dark-theme";
   toggleTheme: () => void;
 };
+
+type NavTab = {
+  id: string;
+  label: MessageKey;
+  /** Locale-neutral route; localized at render time. */
+  path: string;
+  /** Hidden when the packages page is switched off in admin. */
+  requiresPackages?: boolean;
+};
+
+const NAV_TABS: readonly NavTab[] = [
+  { id: "home", label: "nav.home", path: "/" },
+  { id: "client-journey", label: "nav.clientJourney", path: "/client-journey" },
+  { id: "projects", label: "nav.projects", path: "/projects" },
+  { id: "packages", label: "nav.packages", path: "/packages", requiresPackages: true },
+  { id: "calculator", label: "nav.calculator", path: "/solar-calculator" },
+];
 
 export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const [activeTab, setActiveTab] = useState("");
@@ -20,6 +38,10 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   });
 
   const location = useLocation();
+  const neutralPath = useNeutralPath();
+  const locale = useLocale();
+  const localize = useLocalizedPath();
+  const t = useT();
   const navMenuRef = useRef<HTMLUListElement>(null);
   const tabRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const indicatorRafRef = useRef<number>(0);
@@ -27,15 +49,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   const pageVis = useContent<{ packages?: boolean }>("section-visibility", { packages: true });
   const showPackages = pageVis.packages !== false;
 
-  const tabs = ["Home", "Client Journey", "Projects", ...(showPackages ? ["Packages"] : []), "System Calculator"];
-
-  const tabRoutes: Record<string, string> = {
-    Home: "/",
-    Projects: "/projects",
-    Packages: "/packages",
-    "Client Journey": "/client-journey",
-    "System Calculator": "/solar-calculator",
-  };
+  const tabs = NAV_TABS.filter((tab) => showPackages || !tab.requiresPackages);
 
   const updateIndicator = (tab: string) => {
     if (!tab) return;
@@ -61,24 +75,17 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   };
 
   useEffect(() => {
-    const currentPath = location.pathname;
+    const matched = NAV_TABS.find(({ path }) =>
+      path === "/" ? neutralPath === "/" : neutralPath.startsWith(path),
+    );
+    setActiveTab(matched?.id ?? "");
+  }, [neutralPath]);
 
-    const matchedEntry = Object.entries(tabRoutes).find(([_, path]) => {
-      if (path === "/") return currentPath === "/";
-      return currentPath.startsWith(path);
-    });
-
-    if (matchedEntry) {
-      setActiveTab(matchedEntry[0]);
-    } else {
-      setActiveTab("");
-    }
-  }, [location.pathname]);
-
+  // Labels change width with the language, so re-measure on locale change too.
   useEffect(() => {
     if (!activeTab) return;
     updateIndicator(activeTab);
-  }, [activeTab]);
+  }, [activeTab, locale]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -98,7 +105,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   }, [activeTab]);
 
   useEffect(() => {
-    if (location.pathname === "/" && location.hash === "#calculator") {
+    if (neutralPath === "/" && location.hash === "#calculator") {
       setActiveTab("");
 
       setTimeout(() => {
@@ -112,7 +119,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
         }
       }, 100);
     }
-  }, [location.pathname, location.hash]);
+  }, [neutralPath, location.hash]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -152,23 +159,23 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
   return (
     <nav className="ASNavbar" ref={navbarRef}>
       <Link
-        to="/"
+        to={localize("/")}
         className="nav-logo"
-        aria-label="Azari Solar"
-        onClick={() => setActiveTab("Home")}
+        aria-label={t("nav.logo")}
+        onClick={() => setActiveTab("home")}
       />
 
       <ul className="nav-menu" ref={navMenuRef}>
         {tabs.map((tab) => (
           <li
-            key={tab}
+            key={tab.id}
             ref={(el) => {
-              tabRefs.current[tab] = el;
+              tabRefs.current[tab.id] = el;
             }}
-            className={activeTab === tab ? "active" : ""}
+            className={activeTab === tab.id ? "active" : ""}
           >
-            <Link to={tabRoutes[tab]} onClick={() => handleTabClick(tab)}>
-              <span className="nav-link-text">{tab}</span>
+            <Link to={localize(tab.path)} onClick={() => handleTabClick(tab.id)}>
+              <span className="nav-link-text">{t(tab.label)}</span>
             </Link>
           </li>
         ))}
@@ -189,15 +196,11 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
           type="button"
           className="theme-toggle-btn"
           onClick={toggleTheme}
-          aria-label={
-            theme === "dark-theme"
-              ? "Switch to light mode"
-              : "Switch to dark mode"
-          }
+          aria-label={theme === "dark-theme" ? t("nav.toLight") : t("nav.toDark")}
         >
           <img
             src={theme === "dark-theme" ? darkModeToggle : lightModeToggle}
-            alt="Theme toggle"
+            alt={t("nav.themeToggle")}
             className="theme-toggle-img"
             width={84}
             height={76}
@@ -208,7 +211,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
           type="button"
           className={`mobile-menu-btn ${isMobileMenuOpen ? "open" : ""}`}
           onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-          aria-label="Toggle navigation menu"
+          aria-label={t("nav.toggleMenu")}
           aria-expanded={isMobileMenuOpen}
         >
           <span />
@@ -220,12 +223,12 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
       <div className={`mobile-nav-menu ${isMobileMenuOpen ? "open" : ""}`}>
         {tabs.map((tab) => (
           <Link
-            key={tab}
-            to={tabRoutes[tab]}
-            className={activeTab === tab ? "active" : ""}
-            onClick={() => handleTabClick(tab)}
+            key={tab.id}
+            to={localize(tab.path)}
+            className={activeTab === tab.id ? "active" : ""}
+            onClick={() => handleTabClick(tab.id)}
           >
-            {tab}
+            {t(tab.label)}
           </Link>
         ))}
       </div>

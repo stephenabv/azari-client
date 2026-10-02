@@ -1,11 +1,11 @@
-import type { MetaFunction } from "react-router";
+import { localizedMeta } from "../lib/i18n-meta";
 import { useLoaderData } from "react-router";
 import type { ApiProject } from "../../src/services/ASContent";
 import { apiGetList } from "../lib/api.server";
 import "../../src/assets/styles/contents/as_projects.less";
 import ASProjects from "../../src/components/ASProjects";
 
-export const meta: MetaFunction = () => [
+export const meta = localizedMeta(() => [
   { title: "Solar Projects in Bohol, Philippines | Azari Solar" },
   {
     name: "description",
@@ -31,7 +31,7 @@ export const meta: MetaFunction = () => [
       "See completed residential and commercial solar installations by Azari Solar across Bohol and the Philippines. Real projects, real energy savings.",
   },
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
-];
+]);
 
 // Rendered on the server so the project grid is present in the HTML rather
 // than a skeleton. Falls back to an empty list if the API is unreachable,

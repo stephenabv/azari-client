@@ -11,6 +11,8 @@
  * no-store, so it is not suitable as the advertised sitemap URL.
  */
 
+import { LOCALES, LocalePath } from "../../src/i18n/routing";
+
 const API_BASE = process.env["API_URL"] ?? "http://localhost:4000";
 
 const BASE_URL = "https://azari.solar";
@@ -28,20 +30,30 @@ const FALLBACK_PAGES = [
   { path: "/terms-and-conditions", priority: "0.3", changefreq: "yearly", lastmod: "2026-08-20" },
 ];
 
+function localizedUrl(path: string, locale: (typeof LOCALES)[number]): string {
+  return `${BASE_URL}${LocalePath.of(path, locale).toString()}`;
+}
+
 function fallbackSitemap(): string {
-  const entries = FALLBACK_PAGES.map(
-    (p) =>
-      `  <url>\n` +
-      `    <loc>${BASE_URL}${p.path}</loc>\n` +
-      `    <lastmod>${p.lastmod}</lastmod>\n` +
-      `    <changefreq>${p.changefreq}</changefreq>\n` +
-      `    <priority>${p.priority}</priority>\n` +
-      `  </url>`,
-  ).join("\n");
+  const entries = FALLBACK_PAGES.flatMap((p) => {
+    const alternates =
+      LOCALES.map((l) => `    <xhtml:link rel="alternate" hreflang="${l.tag}" href="${localizedUrl(p.path, l)}"/>\n`).join("") +
+      `    <xhtml:link rel="alternate" hreflang="x-default" href="${BASE_URL}${p.path}"/>\n`;
+    return LOCALES.map(
+      (l) =>
+        `  <url>\n` +
+        `    <loc>${localizedUrl(p.path, l)}</loc>\n` +
+        alternates +
+        `    <lastmod>${p.lastmod}</lastmod>\n` +
+        `    <changefreq>${p.changefreq}</changefreq>\n` +
+        `    <priority>${p.priority}</priority>\n` +
+        `  </url>`,
+    );
+  }).join("\n");
 
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n` +
     `${entries}\n` +
     `</urlset>`
   );

@@ -3,6 +3,7 @@ import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
 import { useContent } from "../hooks/useContent";
 import { Link } from "react-router";
+import { useLocalizedPath, useT } from "../i18n";
 
 type ProcessStep = {
   number: string;
@@ -46,6 +47,8 @@ export default function ASProcessSection() {
   const [activeStep, setActiveStep] = useState(-1);
   const [showFooter, setShowFooter] = useState(false);
   const content = useContent<ProcessContent>("process", DEFAULT_PROCESS_CONTENT);
+  const t = useT();
+  const localize = useLocalizedPath();
 
   const steps = useMemo(
     () => [...(content.steps ?? [])].sort((a, b) => Number(a.number) - Number(b.number)),
@@ -179,8 +182,8 @@ export default function ASProcessSection() {
         </div>
 
         <div className="as-process-cta">
-          <p>Your Path to Energy Independence</p>
-          <Link to="/client-journey">Get Started</Link>
+          <p>{t("process.ctaTitle")}</p>
+          <Link to={localize("/client-journey")}>{t("common.getStarted")}</Link>
         </div>
       </div>
     </section>

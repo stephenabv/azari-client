@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router";
+import { useOutletContext } from "react-router";
 import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
 import darkBgWebm from "../assets/videos/bg_hero_section_dark.webm";
 import lightBg from "../assets/videos/bg_hero_section_light.mp4";
 import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
 import { useContent } from "../hooks/useContent";
+import { useLocalizedNavigate } from "../i18n";
 
 type LayoutContext = {
   theme: "light-theme" | "dark-theme";
@@ -46,7 +47,7 @@ function renderHighlighted(text: string, highlights: string): React.ReactNode {
 
 export default function ASHero() {
   const [show, setShow] = useState(true);
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   const { theme } = useOutletContext<LayoutContext>();
   const hero = useContent<HeroContent>("hero", DEFAULT_HERO);
 

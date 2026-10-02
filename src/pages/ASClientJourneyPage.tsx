@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useNavigate } from "react-router";
+import { useLocalizedNavigate } from "../i18n";
 import type {
   ApiJourneyStep, ContentBlock,
   HeadingBlock, ParagraphBlock, BulletListBlock, LinkGroupBlock,
@@ -94,7 +94,7 @@ function BulletListRenderer({ block }: { block: BulletListBlock }) {
 }
 
 function LinkGroupRenderer({ block }: { block: LinkGroupBlock }) {
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   return (
     <div className="as-cjp-link-group">
       {block.links.map((link, i) => {
@@ -118,7 +118,7 @@ function LinkGroupRenderer({ block }: { block: LinkGroupBlock }) {
 }
 
 function ButtonRenderer({ block }: { block: ButtonBlock }) {
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
   return (
     <button
       className="as-cjp-btn as-cjp-btn--primary"

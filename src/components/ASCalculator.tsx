@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocalizedNavigate, useT } from "../i18n";
 import {
   calculateSolarEstimate,
   formatProjectionDescription,
@@ -87,7 +87,8 @@ function useInitialRollingNumber(
 }
 
 export default function ASImpactCalculator() {
-  const navigate = useNavigate();
+  const navigate = useLocalizedNavigate();
+  const t = useT();
 
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
@@ -247,7 +248,7 @@ export default function ASImpactCalculator() {
 
       <div className="as-impact-content">
         <div className="as-impact-heading">
-          <h2>Calculate Your Savings</h2>
+          <h2>{t("calculator.title")}</h2>
           <p>
             See how much you could save over the {projectionDescription} projected
             lifespan of your system.

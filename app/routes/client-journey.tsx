@@ -1,11 +1,11 @@
-import type { MetaFunction } from "react-router";
+import { localizedMeta } from "../lib/i18n-meta";
 import { useLoaderData } from "react-router";
 import type { ApiJourneyStep } from "../../src/services/ASContent";
 import { apiGetList } from "../lib/api.server";
 import "../../src/assets/styles/contents/as_client_journey_page.less";
 import ASClientJourneyPage from "../../src/pages/ASClientJourneyPage";
 
-export const meta: MetaFunction = () => [
+export const meta = localizedMeta(() => [
   { title: "Solar Installation Process in Bohol | Azari Solar" },
   {
     name: "description",
@@ -30,7 +30,7 @@ export const meta: MetaFunction = () => [
     content: "Learn how Azari Solar guides you from consultation to installation in Bohol. Transparent process, quality components, and full after-sales support across the Philippines.",
   },
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
-];
+]);
 
 export async function loader() {
   return apiGetList<ApiJourneyStep>("/api/client-journey");
