@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
+import { BUSINESS } from "../config/business";
 
 type FooterLink = {
   name: string;
   url: string;
 };
 
+// `phone` and `email` may still arrive from the footer CMS entry, but they are
+// ignored: contact details always come from the business identity config so
+// they cannot drift from the structured data.
 type FooterData = {
   id?: string;
   phone?: string;
@@ -20,22 +24,11 @@ type FooterData = {
 
 const DEFAULT_FOOTER: Required<FooterData> = {
   id: "",
-  phone: "+63 961 618 3436",
-  email: "sales@azari.solar",
-  socials: {
-    facebook: {
-      name: "Facebook",
-      url: "https://www.facebook.com",
-    },
-    Instagram: {
-      name: "Instagram",
-      url: "https://www.instagram.com",
-    },
-    TikTok: {
-      name: "TikTok",
-      url: "https://www.tiktok.com",
-    },
-  },
+  phone: BUSINESS.phone.display,
+  email: BUSINESS.email.address,
+  socials: Object.fromEntries(
+    BUSINESS.socials.map(({ key, name, url }) => [key, { name, url }])
+  ),
   footer_text: {
     credits: "Designed by Orland Developed by Stephen & Adriel",
     privacy_policy: {
@@ -90,18 +83,12 @@ export default function ASFooter() {
 
       <div className="as-footer-content">
         <div className="as-footer-middle">
-          <a
-            href={`mailto:${resolvedFooter.email}`}
-            className="as-footer-link"
-          >
-            {resolvedFooter.email}
+          <a href={BUSINESS.email.mailtoHref} className="as-footer-link">
+            {BUSINESS.email.address}
           </a>
 
-          <a
-            href={`tel:${resolvedFooter.phone}`}
-            className="as-footer-link"
-          >
-            {resolvedFooter.phone}
+          <a href={BUSINESS.phone.telHref} className="as-footer-link">
+            {BUSINESS.phone.display}
           </a>
 
           <div className="as-footer-socials">
