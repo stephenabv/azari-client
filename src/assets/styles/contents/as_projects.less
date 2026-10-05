@@ -134,6 +134,17 @@
   filter: brightness(0.9);
 }
 
+/* While a card's photo loads, its loader covers the photo only. The shared
+   overlay sits at z-index 3, above the text panel (z-index 2), which hid the
+   title and stats; on a card it drops under the panel, and the logo is pinned
+   near the top so it stays clear of the panel, whose height grows on phones
+   where the stats stack. */
+.as-project-card .as-img-loader-overlay {
+  z-index: 1;
+  align-items: flex-start;
+  padding-top: 44px;
+}
+
 .as-project-card-shade {
   position: absolute;
   inset: 0;
