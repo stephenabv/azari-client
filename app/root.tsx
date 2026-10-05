@@ -9,6 +9,9 @@ import {
 } from "react-router";
 import type { HeadersFunction, LinksFunction } from "react-router";
 
+import { BUSINESS } from "../src/config/business";
+import { SiteSchemaBuilder } from "./lib/business-schema";
+
 import "../src/index.css";
 import "../src/assets/styles/main.less";
 
@@ -61,88 +64,9 @@ export const headers: HeadersFunction = () => ({
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark-theme':'light-theme');document.body.classList.add(t);}catch(e){}})();`;
 
 
-// JSON.stringify does not escape `<`, so a value containing `</script>` would
-// break out of the inline script tag. < is the safe JSON-encoded form of
-// `<` and is decoded identically by JSON.parse / ld+json consumers.
-const SITE_JSONLD = JSON.stringify({
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": "https://azari.solar/#website",
-      name: "Azari Solar",
-      alternateName: "azari.solar",
-      url: "https://azari.solar/",
-    },
-    {
-      "@type": ["LocalBusiness", "Electrician"],
-      "@id": "https://azari.solar/#business",
-      name: "Azari Solar",
-      url: "https://azari.solar",
-      logo: {
-        "@type": "ImageObject",
-        url: "https://azari.solar/favicon-96x96.png",
-        width: 96,
-        height: 96,
-      },
-      image: "https://azari.solar/preview.jpg",
-      description:
-        "Azari Solar installs affordable solar panel systems for residential and commercial properties in Bohol and across the Philippines.",
-      telephone: "+63-961-618-3465",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: "Tagbilaran City",
-        addressRegion: "Bohol",
-        addressCountry: "PH",
-      },
-      geo: {
-        "@type": "GeoCoordinates",
-        latitude: 9.6571,
-        longitude: 123.8543,
-      },
-      areaServed: [
-        { "@type": "City", name: "Tagbilaran City" },
-        { "@type": "AdministrativeArea", name: "Bohol" },
-        { "@type": "AdministrativeArea", name: "Visayas" },
-        { "@type": "Country", name: "Philippines" },
-      ],
-      openingHoursSpecification: [
-        {
-          "@type": "OpeningHoursSpecification",
-          dayOfWeek: [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-          ],
-          opens: "00:00",
-          closes: "23:59",
-        },
-      ],
-      priceRange: "₱₱",
-      currenciesAccepted: "PHP",
-      paymentAccepted: "Cash, Bank Transfer, GCash",
-      sameAs: [],
-    },
-    {
-      "@type": "Service",
-      "@id": "https://azari.solar/#solar-installation",
-      name: "Solar Panel Installation",
-      serviceType: "Solar Panel Installation",
-      provider: { "@id": "https://azari.solar/#business" },
-      areaServed: [
-        { "@type": "AdministrativeArea", name: "Bohol" },
-        { "@type": "Country", name: "Philippines" },
-      ],
-      description:
-        "Professional solar panel installation for residential and commercial properties. We offer hybrid, grid-tie, and off-grid solar systems with full after-sales support.",
-      url: "https://azari.solar/packages",
-    },
-  ],
-}).replace(/</g, '\\u003c');
+const SITE_JSONLD = new SiteSchemaBuilder().toInlineJson();
+
+const { address: BUSINESS_ADDRESS, geo: BUSINESS_GEO } = BUSINESS;
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -151,12 +75,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         {/* Geo / local signals */}
-        <meta name="geo.region" content="PH-BOH" />
-        <meta name="geo.placename" content="Tagbilaran City, Bohol, Philippines" />
-        <meta name="geo.position" content="9.6571;123.8543" />
-        <meta name="ICBM" content="9.6571, 123.8543" />
+        <meta name="geo.region" content={BUSINESS_ADDRESS.regionCode} />
+        <meta
+          name="geo.placename"
+          content={`${BUSINESS_ADDRESS.locality}, ${BUSINESS_ADDRESS.region}, Philippines`}
+        />
+        <meta name="geo.position" content={`${BUSINESS_GEO.latitude};${BUSINESS_GEO.longitude}`} />
+        <meta name="ICBM" content={`${BUSINESS_GEO.latitude}, ${BUSINESS_GEO.longitude}`} />
         <meta name="theme-color" content="#0f172a" />
-        <meta name="author" content="Azari Solar" />
+        <meta name="author" content={BUSINESS.name} />
         <meta
           name="google-site-verification"
           content="WAIKncjPdupwkR3Gq8LFWOko2B_5dwlGkjAM0xVBbzs"

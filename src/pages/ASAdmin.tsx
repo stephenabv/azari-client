@@ -83,6 +83,7 @@ import { useScrollLock } from "../hooks/useScrollLock";
 import ASInventoryQuickAdd from "../components/ASInventoryQuickAdd";
 import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
+import { BUSINESS } from "../config/business";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "inverter-brands" | "package-inquiries" | "utilities" | "sections"
@@ -6328,8 +6329,6 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [socials, setSocials] = useState<Array<{ key: string; name: string; url: string }>>([]);
   const [credits, setCredits] = useState("");
   const [privacyName, setPrivacyName] = useState("");
@@ -6338,7 +6337,6 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
   const [termsUrl, setTermsUrl] = useState("");
 
   const populate = (d: Partial<FooterContent>) => {
-    setPhone(d.phone ?? ""); setEmail(d.email ?? "");
     setSocials(Object.entries(d.socials ?? {}).map(([k, v]) => ({ key: k, name: v.name, url: v.url })));
     setCredits(d.footer_text?.credits ?? "");
     setPrivacyName(d.footer_text?.privacy_policy?.name ?? ""); setPrivacyUrl(d.footer_text?.privacy_policy?.url ?? "");
@@ -6356,8 +6354,10 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
 
   useEffect(() => { void load(); }, []);
 
+  // Contact details are owned by src/config/business.ts; they are written back
+  // so the stored footer entry stays consistent with what the site renders.
   const buildPayload = (): FooterContent => ({
-    phone, email,
+    phone: BUSINESS.phone.display, email: BUSINESS.email.address,
     socials: Object.fromEntries(socials.filter((s) => s.key.trim()).map((s) => [s.key.trim(), { name: s.name, url: s.url }])),
     footer_text: { credits, privacy_policy: { name: privacyName, url: privacyUrl }, terms_conditions: { name: termsName, url: termsUrl } },
   });
@@ -6396,9 +6396,10 @@ function FooterEditor({ apiKey }: { apiKey: string }) {
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <div className="ad-card-title">Contact Info</div>
         <div className="ad-form-grid">
-          <div><label className="ad-label">Phone</label><input className="ad-input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+63 961 618 3436" /></div>
-          <div><label className="ad-label">Email</label><input className="ad-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="sales@azari.solar" /></div>
+          <div><label className="ad-label">Phone</label><input className="ad-input" value={BUSINESS.phone.display} readOnly disabled /></div>
+          <div><label className="ad-label">Email</label><input className="ad-input" value={BUSINESS.email.address} readOnly disabled /></div>
         </div>
+        <div style={{ fontSize: 12, color: "var(--ad-text3)", marginTop: 8 }}>Managed in the site's business config (src/config/business.ts) so the footer and search listings always match.</div>
       </div>
       <div className="ad-card" style={{ marginBottom: 16 }}>
         <div className="ad-section-header" style={{ marginBottom: 12 }}>

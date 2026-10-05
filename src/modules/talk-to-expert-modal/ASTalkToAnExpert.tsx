@@ -5,6 +5,7 @@ import "./as_talktoexpert.less";
 import ASSystemError from "../system-error/ASSystemError";
 import LocationAutocompleteInput, { type NominatimResult } from "../../components/ASLocationAutocomplete";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import { BUSINESS } from "../../config/business";
 import {
   buildTalkToExpertPayload,
   validateTalkToExpertField,
@@ -28,7 +29,7 @@ type ASFooterConfig = {
 };
 
 const DEFAULT_CONFIG: ASFooterConfig = {
-  contact_email: "sales@azari.solar",
+  contact_email: BUSINESS.email.address,
   headline: "Let's Connect.",
   intro:
     "Have questions about solar? Whether you're curious about savings or just want to know if your roof is ready, we're here to help. No technical jargon, just honest advice.",
