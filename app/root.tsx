@@ -25,16 +25,20 @@ export const links: LinksFunction = () => [
   { rel: "dns-prefetch", href: "//www.google-analytics.com" },
   { rel: "dns-prefetch", href: "//www.googletagmanager.com" },
   { rel: "dns-prefetch", href: "//firebaselogging.googleapis.com" },
-  { rel: "preload", href: "/fonts/inter-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
+  // Only the latin subsets used above the fold. The latin-ext files still
+  // load on demand (unicode-range) if a page needs them.
   { rel: "preload", href: "/fonts/inter-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
-  { rel: "preload", href: "/fonts/outfit-normal-latin-ext.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
   { rel: "preload", href: "/fonts/outfit-normal-latin.woff2", as: "font", type: "font/woff2", crossOrigin: "anonymous" },
 ];
 
 // nginx already sets X-Content-Type-Options, X-Frame-Options, Referrer-Policy,
 // Permissions-Policy, COOP, and HSTS for all responses from this server.
-// Only the two headers below are NOT covered by nginx and must be set here.
+// The headers below are NOT covered by nginx and must be set here.
 export const headers: HeadersFunction = () => ({
+  // Server-rendered HTML: browsers revalidate on every visit. No shared-cache
+  // TTL (s-maxage) here, because this also covers 404/503 documents; an edge
+  // cache in front of the origin sets its own HTML TTL (see docs/cloudflare.md).
+  'Cache-Control': 'public, max-age=0, must-revalidate',
   // Legacy XSS filter hint — checked by security scanners; ignored by modern
   // browsers that honour CSP instead.
   'X-XSS-Protection': '1; mode=block',
@@ -99,10 +103,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: SITE_JSONLD }}
         />
-        {/* Anti-flash: applies saved theme class before React hydrates */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body suppressHydrationWarning>
+        {/* Anti-flash: applies the saved theme class before first paint. It has
+            to run inside <body>; in <head>, document.body does not exist yet. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {children}
         <ScrollRestoration />
         <Scripts />

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
+import { useCountUp } from "../../hooks/useCountUp";
 import "./as_rollingcard.less";
 
 type StatCardProps = {
@@ -64,71 +65,14 @@ export function StatCard({
   duration = 1800,
 }: StatCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const frameRef = useRef<number | null>(null);
-
-  const [hasStarted, setHasStarted] = useState(false);
-  const [animatedValue, setAnimatedValue] = useState(0);
 
   const parsed = useMemo(() => parseAnimatedValue(value), [value]);
+  const target = parsed ? extractNumericTarget(parsed.numeric) : 0;
+  const animatedValue = useCountUp(cardRef, target, { duration, threshold: 0.35 });
 
-  const target = useMemo(() => {
-    if (!parsed) return 0;
-    return extractNumericTarget(parsed.numeric);
-  }, [parsed]);
-
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el || hasStarted) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setHasStarted(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.35 }
-    );
-
-    observer.observe(el);
-
-    return () => observer.disconnect();
-  }, [hasStarted]);
-
-  useEffect(() => {
-    if (!hasStarted || !parsed) return;
-
-    let startTime: number | null = null;
-
-    const animate = (time: number) => {
-      if (startTime === null) startTime = time;
-
-      const progress = Math.min((time - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      setAnimatedValue(target * eased);
-
-      if (progress < 1) {
-        frameRef.current = requestAnimationFrame(animate);
-      }
-    };
-
-    frameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, [hasStarted, target, duration, parsed]);
-
-  const displayValue = useMemo(() => {
-    if (!parsed) return value;
-
-    const formattedNumeric = hasStarted
-      ? formatAnimatedValue(animatedValue, parsed.numeric)
-      : formatAnimatedValue(0, parsed.numeric);
-
-    return `${parsed.prefix}${formattedNumeric}${parsed.suffix}`;
-  }, [animatedValue, hasStarted, parsed, value]);
+  const displayValue = parsed
+    ? `${parsed.prefix}${formatAnimatedValue(animatedValue, parsed.numeric)}${parsed.suffix}`
+    : value;
 
   return (
     <div ref={cardRef} className="stat-card">

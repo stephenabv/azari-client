@@ -1,17 +1,10 @@
-import type { LinksFunction, MetaFunction } from "react-router";
+import type { MetaFunction } from "react-router";
+import { useLoaderData } from "react-router";
+import { SiteContentProvider } from "../../src/context/SiteContentContext";
+import type { SiteContentSnapshot } from "../../src/context/siteContent";
 import ASDashboard from "../../src/pages/ASDashboard";
+import { apiGet } from "../lib/api.server";
 import { FAQ_SCHEMA } from "../lib/faq-schema";
-
-// Preload the hero video poster so the browser's preload scanner can fetch it
-// immediately from the initial HTML, before JS hydrates and the <video> renders.
-export const links: LinksFunction = () => [
-  {
-    rel: "preload",
-    href: "/preview.jpg",
-    as: "image",
-    fetchPriority: "high",
-  } as ReturnType<LinksFunction>[number],
-];
 
 export const meta: MetaFunction = () => [
   {
@@ -56,6 +49,22 @@ export const meta: MetaFunction = () => [
   { "script:ld+json": FAQ_SCHEMA },
 ];
 
+/**
+ * The home page renders CMS content (stat counters, section visibility, copy)
+ * on the server so the HTML carries the real figures. If the API is down the
+ * page still renders with the built-in defaults and the browser fetches the
+ * content itself, as before.
+ */
+export async function loader(): Promise<SiteContentSnapshot> {
+  const result = await apiGet<SiteContentSnapshot>("/api/content");
+  return result.status === "ok" ? result.data : {};
+}
+
 export default function Index() {
-  return <ASDashboard />;
+  const content = useLoaderData<typeof loader>();
+  return (
+    <SiteContentProvider content={content}>
+      <ASDashboard />
+    </SiteContentProvider>
+  );
 }

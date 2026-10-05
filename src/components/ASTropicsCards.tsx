@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef } from "react";
+import { useCountUp } from "../hooks/useCountUp";
 import climateDark from "../assets/images/dark/climate_bg_dark.webp";
 import assetsDeployed from "../assets/images/dark/assets_deployed_dark.webp";
 
@@ -24,35 +25,17 @@ const cards = [
     type: "performance",
     title: "Performance Guarantee",
     subtitle: "AVERAGE ELECTRICITY BILL REDUCTION FOR OUR CLIENTS",
-    image: "/images/performance-bg.jpg",
   },
 ];
-
-function useCountUp(target: number, isActive: boolean, duration = 1500, decimals = 0): number {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    if (!isActive) return;
-    const start = performance.now();
-    let rafId: number;
-    function step(now: number) {
-      const progress = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Number((target * eased).toFixed(decimals)));
-      if (progress < 1) rafId = requestAnimationFrame(step);
-      else setValue(target);
-    }
-    rafId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafId);
-  }, [isActive, target, duration, decimals]);
-  return value;
-}
 
 export default function ASTropicsCards({ isVisible, assetsDeployed, performanceRating }: ASTropicsCardsProps) {
   const assetsNumber = parseFloat(assetsDeployed);
   const assetsUnit = assetsDeployed.replace(/[\d.]/g, "");
 
-  const rolledAssets = useCountUp(assetsNumber, isVisible, 1600, 2);
-  const rolledPerformance = useCountUp(performanceRating, isVisible, 1400, 0);
+  const assetsRef = useRef<HTMLParagraphElement | null>(null);
+  const performanceRef = useRef<HTMLParagraphElement | null>(null);
+  const rolledAssets = useCountUp(assetsRef, Number.isFinite(assetsNumber) ? assetsNumber : 0, { duration: 1600 });
+  const rolledPerformance = useCountUp(performanceRef, performanceRating, { duration: 1400 });
 
   const totalBars = 12;
 
@@ -89,7 +72,7 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
         <div className="as-card-overlay as-solar-overlay" />
 
         <div className="as-solar-content">
-          <p className="as-solar-title">
+          <p ref={assetsRef} className="as-solar-title">
             {rolledAssets.toFixed(2)}
             {assetsUnit}
           </p>
@@ -99,7 +82,6 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
 
       <div
         className={`as-tropics-card as-performance-card ${isVisible ? "is-shown" : ""}`}
-        style={{ backgroundImage: `url(${cards[2].image})` }}
       >
         <div className="as-performance-card-container">
           <p className="as-performance-title">{cards[2].title}</p>
@@ -133,7 +115,7 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
               })}
             </div>
 
-            <p className="as-performance-percentage">
+            <p ref={performanceRef} className="as-performance-percentage">
               {Math.round(rolledPerformance)}%
             </p>
           </div>

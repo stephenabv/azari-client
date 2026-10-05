@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { fetchProjects, type ApiProject } from "../services/ASContent";
+import { projectPath } from "../lib/projectPaths";
 import ASImgLoader from "./ASImgLoader";
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
@@ -14,7 +15,9 @@ type ProjectCategory =
 type ProjectType = "Residential" | "Commercial" | "Industrial";
 
 type Project = {
-  id: number | string;
+  id: string;
+  /** Canonical page path, /projects/<slug>. */
+  href: string;
   category: ProjectType;
   filter: ProjectCategory[];
   title: string;
@@ -50,7 +53,7 @@ function apiToProject(p: ApiProject): Project {
   const filter: ProjectCategory[] = ["All Projects", `${p.category} Projects` as ProjectCategory];
   if (p.isRecent) filter.push("Recent Projects");
   const thumbnail = getYouTubeThumbnail(p.videoUrl);
-  return { id: p.id, title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
+  return { id: p.id, href: projectPath(p), title: p.title, category: p.category, system: p.system, savings: p.savings, image: thumbnail ?? p.imageUrl, filter };
 }
 
 type ASProjectsProps = {
@@ -168,7 +171,7 @@ export default function ASProjects({ initialProjects }: ASProjectsProps = {}) {
             <Link
               className="as-project-card"
               key={project.id}
-              to={`/projects/${project.id}`}
+              to={project.href}
               style={{ animationDelay: `${index * 90}ms`, cursor: "pointer" }}
               aria-label={project.title}
             >

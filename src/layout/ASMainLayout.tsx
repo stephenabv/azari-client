@@ -1,57 +1,55 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Outlet, useLocation } from "react-router";
 import { trackPageView } from "../services/ASAnalytics";
+import { themeStore, type Theme } from "../services/ASThemeStore";
 import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import ASPageLoader from "../components/ASPageLoader";
 import { usePageTransition } from "../hooks/usePageTransition";
 
+/** What routes read through useOutletContext. */
+export type LayoutContext = {
+  theme: Theme;
+  /** False during SSR and hydration, until the visitor's theme is known. */
+  themeReady: boolean;
+};
+
 export default function ASMainLayout() {
   const location = useLocation();
-  const analyticsReady = useRef(false);
   const isPageTransitioning = usePageTransition();
 
   const isHeroPage = location.pathname === "/";
   const isProjectDetail = /^\/projects\/.+/.test(location.pathname);
 
-  // SSR-safe: default to dark-theme; anti-flash script in <body> handles the visual side
-  const [theme, setTheme] = useState<"light-theme" | "dark-theme">("dark-theme");
+  // The page the visitor landed on renders without the enter animation (see
+  // .route-page--enter); pages reached by client-side navigation animate in.
+  const [landingPath] = useState(location.pathname);
+  const routePageClass = location.pathname === landingPath ? "route-page" : "route-page route-page--enter";
+
+  // null during SSR and hydration. The anti-flash script at the top of <body>
+  // already put the right class on it; applying a server default first would flip it
+  // for a frame and download the other theme's assets.
+  const resolvedTheme = useSyncExternalStore(
+    themeStore.subscribe,
+    themeStore.getSnapshot,
+    themeStore.getServerSnapshot,
+  );
+  const theme: Theme = resolvedTheme ?? "dark-theme";
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme") as "light-theme" | "dark-theme" | null;
-    const system = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark-theme"
-      : "light-theme";
-    setTheme(saved ?? system);
-  }, []);
-
-  useEffect(() => {
+    if (!resolvedTheme) return;
     document.body.classList.remove("light-theme", "dark-theme");
-    document.body.classList.add(theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
+    document.body.classList.add(resolvedTheme);
+  }, [resolvedTheme]);
 
+  // ASAnalytics defers loading Firebase itself; page views queue until then.
   useEffect(() => {
-    if (!analyticsReady.current) {
-      const fire = () => {
-        analyticsReady.current = true;
-        trackPageView(location.pathname);
-      };
-      if (typeof requestIdleCallback !== "undefined") {
-        const id = requestIdleCallback(fire, { timeout: 5000 });
-        return () => cancelIdleCallback(id);
-      }
-      const id = setTimeout(fire, 2000);
-      return () => clearTimeout(id);
-    }
-    trackPageView(location.pathname);
+    void trackPageView(location.pathname);
   }, [location.pathname]);
 
   const toggleTheme = () => {
-    setTheme((prev) =>
-      prev === "dark-theme" ? "light-theme" : "dark-theme"
-    );
+    themeStore.set(theme === "dark-theme" ? "light-theme" : "dark-theme");
   };
 
   return (
@@ -67,8 +65,8 @@ export default function ASMainLayout() {
       <div className="layout-content">
         <div className="layout-page-body">
           <div className={`page-container ${isHeroPage || isProjectDetail ? "no-offset" : ""}`}>
-            <div className="route-page" key={location.pathname}>
-              <Outlet context={{ theme }} />
+            <div className={routePageClass} key={location.pathname}>
+              <Outlet context={{ theme, themeReady: resolvedTheme !== null } satisfies LayoutContext} />
             </div>
           </div>
         </div>

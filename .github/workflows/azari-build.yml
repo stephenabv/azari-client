@@ -91,11 +91,20 @@ jobs:
           scp -i ~/.ssh/id_rsa -P ${{ secrets.VM_PORT || '22' }} \
             nginx.conf \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/azari-nginx.conf
+          scp -i ~/.ssh/id_rsa -P ${{ secrets.VM_PORT || '22' }} \
+            nginx/azari-brotli.conf \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:/tmp/azari-brotli.conf
 
           ssh -i ~/.ssh/id_rsa -p ${{ secrets.VM_PORT || '22' }} \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "sudo cp /etc/nginx/sites-available/azari /tmp/azari-nginx.conf.bak 2>/dev/null || true && \
              sudo cp /tmp/azari-nginx.conf /etc/nginx/sites-available/azari && \
+             sudo mkdir -p /etc/nginx/snippets && \
+             sudo cp /tmp/azari-brotli.conf /etc/nginx/snippets/azari-brotli.conf && \
+             if ! sudo nginx -t 2>/dev/null; then \
+               sudo rm -f /etc/nginx/snippets/azari-brotli.conf; \
+               echo 'Brotli module not available; serving gzip only'; \
+             fi && \
              if sudo nginx -t; then \
                sudo nginx -s reload; \
              else \

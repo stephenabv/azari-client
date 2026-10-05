@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { geoMercator, geoPath } from "d3-geo";
+import type { GeoProjection } from "d3-geo";
 import type { Feature, Geometry } from "geojson";
 import iconSolar from "../assets/icons/icon-solar.svg";
 import iconHighlight from "../assets/icons/icon-highlight.svg";
@@ -8,6 +8,7 @@ import iconPrev from "../assets/icons/icon-prev.svg";
 import iconNext from "../assets/icons/icon-next.svg";
 import iconWatchVideo from "../assets/icons/icon-watch-video.svg";
 import { useContent } from "../hooks/useContent";
+import { nearViewportStrategy } from "../media/loadStrategies";
 
 type JourneyEntry = {
   id: string;
@@ -37,40 +38,43 @@ const DEFAULT_JOURNEY: ClientJourneyContent = {
 const SVG_W = 200;
 const SVG_H = 370;
 
-let _cachedPathD: string | null = null;
+type PhilippinesMapData = {
+  pathD: string;
+  proj: GeoProjection;
+};
 
-let _cachedProj: any = null;
+let cachedMap: PhilippinesMapData | null = null;
 
-function usePhilippinesMap() {
-  const [state, setState] = useState<{
-    pathD: string;
-
-    proj: any;
-  } | null>(
-    _cachedPathD && _cachedProj
-      ? { pathD: _cachedPathD, proj: _cachedProj }
-      : null
-  );
+/**
+ * The map outline (a 49 KB GeoJSON file plus d3-geo) is fetched only when the
+ * map comes near the viewport, so it stays off the home page's first load.
+ */
+function usePhilippinesMap(anchorRef: RefObject<Element | null>) {
+  const [state, setState] = useState<PhilippinesMapData | null>(cachedMap);
 
   useEffect(() => {
-    if (_cachedPathD && _cachedProj) return;
+    const anchor = anchorRef.current;
+    if (cachedMap || !anchor) return;
 
-    fetch("/data/philippines.json")
-      .then(r => r.json())
-      .then((ph: Feature<Geometry>) => {
-        const proj = geoMercator().fitExtent(
-          [[18, 18], [SVG_W - 18, SVG_H - 18]],
-          ph
-        );
-        const pathGen = geoPath().projection(proj);
-        const pathD = pathGen(ph) ?? "";
+    let cancelled = false;
+    const stop = nearViewportStrategy.observe(anchor, () => {
+      Promise.all([
+        fetch("/data/philippines.json").then((r) => r.json() as Promise<Feature<Geometry>>),
+        import("d3-geo"),
+      ])
+        .then(([ph, { geoMercator, geoPath }]) => {
+          const proj = geoMercator().fitExtent([[18, 18], [SVG_W - 18, SVG_H - 18]], ph);
+          cachedMap = { pathD: geoPath().projection(proj)(ph) ?? "", proj };
+          if (!cancelled) setState(cachedMap);
+        })
+        .catch((err: unknown) => console.error("Failed to load Philippines map:", err));
+    });
 
-        _cachedPathD = pathD;
-        _cachedProj = proj;
-        setState({ pathD, proj });
-      })
-      .catch(err => console.error("Failed to load Philippines map:", err));
-  }, []);
+    return () => {
+      cancelled = true;
+      stop();
+    };
+  }, [anchorRef]);
 
   return state;
 }
@@ -143,10 +147,12 @@ function PhilippinesMap({
   activeIndex: number;
   onMarkerClick: (i: number) => void;
 }) {
-  const map = usePhilippinesMap();
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const map = usePhilippinesMap(svgRef);
 
   return (
     <svg
+      ref={svgRef}
       className="as-journey-map"
       viewBox={`0 0 ${SVG_W} ${SVG_H}`}
       xmlns="http://www.w3.org/2000/svg"

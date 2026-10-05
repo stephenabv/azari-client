@@ -70,9 +70,7 @@ export default function ASMetrics() {
             index <= visibleCards ? "is-shown" : ""
           }`}
         >
-          {index <= visibleCards && (
-            <StatCard value={item.value} label={item.label} duration={1800} />
-          )}
+          <StatCard value={item.value} label={item.label} duration={1800} />
         </div>
       ))}
     </section>

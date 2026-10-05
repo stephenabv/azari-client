@@ -16,16 +16,18 @@ const API_BASE = process.env["API_URL"] ?? "http://localhost:4000";
 const BASE_URL = "https://azari.solar";
 
 // Served only if the API cannot be reached, so crawlers still get the static
-// pages instead of an error. Keep in step with STATIC_PAGES in
-// azari-service/src/routes/sitemap.routes.ts.
+// pages instead of an error. Keep in step with StaticPagesSource in
+// azari-service/src/services/sitemap/sitemap.service.ts. No lastmod: without
+// the database there is no real date to give, and a made-up one is worse
+// than none.
 const FALLBACK_PAGES = [
-  { path: "/", priority: "1.0", changefreq: "weekly", lastmod: "2026-08-20" },
-  { path: "/projects", priority: "0.9", changefreq: "weekly", lastmod: "2026-08-20" },
-  { path: "/packages", priority: "0.8", changefreq: "monthly", lastmod: "2026-08-20" },
-  { path: "/solar-calculator", priority: "0.8", changefreq: "monthly", lastmod: "2026-08-20" },
-  { path: "/client-journey", priority: "0.7", changefreq: "monthly", lastmod: "2026-08-20" },
-  { path: "/privacy-policy", priority: "0.3", changefreq: "yearly", lastmod: "2026-08-20" },
-  { path: "/terms-and-conditions", priority: "0.3", changefreq: "yearly", lastmod: "2026-08-20" },
+  { path: "/", priority: "1.0", changefreq: "weekly" },
+  { path: "/projects", priority: "0.9", changefreq: "weekly" },
+  { path: "/packages", priority: "0.8", changefreq: "monthly" },
+  { path: "/solar-calculator", priority: "0.8", changefreq: "monthly" },
+  { path: "/client-journey", priority: "0.7", changefreq: "monthly" },
+  { path: "/privacy-policy", priority: "0.3", changefreq: "yearly" },
+  { path: "/terms-and-conditions", priority: "0.3", changefreq: "yearly" },
 ];
 
 function fallbackSitemap(): string {
@@ -33,7 +35,6 @@ function fallbackSitemap(): string {
     (p) =>
       `  <url>\n` +
       `    <loc>${BASE_URL}${p.path}</loc>\n` +
-      `    <lastmod>${p.lastmod}</lastmod>\n` +
       `    <changefreq>${p.changefreq}</changefreq>\n` +
       `    <priority>${p.priority}</priority>\n` +
       `  </url>`,

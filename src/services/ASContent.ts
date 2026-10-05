@@ -45,6 +45,7 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
 export type ContentKey =
   | 'hero'
   | 'metrics'
+  | 'partners'
   | 'excellence'
   | 'process'
   | 'tropics'
@@ -325,6 +326,8 @@ export interface ProjectTestimonial {
 
 export interface ApiProject {
   id: string;
+  /** Readable URL segment: /projects/<slug>. */
+  slug: string;
   title: string;
   subtitle?: string;
   category: ProjectCategory;
