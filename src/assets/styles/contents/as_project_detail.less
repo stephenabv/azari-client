@@ -33,6 +33,16 @@
   display: block;
 }
 
+/* While the hero photo loads, its loader covers the photo only. The shared
+   overlay sits at z-index 3, above the title and stats (z-index 2); here it
+   drops under them, with the logo held in the upper part of the hero, clear of
+   the text block at the bottom. */
+.as-pd-hero .as-img-loader-overlay {
+  z-index: 1;
+  align-items: flex-start;
+  padding-top: 28vh;
+}
+
 .as-pd-hero-overlay {
   position: absolute;
   inset: 0;

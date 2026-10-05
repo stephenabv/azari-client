@@ -6,15 +6,21 @@
 
 export const SITE_PREVIEW_IMAGE = "https://azari.solar/preview.jpg";
 
+const SITE_ORIGIN = "https://azari.solar";
+
+/** Server-relative image paths served by the API (see azari-service /api/media). */
+const MEDIA_PATH = /^\/api\/media\/[A-Za-z0-9/_.-]+$/;
+
 /**
- * Open Graph and Twitter image URLs have to be fetchable by a crawler.
- * Project images are stored as `data:image/webp;base64,...`, which no crawler
- * can resolve and which would inline the whole image into the document head,
- * so anything that is not an absolute http(s) URL falls back to the site
+ * Open Graph and Twitter image URLs have to be absolute and fetchable by a
+ * crawler. Absolute http(s) URLs are used as is, and `/api/media/...` paths
+ * are made absolute against the site. Anything else (a `data:` URL, which
+ * would inline the whole image into the document head) falls back to the site
  * preview image.
  */
 export function socialImageUrl(url: unknown): string {
-  return typeof url === "string" && /^https?:\/\//i.test(url)
-    ? url
-    : SITE_PREVIEW_IMAGE;
+  if (typeof url !== "string") return SITE_PREVIEW_IMAGE;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (MEDIA_PATH.test(url)) return `${SITE_ORIGIN}${url}`;
+  return SITE_PREVIEW_IMAGE;
 }
