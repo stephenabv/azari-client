@@ -8,7 +8,8 @@
     "build": "react-router build",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "audit:seo": "node scripts/audit-sitemap.ts"
   },
   "dependencies": {
     "@react-router/node": "^8.0.1",

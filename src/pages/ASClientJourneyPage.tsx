@@ -453,11 +453,23 @@ export default function ASClientJourneyPage({
     );
   };
 
+  // Rendered in the loading state too, so the page always has its <h1>
+  // (the server renders the skeleton when the API returns no steps).
+  const header = (
+    <header className="as-cjp-header">
+      <h1 className="as-cjp-title">Our Client Journey</h1>
+      <p className="as-cjp-subtitle">
+        A streamlined step-by-step process designed to guide you from initial consultation
+        to long-term energy independence.
+      </p>
+    </header>
+  );
+
   if (loading) {
     return (
       <section className="as-cjp as-cjp--loading">
         <div className="as-cjp-container">
-          <div className="as-cjp-skeleton-header" />
+          {header}
           {[...Array(7)].map((_, i) => <div key={i} className="as-cjp-skeleton-row" />)}
         </div>
       </section>
@@ -467,13 +479,7 @@ export default function ASClientJourneyPage({
   return (
     <section ref={sectionRef} className="as-cjp">
       <div className="as-cjp-container">
-        <header className="as-cjp-header">
-          <h1 className="as-cjp-title">Our Client Journey</h1>
-          <p className="as-cjp-subtitle">
-            A streamlined step-by-step process designed to guide you from initial consultation
-            to long-term energy independence.
-          </p>
-        </header>
+        {header}
 
         { }
         <div className="as-cjp-desktop">

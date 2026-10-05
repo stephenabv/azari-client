@@ -263,32 +263,33 @@ function IpRatingBadge({ code, description, offset }: { code: string; descriptio
   );
 }
 
-// Rolls a number from 0 (first appearance) or from its last value (on change)
-// to the new target. Returns null while the target itself is null.
+// Shows the target straight away (so the server-rendered card carries the real
+// price) and rolls from the previous value whenever the target changes, e.g.
+// when the visitor changes a quantity. Returns null while the target is null.
 function useRollingNumber(target: number | null, duration = 700): number | null {
-  const [value, setValue] = useState<number | null>(null);
-  const frameRef = useRef<number | null>(null);
-  const prevRef = useRef<number | null>(null); // null = not yet seen → start from 0
+  // The in-flight animation frame value; null whenever no roll is running.
+  const [frameValue, setFrameValue] = useState<number | null>(null);
+  const prevRef = useRef<number | null>(target);
 
   useEffect(() => {
-    if (target === null) { setValue(null); prevRef.current = null; return; }
-    const start = prevRef.current ?? 0;
+    const start = prevRef.current;
     prevRef.current = target;
-    if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    if (target === null || start === null || start === target) return;
+
     const diff = target - start;
     const t0 = performance.now();
+    let frame = 0;
     const tick = (now: number) => {
       const p = Math.min((now - t0) / duration, 1);
       const eased = 1 - Math.pow(1 - p, 3);
-      setValue(Math.round(start + diff * eased));
-      if (p < 1) { frameRef.current = requestAnimationFrame(tick); }
-      else { setValue(target); frameRef.current = null; }
+      setFrameValue(p < 1 ? Math.round(start + diff * eased) : null);
+      if (p < 1) frame = requestAnimationFrame(tick);
     };
-    frameRef.current = requestAnimationFrame(tick);
-    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
   }, [target, duration]);
 
-  return value;
+  return target === null ? null : frameValue ?? target;
 }
 
 function PackageCard({
