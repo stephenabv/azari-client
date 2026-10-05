@@ -25,7 +25,6 @@ const cards = [
     type: "performance",
     title: "Performance Guarantee",
     subtitle: "AVERAGE ELECTRICITY BILL REDUCTION FOR OUR CLIENTS",
-    image: "/images/performance-bg.jpg",
   },
 ];
 
@@ -83,7 +82,6 @@ export default function ASTropicsCards({ isVisible, assetsDeployed, performanceR
 
       <div
         className={`as-tropics-card as-performance-card ${isVisible ? "is-shown" : ""}`}
-        style={{ backgroundImage: `url(${cards[2].image})` }}
       >
         <div className="as-performance-card-container">
           <p className="as-performance-title">{cards[2].title}</p>

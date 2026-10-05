@@ -40,9 +40,15 @@ header.navbar-section {
 }
 
 .route-page {
+  contain: layout style;
+}
+
+// Client-side navigations only. The first page a visitor lands on is painted
+// straight from the server HTML: fading it in from opacity 0 would hide the
+// LCP element at first paint and delay LCP until after hydration.
+.route-page--enter {
   animation: routePageEnter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   will-change: transform, opacity;
-  contain: layout style;
 }
 
 @keyframes routePageEnter {
@@ -58,7 +64,7 @@ header.navbar-section {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .route-page {
+  .route-page--enter {
     animation: none;
   }
 }

@@ -1,8 +1,18 @@
 import { defineConfig } from "vite";
 import { reactRouter } from "@react-router/dev/vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
-export default defineConfig({
-  plugins: [reactRouter()],
+// `npm run analyze` writes an interactive treemap of the client bundle to
+// build/bundle-stats.html (outside build/client, so it is never deployed).
+const analyze = process.env.ANALYZE === "1";
+
+export default defineConfig(({ isSsrBuild }) => ({
+  plugins: [
+    reactRouter(),
+    analyze &&
+      !isSsrBuild &&
+      visualizer({ filename: "build/bundle-stats.html", template: "treemap", gzipSize: true, brotliSize: true }),
+  ],
   server: {
     proxy: {
       "/api": {
@@ -32,4 +42,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

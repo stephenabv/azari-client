@@ -1,14 +1,20 @@
+import { lazy, Suspense } from "react";
 import { useContent } from "../hooks/useContent";
 import ASBenefitsBanner from "../components/ASBenefits";
-import ASImpactCalculator from "../components/ASCalculator";
 import ASCallToAction from "../components/ASCallToAction";
-import ASClientJourney from "../components/ASClientJourney";
 import ASEngineeredExcellence from "../components/ASEngineeredExcellence";
 import ASHero from "../components/ASHero";
 import ASMetrics from "../components/ASMetrics";
 import ASPartners from "../components/ASPartners";
 import ASProcessSection from "../components/ASProcess";
 import ASTropicsSection from "../components/ASTropics";
+
+// Below the fold and the heaviest sections on the page: the testimonial
+// carousel (with its map) and the savings calculator ship as their own
+// chunks. The server still renders their HTML; the browser hydrates them
+// once their code arrives instead of evaluating it with the entry bundle.
+const ASClientJourney = lazy(() => import("../components/ASClientJourney"));
+const ASImpactCalculator = lazy(() => import("../components/ASCalculator"));
 
 type SectionVisibility = {
   hero: boolean;
@@ -87,13 +93,17 @@ export default function ASDashboard() {
 
       {vis.clientJourney && (
         <section className="_asClientJourney" id="client-journey">
-          <ASClientJourney />
+          <Suspense fallback={null}>
+            <ASClientJourney />
+          </Suspense>
         </section>
       )}
 
       {vis.calculator && (
         <section className="_asImpactCalculator" id="calculator">
-          <ASImpactCalculator />
+          <Suspense fallback={null}>
+            <ASImpactCalculator />
+          </Suspense>
         </section>
       )}
 

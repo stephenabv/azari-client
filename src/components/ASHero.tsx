@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useNavigate, useOutletContext } from "react-router";
-import darkBg from "../assets/videos/bg_hero_section_dark.mp4";
-import darkBgWebm from "../assets/videos/bg_hero_section_dark.webm";
-import lightBg from "../assets/videos/bg_hero_section_light.mp4";
-import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
+import darkBg from "../assets/videos/web/hero-dark.mp4";
+import darkBgWebm from "../assets/videos/web/hero-dark.webm";
+import lightBg from "../assets/videos/web/hero-light.mp4";
+import lightBgWebm from "../assets/videos/web/hero-light.webm";
 import { useContent } from "../hooks/useContent";
+import type { LayoutContext } from "../layout/ASMainLayout";
+import { immediateStrategy } from "../media/loadStrategies";
+import { LazyVideo, type VideoSource } from "./media/LazyVideo";
 
-type LayoutContext = {
-  theme: "light-theme" | "dark-theme";
+const HERO_VIDEOS: Record<LayoutContext["theme"], readonly VideoSource[]> = {
+  "dark-theme": [
+    { src: darkBgWebm, type: "video/webm" },
+    { src: darkBg, type: "video/mp4" },
+  ],
+  "light-theme": [
+    { src: lightBgWebm, type: "video/webm" },
+    { src: lightBg, type: "video/mp4" },
+  ],
 };
 
 type HeroContent = {
@@ -45,9 +55,8 @@ function renderHighlighted(text: string, highlights: string): React.ReactNode {
 }
 
 export default function ASHero() {
-  const [show, setShow] = useState(true);
   const navigate = useNavigate();
-  const { theme } = useOutletContext<LayoutContext>();
+  const { theme, themeReady } = useOutletContext<LayoutContext>();
   const hero = useContent<HeroContent>("hero", DEFAULT_HERO);
 
   const handleCtaClick = (url: string) => {
@@ -61,31 +70,33 @@ export default function ASHero() {
 
   return (
     <section className="ASHero">
-      <div className={`hero_video ${show ? "animate-video" : ""}`}>
-        <video key={theme} autoPlay muted loop playsInline preload="metadata" poster="/preview.jpg" fetchPriority="high">
-          <source src={theme === "light-theme" ? lightBgWebm : darkBgWebm} type="video/webm" />
-          <source src={theme === "light-theme" ? lightBg : darkBg} type="video/mp4" />
-        </video>
-      </div>
+      {/* Only the active theme's video downloads, and only once the theme is
+          known. Its first frame is painted underneath as the section's CSS
+          background (as_hero.less). */}
+      <LazyVideo
+        className="hero_video animate-video"
+        sources={HERO_VIDEOS[theme]}
+        strategy={immediateStrategy}
+        enabled={themeReady}
+      />
 
       <div className="hero_overlay_dark" />
 
       <div className="hero_banner_overlay">
         <div className="hero_text">
-          <h1 className={`hero_header_text ${show ? "animate-in" : ""}`}>
+          <h1 className="hero_header_text animate-in">
             {renderHighlighted(
               `${hero.headerPart1} ${hero.headerPart2}`,
               hero.highlightWords ?? hero.headerPart1
             )}
           </h1>
 
-          <p className={`hero_subtext ${show ? "animate-in delay-1" : ""}`}>
+          <p className="hero_subtext animate-in delay-1">
             {hero.subtext}
           </p>
 
           <div
-            className={`hero_action_buttons ${show ? "animate-in delay-2" : ""
-              }`}
+            className="hero_action_buttons animate-in delay-2"
           >
             <button
               type="button"

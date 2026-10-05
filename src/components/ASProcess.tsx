@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import lightBg from "../assets/videos/bg_hero_section_light.mp4";
-import lightBgWebm from "../assets/videos/bg_hero_section_light.webm";
+import lightBg from "../assets/videos/web/hero-light.mp4";
+import lightBgWebm from "../assets/videos/web/hero-light.webm";
+import lightBgPoster from "../assets/videos/web/hero-light-poster.webp";
 import { useContent } from "../hooks/useContent";
 import { Link } from "react-router";
+import { LazyVideo, type VideoSource } from "./media/LazyVideo";
+
+const PROCESS_VIDEO: readonly VideoSource[] = [
+  { src: lightBgWebm, type: "video/webm" },
+  { src: lightBg, type: "video/mp4" },
+];
 
 type ProcessStep = {
   number: string;
@@ -164,19 +171,7 @@ export default function ASProcessSection() {
       </div>
 
       <div className={`as-process-footer ${showFooter ? "is-shown" : ""}`}>
-        <div className="as-process-video">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="none"
-            aria-hidden="true"
-          >
-            <source src={lightBgWebm} type="video/webm" />
-            <source src={lightBg} type="video/mp4" />
-          </video>
-        </div>
+        <LazyVideo className="as-process-video" sources={PROCESS_VIDEO} poster={lightBgPoster} />
 
         <div className="as-process-cta">
           <p>Your Path to Energy Independence</p>

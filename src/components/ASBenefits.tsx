@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import benefitVideoOverlay from "../assets/videos/solar_light.mp4";
-import benefitVideoWebm from "../assets/videos/solar_light.webm";
+import benefitVideoOverlay from "../assets/videos/web/solar-light.mp4";
+import benefitVideoWebm from "../assets/videos/web/solar-light.webm";
+import benefitVideoPoster from "../assets/videos/web/solar-light-poster.webp";
 import iconDurability from "../assets/icons/icon-durability.svg";
 import iconBulb from "../assets/icons/icon-bulb.svg";
 import iconLeaf from "../assets/icons/icon-leaf.svg";
 import iconPeace from "../assets/icons/icon-peace.svg";
 import { useContent } from "../hooks/useContent";
+import { LazyVideo, type VideoSource } from "./media/LazyVideo";
+
+const BENEFIT_VIDEO: readonly VideoSource[] = [
+  { src: benefitVideoWebm, type: "video/webm" },
+  { src: benefitVideoOverlay, type: "video/mp4" },
+];
 
 type BenefitItem = {
   title: string;
@@ -105,17 +112,11 @@ export default function ASBenefitsBanner() {
 
   return (
     <section ref={sectionRef} className={`ASBenefitsBanner${isVideoShown ? " is-video-shown" : ""}`}>
-      <video
+      <LazyVideo
         className={`as-benefits-video ${isVideoShown ? "is-video-shown" : ""}`}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="none"
-      >
-        <source src={benefitVideoWebm} type="video/webm" />
-        <source src={benefitVideoOverlay} type="video/mp4" />
-      </video>
+        sources={BENEFIT_VIDEO}
+        poster={benefitVideoPoster}
+      />
 
       <div className={`as-benefits-overlay${isVideoShown ? " is-shown" : ""}`} />
 
