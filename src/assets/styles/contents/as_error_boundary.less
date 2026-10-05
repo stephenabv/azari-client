@@ -91,9 +91,15 @@
   position: fixed;
   inset: 0;
   width: 100vw;
+  // lvh is the viewport with the mobile URL bar collapsed: the overlay stays
+  // full height even if the bar hides mid-transition. dvh lagged behind that
+  // resize and left a strip of the page showing at the bottom.
   height: 100vh;
-  height: 100dvh;
+  height: 100lvh;
   z-index: 2147483647; // max z-index, above everything
+  // Touch drags that start on the overlay must not scroll the page beneath.
+  touch-action: none;
+  overscroll-behavior: contain;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -119,9 +125,13 @@
 }
 
 // Freeze the page underneath so the outgoing route cannot scroll behind the
-// overlay. Class-based so it never clobbers the inline lock the modals use.
-body.as-page-loader-open {
+// overlay (applied by ScrollInputGuard to both <html> and <body>, since either
+// can be the scroller). Class-based so it never clobbers the inline lock the
+// modals use.
+html.as-scroll-guarded,
+body.as-scroll-guarded {
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body.light-theme .as-page-loader {

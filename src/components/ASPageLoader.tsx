@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import logoAnimated from "../assets/animations/logo-animated.svg";
-
-const SCROLL_LOCK_CLASS = "as-page-loader-open";
+import { ScrollInputGuard } from "../services/ASScrollGuard";
 
 /**
  * Full-screen branded overlay shown while a route transition is in flight.
@@ -14,12 +13,11 @@ const SCROLL_LOCK_CLASS = "as-page-loader-open";
  */
 export default function ASPageLoader() {
   useEffect(() => {
-    // Freeze the outgoing page so it cannot scroll behind the overlay.
-    document.body.classList.add(SCROLL_LOCK_CLASS);
-
-    return () => {
-      document.body.classList.remove(SCROLL_LOCK_CLASS);
-    };
+    // Freeze the outgoing page so it cannot scroll behind the overlay, on
+    // touch devices included (see ScrollInputGuard).
+    const guard = new ScrollInputGuard();
+    guard.engage();
+    return () => guard.release();
   }, []);
 
   if (typeof document === "undefined") return null;
