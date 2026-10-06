@@ -173,9 +173,13 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
           </li>
         ))}
 
+        {/* A list may only contain <li>, so the sliding underline is one too,
+            removed from the accessibility tree so it is not counted as an item. */}
         {activeTab && (
-          <span
+          <li
             className="nav-indicator"
+            role="presentation"
+            aria-hidden="true"
             style={{
               left: `${indicatorStyle.left}px`,
               width: `${indicatorStyle.width}px`,
@@ -197,7 +201,7 @@ export default function ASNavbar({ theme, toggleTheme }: ASNavbarProps) {
         >
           <img
             src={theme === "dark-theme" ? darkModeToggle : lightModeToggle}
-            alt="Theme toggle"
+            alt=""
             className="theme-toggle-img"
             width={84}
             height={76}

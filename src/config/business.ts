@@ -148,14 +148,12 @@ export const BUSINESS: BusinessIdentity = Object.freeze({
   openingHours: Object.freeze([
     Object.freeze({ days: ALL_DAYS, opens: "00:00", closes: "23:59" } as const),
   ]),
-  // TODO(owner): replace each url with the real Azari Solar profile page
-  // (e.g. https://www.facebook.com/<page>). These are the networks' home pages,
-  // so the footer links go nowhere useful and schema.org `sameAs` stays empty
-  // (socialProfileUrls() skips any URL without a profile path).
+  // Canonical profile URLs, without share-tracking query parameters.
   socials: Object.freeze([
-    { key: "facebook", name: "Facebook", url: "https://www.facebook.com" },
-    { key: "Instagram", name: "Instagram", url: "https://www.instagram.com" },
-    { key: "TikTok", name: "TikTok", url: "https://www.tiktok.com" },
+    { key: "facebook", name: "Facebook", url: "https://www.facebook.com/profile.php?id=61582868827983" },
+    { key: "Instagram", name: "Instagram", url: "https://www.instagram.com/azari.solar" },
+    { key: "TikTok", name: "TikTok", url: "https://www.tiktok.com/@azari.solar" },
+    { key: "YouTube", name: "YouTube", url: "https://www.youtube.com/@azari-solar" },
   ]),
 });
 

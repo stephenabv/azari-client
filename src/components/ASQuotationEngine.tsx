@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router";
 import AddApplianceModal from "../modules/quotaion-modal/ASAddAppliance";
@@ -138,12 +138,16 @@ function ElectricRateField({
   num,
   str,
   onChange,
+  label,
 }: {
   num: number;
   str: string;
   onChange: (v: string) => void;
+  /** Accessible name for both controls; matches the section's visible label. */
+  label: string;
 }) {
   const [error, setError] = useState("");
+  const errorId = useId();
 
   const clampedNum = Math.min(
     ELECTRIC_RATE_CONFIG.max,
@@ -192,6 +196,8 @@ function ElectricRateField({
             step={ELECTRIC_RATE_CONFIG.step}
             value={clampedNum}
             onChange={(e) => { onChange(e.target.value); setError(""); }}
+            aria-label={label}
+            aria-valuetext={`₱${clampedNum} per kWh`}
           />
         </div>
         <div className="as-rate-input-group">
@@ -203,12 +209,15 @@ function ElectricRateField({
               value={str}
               onChange={(e) => handleTextChange(e.target.value)}
               onBlur={handleBlur}
+              aria-label={`${label}, pesos per kWh`}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
             />
             <small>/ kWh</small>
           </div>
         </div>
       </div>
-      {error && <p className="as-rate-error">{error}</p>}
+      {error && <p className="as-rate-error" id={errorId} role="alert">{error}</p>}
     </div>
   );
 }
@@ -652,6 +661,7 @@ export default function ASQuotationEngine() {
         </div>
 
         <ElectricRateField
+          label="Electricity rate"
           num={electricRateMS.num}
           str={electricRateMS.str}
           onChange={(v) => { electricRateMS.handleChange(v); setFormError(""); }}
@@ -847,6 +857,7 @@ export default function ASQuotationEngine() {
               <p>Typical Electricity Rate</p>
             </div>
             <ElectricRateField
+              label="Typical electricity rate"
               num={electricRateZB.num}
               str={electricRateZB.str}
               onChange={(v) => { electricRateZB.handleChange(v); setFormError(""); }}
@@ -952,7 +963,7 @@ export default function ASQuotationEngine() {
                   >
                     <div className="as-property-bg">
                       <span className="as-property-icon">
-                        <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt={item.title} />
+                        <img src={selectedProperty === item.title ? item.selectedIcon : item.icon} alt="" />
                       </span>
                       <span className="as-property-check" />
                     </div>

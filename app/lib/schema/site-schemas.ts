@@ -68,8 +68,7 @@ export class LocalBusinessSchema extends SchemaBuilder {
       priceRange: "₱₱",
       currenciesAccepted: "PHP",
       paymentAccepted: "Cash, Bank Transfer, GCash",
-      // Only real profile URLs; empty until the owner fills them in
-      // (see the TODO(owner) on BUSINESS.socials).
+      // Only real profile URLs, never a network's home page.
       sameAs: socialProfileUrls(socials),
     };
   }

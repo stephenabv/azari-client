@@ -2,6 +2,8 @@ import { useCallback, useState, type ImgHTMLAttributes, type SyntheticEvent } fr
 import logoAnimated from "../assets/animations/logo-animated.svg";
 
 interface Props extends ImgHTMLAttributes<HTMLImageElement> {
+  /** Required: describe the picture, or pass "" when it is purely decorative. */
+  alt: string;
   wrapClassName?: string;
 }
 
@@ -51,7 +53,7 @@ export default function ASImgLoader({ wrapClassName, onLoad, onError, ...imgProp
       />
       {!ready && (
         <div className="as-img-loader-overlay" aria-hidden="true">
-          <img src={logoAnimated} alt="" className="as-img-loader-logo" />
+          <img src={logoAnimated} alt="" aria-hidden="true" className="as-img-loader-logo" />
         </div>
       )}
     </div>

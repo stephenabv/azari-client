@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   calculateSolarEstimate,
@@ -95,6 +95,11 @@ export default function ASImpactCalculator() {
   const [isShown, setIsShown] = useState(false);
   const [monthlyBillError, setMonthlyBillError] = useState("");
   const [electricRateError, setElectricRateError] = useState("");
+  const fieldId = useId();
+  const billQuestionId = `${fieldId}-bill`;
+  const billErrorId = `${fieldId}-bill-error`;
+  const rateQuestionId = `${fieldId}-rate`;
+  const rateErrorId = `${fieldId}-rate-error`;
 
   const [config] = useState(DEFAULT_CONFIG);
 
@@ -255,7 +260,7 @@ export default function ASImpactCalculator() {
 
         <div className="as-impact-card">
           <div className="as-slider-group as-delay-1">
-            <p className="as-slider-question">
+            <p className="as-slider-question" id={billQuestionId}>
               What is your average monthly electric bill?
             </p>
 
@@ -280,6 +285,8 @@ export default function ASImpactCalculator() {
                 setMonthlyBillInput(String(value));
                 setMonthlyBillError("");
               }}
+              aria-labelledby={billQuestionId}
+              aria-valuetext={`₱${monthlyBill} per month`}
               className="as-range"
               style={
                 {
@@ -299,19 +306,22 @@ export default function ASImpactCalculator() {
                     value={monthlyBillInput}
                     onChange={(e) => handleMonthlyBillInput(e.target.value)}
                     onBlur={handleMonthlyBillBlur}
+                    aria-labelledby={billQuestionId}
+                    aria-invalid={monthlyBillError ? true : undefined}
+                    aria-describedby={monthlyBillError ? billErrorId : undefined}
                   />
                 </div>
 
                 <span className="as-suffix">/ month</span>
               </div>
               {monthlyBillError && (
-                <p className="as-current-error">{monthlyBillError}</p>
+                <p className="as-current-error" id={billErrorId} role="alert">{monthlyBillError}</p>
               )}
             </div>
           </div>
 
           <div className="as-slider-group as-delay-2">
-            <p className="as-slider-question">
+            <p className="as-slider-question" id={rateQuestionId}>
               What is your typical residential rate?
             </p>
 
@@ -336,6 +346,8 @@ export default function ASImpactCalculator() {
                 setElectricRateInput(String(value));
                 setElectricRateError("");
               }}
+              aria-labelledby={rateQuestionId}
+              aria-valuetext={`₱${electricRate} per kWh`}
               className="as-range"
               style={
                 {
@@ -355,13 +367,16 @@ export default function ASImpactCalculator() {
                     value={electricRateInput}
                     onChange={(e) => handleElectricRateInput(e.target.value)}
                     onBlur={handleElectricRateBlur}
+                    aria-labelledby={rateQuestionId}
+                    aria-invalid={electricRateError ? true : undefined}
+                    aria-describedby={electricRateError ? rateErrorId : undefined}
                   />
                 </div>
 
                 <span className="as-suffix">/ kWh</span>
               </div>
               {electricRateError && (
-                <p className="as-current-error">{electricRateError}</p>
+                <p className="as-current-error" id={rateErrorId} role="alert">{electricRateError}</p>
               )}
             </div>
           </div>

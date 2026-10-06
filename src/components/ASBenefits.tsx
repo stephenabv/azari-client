@@ -128,7 +128,7 @@ export default function ASBenefitsBanner() {
               }`}
           >
             <div className="as-benefit-icon">
-              <img src={item.icon} alt={item.title} width={32} height={32} />
+              <img src={item.icon} alt="" width={32} height={32} />
             </div>
 
             <div className="as-benefit-text">
