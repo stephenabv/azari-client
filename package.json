@@ -10,6 +10,8 @@
     "typecheck": "react-router typegen && tsc",
     "lint": "eslint .",
     "audit:seo": "node scripts/audit-sitemap.ts",
+    "audit:csp": "node scripts/audit-csp.ts",
+    "csp:nginx": "node scripts/audit-csp.ts --write",
     "analyze": "ANALYZE=1 react-router build"
   },
   "dependencies": {

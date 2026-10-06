@@ -62,6 +62,9 @@ else, so the edge cannot be bypassed:
      cached); Browser TTL: respect origin.
    - Effect: a CMS edit shows up within about a minute. Purge the cache
      (Caching → Purge Everything, or by URL) after an urgent content change.
+   - Only while the nonce-based CSP is Report-Only. A cached page hands the
+     same nonce to every visitor for the TTL, so turn this rule off before
+     switching that policy to enforcing (see `docs/content-security-policy.md`).
 4. Do not enable Rocket Loader or Auto Minify: they rewrite scripts and would
    conflict with the Content-Security-Policy and React hydration.
 

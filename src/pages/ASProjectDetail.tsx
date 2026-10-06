@@ -411,7 +411,7 @@ function TechnicalBreakdownSection({ items, project }: { items: TechBreakdownIte
   );
 }
 
-function GallerySection({ images }: { images: string[] }) {
+function GallerySection({ images, title }: { images: string[]; title: string }) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasAnimated = useRef(false);
   const [isShown, setIsShown] = useState(false);
@@ -490,7 +490,7 @@ function GallerySection({ images }: { images: string[] }) {
                   open();
                 }}
               >
-                <ASImgLoader src={src} alt={`Gallery photo ${i + 1}`} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
+                <ASImgLoader src={src} alt={`${title}, photo ${i + 1}`} className="as-pd-gallery-img" wrapClassName="as-img-loader-block" />
                 {isLast && (
                   <div className="as-pd-gallery-more">
                     <span>+{remaining}</span>
@@ -550,7 +550,7 @@ function GallerySection({ images }: { images: string[] }) {
                 >
                   <ASImgLoader
                     src={src}
-                    alt={`Gallery photo ${i + 9}`}
+                    alt={`${title}, photo ${i + 9}`}
                     className="as-pd-gallery-modal-img"
                     wrapClassName="as-img-loader-block"
                   />
@@ -715,7 +715,7 @@ export default function ASProjectDetails({
       <HeroSection project={project} />
       <PerformanceSection metrics={metrics} />
       <TechnicalBreakdownSection items={breakdown} project={project} />
-      <GallerySection images={gallery} />
+      <GallerySection images={gallery} title={project.title.trim()} />
       {testimonial && <TestimonialSection testimonial={testimonial} />}
       <ASCallToAction />
     </div>

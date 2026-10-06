@@ -11,6 +11,7 @@ import type { HeadersFunction, LinksFunction } from "react-router";
 
 import { BUSINESS } from "../src/config/business";
 import { siteSchemaGraph } from "./lib/schema/site-schemas";
+import { useCspNonce } from "./lib/security/nonce-context";
 
 import "../src/index.css";
 import "../src/assets/styles/main.less";
@@ -42,26 +43,9 @@ export const headers: HeadersFunction = () => ({
   // Legacy XSS filter hint — checked by security scanners; ignored by modern
   // browsers that honour CSP instead.
   'X-XSS-Protection': '1; mode=block',
-  // Content Security Policy — nginx does not set this, so it is owned here.
-  // Notes on directives that need 'unsafe-inline':
-  //   script-src: the anti-flash theme script and JSON-LD block both use
-  //     dangerouslySetInnerHTML and cannot use nonces without an invasive refactor.
-  //   style-src: React applies inline style props that would be blocked otherwise.
-  // connect-src covers same-origin /api/* calls (nginx-proxied) and the network
-  // requests made by the Firebase Analytics SDK bundled into the app.
-  'Content-Security-Policy': [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://*.googleapis.com https://*.gstatic.com",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    "connect-src 'self' https://*.googleapis.com https://*.google-analytics.com https://*.googletagmanager.com https://firebaselogging.googleapis.com",
-    "media-src 'self' https:",
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; '),
+  // Content-Security-Policy (enforced and Report-Only) is set per response in
+  // entry.server.tsx, because the Report-Only policy carries that response's
+  // nonce. See app/lib/security/site-policy.ts.
 });
 
 // Applied before React hydration to prevent a dark/light flash
@@ -73,6 +57,7 @@ const SITE_JSONLD = siteSchemaGraph().toInlineJson();
 const { address: BUSINESS_ADDRESS, geo: BUSINESS_GEO } = BUSINESS;
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const nonce = useCspNonce();
   return (
     <html lang="en-PH">
       <head>
@@ -97,7 +82,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           content="c1kBhgFmKOOWKG7D8H0IUfttihFyXZIbAeHP8CNcFWE"
         />
         <Meta />
-        <Links />
+        <Links nonce={nonce} />
         {/* Site-wide structured data */}
         <script
           type="application/ld+json"
@@ -107,10 +92,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body suppressHydrationWarning>
         {/* Anti-flash: applies the saved theme class before first paint. It has
             to run inside <body>; in <head>, document.body does not exist yet. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   );
@@ -122,6 +107,7 @@ export default function App() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  const nonce = useCspNonce();
 
   if (isRouteErrorResponse(error) && error.status === 404) {
     return (
@@ -130,7 +116,7 @@ export function ErrorBoundary() {
           <title>Page Not Found — Azari Solar</title>
           <meta name="robots" content="noindex" />
           <Meta />
-          <Links />
+          <Links nonce={nonce} />
         </head>
         <body>
           <div
@@ -149,7 +135,7 @@ export function ErrorBoundary() {
             <p>The page you are looking for does not exist.</p>
             <a href="/">Return to Home</a>
           </div>
-          <Scripts />
+          <Scripts nonce={nonce} />
         </body>
       </html>
     );
@@ -160,7 +146,7 @@ export function ErrorBoundary() {
       <head>
         <title>Error — Azari Solar</title>
         <Meta />
-        <Links />
+        <Links nonce={nonce} />
       </head>
       <body>
         <div
@@ -179,7 +165,7 @@ export function ErrorBoundary() {
           <p>Please try again later.</p>
           <a href="/">Return to Home</a>
         </div>
-        <Scripts />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   );

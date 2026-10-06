@@ -59,7 +59,8 @@
   line-height: 1;
 }
 
-.nav-indicator {
+/* Child selector so the menu-item rules on `.nav-menu li` never apply to it. */
+.nav-menu > .nav-indicator {
   position: absolute;
   bottom: 0;
   height: 3.2px;
