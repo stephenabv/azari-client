@@ -84,6 +84,7 @@ import ASInventoryQuickAdd from "../components/ASInventoryQuickAdd";
 import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 import { BUSINESS } from "../config/business";
+import { DEFAULT_CLIENT_STORIES, type ClientStory } from "../content/clientStories";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "inverter-brands" | "package-inquiries" | "utilities" | "sections"
@@ -100,13 +101,13 @@ function isTab(value: string | null): value is Tab {
 
 type SectionVisibility = {
   hero: boolean; metrics: boolean; partners: boolean; benefits: boolean; excellence: boolean;
-  tropics: boolean; process: boolean; clientJourney: boolean; calculator: boolean; callToAction: boolean;
+  tropics: boolean; process: boolean; clientJourney: boolean; calculator: boolean; faq: boolean; callToAction: boolean;
   packages: boolean;
 };
 
 const DEFAULT_VISIBILITY: SectionVisibility = {
   hero: true, metrics: true, partners: true, benefits: true, excellence: true,
-  tropics: true, process: true, clientJourney: true, calculator: true, callToAction: true,
+  tropics: true, process: true, clientJourney: true, calculator: true, faq: true, callToAction: true,
   packages: true,
 };
 
@@ -2343,6 +2344,7 @@ const SECTION_INFO: Array<{ key: keyof SectionVisibility; name: string; desc: st
   { key: "process",      name: "Process",               desc: "Step-by-step process section" },
   { key: "clientJourney", name: "Client Journey",       desc: "Testimonials map carousel" },
   { key: "calculator",   name: "Calculator",            desc: "Solar impact calculator" },
+  { key: "faq",          name: "FAQ",                   desc: "Frequently asked questions (also published as FAQ structured data)" },
   { key: "callToAction", name: "Call to Action",        desc: "Final CTA section" },
   { key: "packages",     name: "Packages Page",         desc: "Public /packages route — hides nav link and redirects when off" },
 ];
@@ -5991,18 +5993,10 @@ function TropicsEditor({ apiKey }: { apiKey: string }) {
   );
 }
 
-type JourneyEntry = { id: string; name: string; location: string; testimonial: string; videoUrl: string; coords: [number, number] };
+type JourneyEntry = ClientStory;
 type ClientJourneyForm = { entries: JourneyEntry[] };
 const DEFAULT_JOURNEY_FORM: ClientJourneyForm = {
-  entries: [
-    { id: "1", name: "Santos Family", location: "Quezon City, Metro Manila", testimonial: "Our Meralco bill dropped by 87% in the first month. The team handled the entire Net-Metering application perfectly, and now we literally earn credits while we sleep.", videoUrl: "", coords: [121.05, 14.68] },
-    { id: "2", name: "Cruz Commercial", location: "Cebu City, Cebu", testimonial: "Operating costs dropped significantly since we installed our solar array. The team handled everything from permits to final inspection.", videoUrl: "", coords: [123.90, 10.32] },
-    { id: "3", name: "Reyes Residence", location: "Davao City, Davao del Sur", testimonial: "We were skeptical at first, but the numbers don't lie. Within 18 months we recovered a significant portion of our investment.", videoUrl: "", coords: [125.61, 7.07] },
-    { id: "4", name: "De Leon Residence", location: "Angeles City, Pampanga", testimonial: "Professional installation completed in just two days. Our home now runs entirely on solar during daytime hours.", videoUrl: "", coords: [120.59, 15.15] },
-    { id: "5", name: "Garcia Business", location: "Iloilo City, Iloilo", testimonial: "As a business owner, the ROI was clear from the start. Our electricity expenses went from our highest operating cost to nearly negligible.", videoUrl: "", coords: [122.57, 10.72] },
-    { id: "6", name: "Torres Family", location: "Batangas City, Batangas", testimonial: "Consistent monthly savings since day one. The process from quotation to installation was seamless.", videoUrl: "", coords: [121.05, 13.76] },
-    { id: "7", name: "Chua Enterprise", location: "Cagayan de Oro, Misamis Oriental", testimonial: "We installed a 50kWp commercial system across our warehouse rooftops. The project was completed on schedule and within budget.", videoUrl: "", coords: [124.63, 8.48] },
-  ],
+  entries: [...DEFAULT_CLIENT_STORIES],
 };
 
 async function geocodePhLocation(location: string): Promise<[number, number] | null> {

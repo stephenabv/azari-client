@@ -3,10 +3,20 @@ import { useLoaderData } from "react-router";
 import { SiteContentProvider } from "../../src/context/SiteContentContext";
 import type { SiteContentSnapshot } from "../../src/context/siteContent";
 import ASDashboard from "../../src/pages/ASDashboard";
+import { FAQ_ITEMS } from "../../src/content/faq";
 import { apiGet } from "../lib/api.server";
-import { FAQ_SCHEMA } from "../lib/faq-schema";
+import { JsonLdGraph } from "../lib/schema/json-ld";
+import { FaqPageSchema } from "../lib/schema/page-schemas";
 
-export const meta: MetaFunction = () => [
+const FAQ_JSONLD = new JsonLdGraph([new FaqPageSchema(FAQ_ITEMS)]).toObject();
+
+/** The admin can hide the FAQ section; its structured data must go with it. */
+function isFaqHidden(content: SiteContentSnapshot | undefined): boolean {
+  const visibility = content?.["section-visibility"];
+  return typeof visibility === "object" && visibility !== null && "faq" in visibility && visibility.faq === false;
+}
+
+export const meta: MetaFunction<typeof loader> = ({ loaderData }) => [
   {
     title: "Azari Solar — Solar Panel Installer in Bohol, Philippines",
   },
@@ -45,8 +55,8 @@ export const meta: MetaFunction = () => [
       "Affordable solar packages and professional installation for homes and businesses in Bohol, Philippines.",
   },
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
-  // FAQ structured data belongs on this page only, not the whole site.
-  { "script:ld+json": FAQ_SCHEMA },
+  // The FAQ is shown on this page only, so its structured data lives here too.
+  ...(isFaqHidden(loaderData) ? [] : [{ "script:ld+json": FAQ_JSONLD }]),
 ];
 
 /**

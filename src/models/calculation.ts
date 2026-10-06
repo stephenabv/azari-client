@@ -160,13 +160,18 @@ export function formatProjectionLabel(projectionMonths: number): string {
   return `${Number.isInteger(years) ? years : years.toFixed(1)}-YEAR SAVINGS`;
 }
 
-export function formatProjectionDescription(projectionMonths: number): string {
-  if (projectionMonths <= 1) return "1-month";
-  if (projectionMonths < 12) return `${projectionMonths}-month`;
+/**
+ * The savings window in words, e.g. "your first year" or "your first 25
+ * years". It names the projection period only: the window is not the
+ * system's lifespan, so copy must not call it one.
+ */
+export function formatProjectionPeriod(projectionMonths: number): string {
+  if (projectionMonths <= 1) return "your first month";
+  if (projectionMonths < 12) return `your first ${projectionMonths} months`;
 
   const years = projectionMonths / 12;
-  if (years === 1) return "1-year";
-  return `${Number.isInteger(years) ? years : years.toFixed(1)}-year`;
+  if (years === 1) return "your first year";
+  return `your first ${Number.isInteger(years) ? years : years.toFixed(1)} years`;
 }
 
 export function calculateSolarEstimate({

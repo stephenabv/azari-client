@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   calculateSolarEstimate,
-  formatProjectionDescription,
+  formatProjectionPeriod,
 
   formatSystemSize,
   getProjectionMonths,
@@ -222,7 +222,7 @@ export default function ASImpactCalculator() {
 
   const projectionMonths = getProjectionMonths(config.formula);
 
-  const projectionDescription = formatProjectionDescription(projectionMonths);
+  const projectionPeriod = formatProjectionPeriod(projectionMonths);
 
   const handleGetQuote = () => {
     navigate("/solar-calculator", {
@@ -249,8 +249,7 @@ export default function ASImpactCalculator() {
         <div className="as-impact-heading">
           <h2>Calculate Your Savings</h2>
           <p>
-            See how much you could save over the {projectionDescription} projected
-            lifespan of your system.
+            See how much you could save in {projectionPeriod} with solar.
           </p>
         </div>
 

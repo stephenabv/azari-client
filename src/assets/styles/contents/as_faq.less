@@ -1,0 +1,117 @@
+.as-faq {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 120px 24px 40px;
+}
+
+.as-faq-title {
+  margin: 0 0 48px;
+  font-family: "Outfit", sans-serif;
+  font-size: 50px;
+  font-weight: 500;
+  line-height: 120%;
+  text-align: center;
+
+  span {
+    color: #fc615a;
+  }
+}
+
+.as-faq-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.as-faq-item {
+  border-bottom: 1px solid var(--as-faq-divider, rgba(255, 255, 255, 0.16));
+}
+
+.as-faq-item:first-child {
+  border-top: 1px solid var(--as-faq-divider, rgba(255, 255, 255, 0.16));
+}
+
+.as-faq-question {
+  position: relative;
+  display: block;
+  padding: 24px 48px 24px 0;
+  font-family: "Outfit", sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 130%;
+  list-style: none;
+  cursor: pointer;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  // Plus that turns into a minus when the entry is open.
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    width: 16px;
+    height: 2px;
+    border-radius: 1px;
+    background: #fc615a;
+    transition: transform 0.25s ease;
+  }
+
+  &::after {
+    transform: rotate(90deg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fc615a;
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+}
+
+.as-faq-item[open] .as-faq-question::after {
+  transform: rotate(0deg);
+}
+
+.as-faq-answer {
+  margin: 0;
+  padding: 0 48px 24px 0;
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  line-height: 160%;
+}
+
+@media (max-width: 1100px) {
+  .as-faq-title {
+    font-size: 42px;
+  }
+}
+
+@media (max-width: 768px) {
+  .as-faq {
+    padding: 80px 20px 24px;
+  }
+
+  .as-faq-title {
+    margin-bottom: 32px;
+    font-size: 34px;
+  }
+
+  .as-faq-question {
+    padding: 20px 40px 20px 0;
+    font-size: 18px;
+  }
+
+  .as-faq-answer {
+    padding-right: 0;
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .as-faq-question::before,
+  .as-faq-question::after {
+    transition: none;
+  }
+}
