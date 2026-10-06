@@ -3,6 +3,7 @@ import { useContent } from "../hooks/useContent";
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASCallToAction from "../components/ASCallToAction";
 import ASEngineeredExcellence from "../components/ASEngineeredExcellence";
+import ASFaq from "../components/ASFaq";
 import ASHero from "../components/ASHero";
 import ASMetrics from "../components/ASMetrics";
 import ASPartners from "../components/ASPartners";
@@ -26,6 +27,7 @@ type SectionVisibility = {
   process: boolean;
   clientJourney: boolean;
   calculator: boolean;
+  faq: boolean;
   callToAction: boolean;
   packages: boolean;
 };
@@ -40,6 +42,7 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
   process: true,
   clientJourney: true,
   calculator: true,
+  faq: true,
   callToAction: true,
   packages: true,
 };
@@ -104,6 +107,13 @@ export default function ASDashboard() {
           <Suspense fallback={null}>
             <ASImpactCalculator />
           </Suspense>
+        </section>
+      )}
+
+      {/* Visibility saved before the FAQ existed has no "faq" key: show it. */}
+      {vis.faq !== false && (
+        <section className="_asFaq" id="faq" aria-labelledby="faq-title">
+          <ASFaq headingId="faq-title" />
         </section>
       )}
 

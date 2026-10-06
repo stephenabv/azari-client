@@ -7,6 +7,8 @@ import type { ASProjectDetailsModel } from "../../src/services/ASContent";
 import { apiGet } from "../lib/api.server";
 import { PageMeta } from "../lib/page-meta";
 import { ProjectSeo } from "../lib/project-seo";
+import { JsonLdGraph } from "../lib/schema/json-ld";
+import { BreadcrumbListSchema, ProjectSchema } from "../lib/schema/page-schemas";
 
 /** A slug or a legacy cuid; anything else cannot name a project. */
 const PROJECT_KEY = /^[A-Za-z0-9-]{1,100}$/;
@@ -51,13 +53,19 @@ export const meta: MetaFunction<typeof loader> = ({ loaderData }) => {
   // which would tell Google the page is a duplicate of the index.
   if (!loaderData) return [];
   const seo = new ProjectSeo(loaderData);
-  return PageMeta.build({
-    title: seo.title(),
-    description: seo.description(),
-    path: projectPath(loaderData),
-    image: loaderData.imageUrl,
-    ogType: "article",
-  });
+  const project = new ProjectSchema(loaderData);
+  return [
+    ...PageMeta.build({
+      title: seo.title(),
+      description: seo.description(),
+      path: projectPath(loaderData),
+      image: loaderData.imageUrl,
+      ogType: "article",
+    }),
+    {
+      "script:ld+json": new JsonLdGraph([project, new BreadcrumbListSchema(project.breadcrumbTrail)]).toObject(),
+    },
+  ];
 };
 
 export default function ProjectDetail() {

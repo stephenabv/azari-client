@@ -23,6 +23,23 @@ const DEFAULT_METRICS: MetricsContent = {
   items: [{ value: "0", label: "INSTALLED", order: 1 }],
 };
 
+/**
+ * The heading is shown on two lines. CMS text may mark the break with a
+ * newline or <br>; without one, the last word goes on the second line. The
+ * old fallback appended a hard-coded "Tropics" instead, so a one-line heading
+ * such as "Solar Energy for the Tropics" rendered as "...Tropics Tropics".
+ */
+function splitHeading(text: string): [string, string] {
+  const parts = text
+    .split(/\n|<br\s*\/?\s*>/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length > 1) return [parts[0] ?? "", parts.slice(1).join(" ")];
+
+  const words = (parts[0] ?? "").split(/\s+/).filter(Boolean);
+  return [words.slice(0, -1).join(" "), words.at(-1) ?? ""];
+}
+
 export default function ASTropicsSection() {
   const sectionRef = useRef<HTMLElement | null>(null);
   const hasAnimated = useRef(false);
@@ -33,13 +50,7 @@ export default function ASTropicsSection() {
   const metrics = useContent<MetricsContent>("metrics", DEFAULT_METRICS);
   const installedValue = metrics.items.find((i) => i.label === "INSTALLED")?.value ?? "0";
 
-  const headerParts = tropics.header
-    .split(/\n|<br\s*\/?\s*>/i)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const headerTop = headerParts[0] ?? "Solar Energy for the";
-  const headerBottom = headerParts[1] ?? "Tropics";
+  const [headerTop, headerBottom] = splitHeading(tropics.header);
 
   // Normalize domain form ("azari.solar") to brand name wherever it appears as company name
   const normalizedSubtext = tropics.subtext.replace(/azari\.solar/gi, "Azari Solar");

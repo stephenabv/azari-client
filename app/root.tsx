@@ -10,7 +10,7 @@ import {
 import type { HeadersFunction, LinksFunction } from "react-router";
 
 import { BUSINESS } from "../src/config/business";
-import { SiteSchemaBuilder } from "./lib/business-schema";
+import { siteSchemaGraph } from "./lib/schema/site-schemas";
 
 import "../src/index.css";
 import "../src/assets/styles/main.less";
@@ -68,7 +68,7 @@ export const headers: HeadersFunction = () => ({
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark-theme':'light-theme');document.body.classList.add(t);}catch(e){}})();`;
 
 
-const SITE_JSONLD = new SiteSchemaBuilder().toInlineJson();
+const SITE_JSONLD = siteSchemaGraph().toInlineJson();
 
 const { address: BUSINESS_ADDRESS, geo: BUSINESS_GEO } = BUSINESS;
 
