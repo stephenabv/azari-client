@@ -85,14 +85,15 @@ import { BentoCard } from "../components/ASBentoCard";
 import { JourneyIcon, StepContent } from "./ASClientJourneyPage";
 import { BUSINESS } from "../config/business";
 import { DEFAULT_CLIENT_STORIES, type ClientStory } from "../content/clientStories";
+import ASFaqManager from "../components/admin/ASFaqManager";
 
 type Tab =
   | "overview" | "inquiries" | "quotations" | "projects" | "inventory" | "packages" | "inverter-brands" | "package-inquiries" | "utilities" | "sections"
-  | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "cta" | "footer" | "legal";
+  | "hero" | "metrics" | "partners" | "benefits" | "tropics" | "journey" | "journey-steps" | "excellence" | "process" | "faq" | "cta" | "footer" | "legal";
 
 const TAB_IDS: readonly Tab[] = [
   "overview", "inquiries", "quotations", "projects", "inventory", "packages", "inverter-brands", "package-inquiries", "utilities", "sections",
-  "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "cta", "footer", "legal",
+  "hero", "metrics", "partners", "benefits", "tropics", "journey", "journey-steps", "excellence", "process", "faq", "cta", "footer", "legal",
 ];
 
 function isTab(value: string | null): value is Tab {
@@ -7610,6 +7611,7 @@ export default function ASAdmin() {
         { id: "journey-steps", label: "Journey Steps", icon: <NavIcon><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></NavIcon> },
         { id: "excellence", label: "Excellence",    icon: <NavIcon><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></NavIcon> },
         { id: "process",    label: "Process",       icon: <NavIcon><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></NavIcon> },
+        { id: "faq",        label: "FAQ",            icon: <NavIcon><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></NavIcon> },
         { id: "cta",        label: "Call to Action", icon: <NavIcon><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></NavIcon> },
         { id: "footer",     label: "Footer",         icon: <NavIcon><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></NavIcon> },
         { id: "legal",      label: "Legal",          icon: <NavIcon><path d="M12 3v18M7 6h10M5 6l-3 6a3 3 0 0 0 6 0L5 6zM19 6l-3 6a3 3 0 0 0 6 0l-3-6z"/></NavIcon> },
@@ -7691,6 +7693,7 @@ export default function ASAdmin() {
           {tab === "journey-steps"    && <JourneyStepsManager apiKey={apiKey} />}
           {tab === "excellence"        && <ExcellenceEditor apiKey={apiKey} />}
           {tab === "process"           && <ProcessEditor apiKey={apiKey} />}
+          {tab === "faq"               && <ASFaqManager apiKey={apiKey} />}
           {tab === "cta"               && <CtaEditor apiKey={apiKey} />}
           {tab === "footer"            && <FooterEditor apiKey={apiKey} />}
           {tab === "legal"             && <LegalEditor apiKey={apiKey} />}

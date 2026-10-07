@@ -1,4 +1,4 @@
-import type { FaqItem } from "../../../src/content/faq";
+import type { FaqItem } from "../../../src/models/faq";
 import { projectPath } from "../../../src/lib/projectPaths";
 import type { ApiProject } from "../../../src/services/ASContent";
 import { ProjectSeo } from "../project-seo";

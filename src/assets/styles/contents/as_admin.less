@@ -2314,3 +2314,179 @@ body.is-light {
   margin-top: 6px;
   align-self: flex-start;
 }
+
+// ─── FAQ manager ─────────────────────────────────────────────────────────────
+
+.ad-faq-subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--ad-text3);
+}
+
+.ad-faq-status {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--ad-text3);
+}
+
+.ad-faq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.ad-faq-empty-icon {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: var(--ad-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ad-faq-empty-title {
+  margin: 0;
+  font-family: var(--ad-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ad-text);
+}
+
+.ad-faq-empty-text {
+  max-width: 420px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ad-text2);
+}
+
+.ad-faq-editor {
+  margin-bottom: 16px;
+}
+
+.ad-faq-field {
+  margin-bottom: 14px;
+}
+
+.ad-faq-count {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  text-align: right;
+  color: var(--ad-text3);
+}
+
+.ad-faq-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ad-text);
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--ad-accent);
+  }
+}
+
+.ad-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ad-faq-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 20px;
+
+  &.is-draft .ad-faq-body {
+    opacity: 0.7;
+  }
+
+  // Phone: order controls run along the top, actions wrap under the text.
+  @media (max-width: 640px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 16px;
+  }
+}
+
+.ad-faq-order {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  @media (max-width: 640px) {
+    flex-direction: row;
+    gap: 8px;
+  }
+}
+
+.ad-faq-index {
+  font-size: 12px;
+  color: var(--ad-text3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-faq-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.ad-faq-question {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ad-text);
+  overflow-wrap: anywhere;
+}
+
+.ad-faq-answer {
+  display: -webkit-box;
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ad-text2);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.ad-faq-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+
+  @media (max-width: 640px) {
+    justify-content: flex-start;
+  }
+}
+
+.ad-faq-confirm {
+  font-size: 12px;
+  color: var(--ad-text2);
+}
+
+.ad-faq-delete {
+  color: var(--ad-accent);
+}

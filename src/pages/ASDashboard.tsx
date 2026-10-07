@@ -1,5 +1,7 @@
 import { lazy, Suspense } from "react";
 import { useContent } from "../hooks/useContent";
+import { useFaqs } from "../hooks/useFaqs";
+import type { FaqItem } from "../models/faq";
 import ASBenefitsBanner from "../components/ASBenefits";
 import ASCallToAction from "../components/ASCallToAction";
 import ASEngineeredExcellence from "../components/ASEngineeredExcellence";
@@ -47,8 +49,14 @@ const DEFAULT_VISIBILITY: SectionVisibility = {
   packages: true,
 };
 
-export default function ASDashboard() {
+type ASDashboardProps = {
+  /** Published FAQ entries from the route loader; null when it could not reach the API. */
+  faqs?: readonly FaqItem[] | null;
+};
+
+export default function ASDashboard({ faqs = null }: ASDashboardProps) {
   const vis = useContent<SectionVisibility>('section-visibility', DEFAULT_VISIBILITY);
+  const faqItems = useFaqs(faqs);
 
   return (
     <>
@@ -110,10 +118,11 @@ export default function ASDashboard() {
         </section>
       )}
 
-      {/* Visibility saved before the FAQ existed has no "faq" key: show it. */}
-      {vis.faq !== false && (
+      {/* Visibility saved before the FAQ existed has no "faq" key: show it.
+          With no published entries the whole section is left out. */}
+      {vis.faq !== false && faqItems.length > 0 && (
         <section className="_asFaq" id="faq" aria-labelledby="faq-title">
-          <ASFaq headingId="faq-title" />
+          <ASFaq items={faqItems} headingId="faq-title" />
         </section>
       )}
 
