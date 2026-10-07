@@ -3,17 +3,27 @@ import { useLoaderData } from "react-router";
 import { SiteContentProvider } from "../../src/context/SiteContentContext";
 import type { SiteContentSnapshot } from "../../src/context/siteContent";
 import ASDashboard from "../../src/pages/ASDashboard";
-import { FAQ_ITEMS } from "../../src/content/faq";
+import type { FaqItem } from "../../src/models/faq";
 import { apiGet } from "../lib/api.server";
 import { JsonLdGraph } from "../lib/schema/json-ld";
 import { FaqPageSchema } from "../lib/schema/page-schemas";
 
-const FAQ_JSONLD = new JsonLdGraph([new FaqPageSchema(FAQ_ITEMS)]).toObject();
+type HomeLoaderData = {
+  content: SiteContentSnapshot;
+  /** Published FAQ entries; null when the API could not be reached. */
+  faqs: FaqItem[] | null;
+};
 
 /** The admin can hide the FAQ section; its structured data must go with it. */
 function isFaqHidden(content: SiteContentSnapshot | undefined): boolean {
   const visibility = content?.["section-visibility"];
   return typeof visibility === "object" && visibility !== null && "faq" in visibility && visibility.faq === false;
+}
+
+/** FAQPage structured data, only when the page actually shows FAQ entries. */
+function faqJsonLd(data: HomeLoaderData | undefined) {
+  if (!data?.faqs?.length || isFaqHidden(data.content)) return [];
+  return [{ "script:ld+json": new JsonLdGraph([new FaqPageSchema(data.faqs)]).toObject() }];
 }
 
 export const meta: MetaFunction<typeof loader> = ({ loaderData }) => [
@@ -56,25 +66,31 @@ export const meta: MetaFunction<typeof loader> = ({ loaderData }) => [
   },
   { name: "twitter:image", content: "https://azari.solar/preview.jpg" },
   // The FAQ is shown on this page only, so its structured data lives here too.
-  ...(isFaqHidden(loaderData) ? [] : [{ "script:ld+json": FAQ_JSONLD }]),
+  ...faqJsonLd(loaderData),
 ];
 
 /**
  * The home page renders CMS content (stat counters, section visibility, copy)
- * on the server so the HTML carries the real figures. If the API is down the
- * page still renders with the built-in defaults and the browser fetches the
- * content itself, as before.
+ * and the published FAQ on the server so the HTML carries the real content.
+ * If the API is down the page still renders with the built-in defaults and
+ * the browser fetches the content itself, as before.
  */
-export async function loader(): Promise<SiteContentSnapshot> {
-  const result = await apiGet<SiteContentSnapshot>("/api/content");
-  return result.status === "ok" ? result.data : {};
+export async function loader(): Promise<HomeLoaderData> {
+  const [content, faqs] = await Promise.all([
+    apiGet<SiteContentSnapshot>("/api/content"),
+    apiGet<FaqItem[]>("/api/faqs"),
+  ]);
+  return {
+    content: content.status === "ok" ? content.data : {},
+    faqs: faqs.status === "ok" && Array.isArray(faqs.data) ? faqs.data : null,
+  };
 }
 
 export default function Index() {
-  const content = useLoaderData<typeof loader>();
+  const { content, faqs } = useLoaderData<typeof loader>();
   return (
     <SiteContentProvider content={content}>
-      <ASDashboard />
+      <ASDashboard faqs={faqs} />
     </SiteContentProvider>
   );
 }

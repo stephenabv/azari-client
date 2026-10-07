@@ -70,16 +70,101 @@
   }
 }
 
+.as-faq-item[open] .as-faq-question::before {
+  transform: rotate(180deg);
+}
+
 .as-faq-item[open] .as-faq-question::after {
-  transform: rotate(0deg);
+  transform: rotate(180deg);
 }
 
 .as-faq-answer {
-  margin: 0;
   padding: 0 48px 24px 0;
   font-family: "Inter", sans-serif;
   font-size: 17px;
   line-height: 160%;
+
+  p {
+    margin: 0;
+  }
+
+  p + p {
+    margin-top: 12px;
+  }
+}
+
+// ─── Motion ──────────────────────────────────────────────────────────────────
+// All motion is CSS; ASFaq only toggles data-reveal. Nothing runs inline, so
+// it fits the site's Content-Security-Policy.
+
+// Answers expand and collapse smoothly where the browser can animate a
+// <details> element's content box (::details-content + interpolate-size).
+.as-faq {
+  interpolate-size: allow-keywords;
+}
+
+.as-faq-item::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    content-visibility 0.35s allow-discrete;
+}
+
+.as-faq-item[open]::details-content {
+  block-size: auto;
+}
+
+// Everywhere else (and in addition), the opening answer fades down into place.
+.as-faq-item[open] .as-faq-answer {
+  animation: as-faq-answer-in 0.35s ease both;
+}
+
+@keyframes as-faq-answer-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// Entrance: the title, then each entry in turn, rise into view as the section
+// scrolls in. "pending" is only ever set after hydration, so server HTML and
+// visitors without JavaScript always see the content.
+.as-faq[data-reveal="pending"] {
+  .as-faq-title,
+  .as-faq-item {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+.as-faq[data-reveal="revealed"] {
+  .as-faq-title,
+  .as-faq-item {
+    animation: as-faq-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  // Staggered, capped so a long list does not keep the last entries waiting.
+  .as-faq-item {
+    animation-delay: ~"calc(120ms + min(var(--faq-index, 0), 10) * 70ms)";
+  }
+}
+
+@keyframes as-faq-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -111,7 +196,16 @@
 
 @media (prefers-reduced-motion: reduce) {
   .as-faq-question::before,
-  .as-faq-question::after {
+  .as-faq-question::after,
+  .as-faq-item::details-content {
     transition: none;
+  }
+
+  .as-faq-item[open] .as-faq-answer,
+  .as-faq[data-reveal] .as-faq-title,
+  .as-faq[data-reveal] .as-faq-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
