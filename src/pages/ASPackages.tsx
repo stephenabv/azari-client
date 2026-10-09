@@ -883,7 +883,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
             className="as-packages-phase-toggle as-packages-type-toggle"
             role="tablist"
             aria-label="Package type"
-            style={{ "--seg-count": typeTabs.length, "--seg-index": selectedTypeIndex, ...packageTypeStyle(selectedType) } as React.CSSProperties}
+            style={{ "--seg-count": typeTabs.length, "--seg-index": selectedTypeIndex } as React.CSSProperties}
           >
             <span className="as-pkg-phase-slider" aria-hidden="true" />
             {typeTabs.map((t) => (
@@ -893,10 +893,8 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
                 role="tab"
                 aria-selected={t.key === selectedType.key}
                 className={`as-pkg-phase-btn${t.key === selectedType.key ? " is-active" : ""}`}
-                style={packageTypeStyle(t)}
                 onClick={() => handleType(t.key)}
               >
-                <span className="as-pkg-type-dot" aria-hidden="true" />
                 {t.label}
               </button>
             ))}
