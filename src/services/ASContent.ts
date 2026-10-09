@@ -1,28 +1,17 @@
 
 import { SOLAR_CONSTANTS } from '../models/calculation';
 import type { PackageTypeKey } from './packages/PackageTypeCatalog';
+import { rateLimitStore } from './rateLimit/RateLimitStore';
 
 const API_BASE = '/api';
 
 
 
-export type RateLimitInfo = { retryAfterSec: number; resetAt: number };
-const _rlSubs = new Set<(info: RateLimitInfo) => void>();
-
-export function subscribeRateLimit(fn: (info: RateLimitInfo) => void): () => void {
-  _rlSubs.add(fn);
-  return () => _rlSubs.delete(fn);
-}
-
-function dispatchRateLimit(res: Response): number {
-  const sec = parseInt(res.headers.get('Retry-After') ?? '60', 10);
-  _rlSubs.forEach(fn => fn({ retryAfterSec: sec, resetAt: Date.now() + sec * 1000 }));
-  return sec;
-}
+export type { RateLimitInfo } from './rateLimit/RateLimitStore';
 
 function notifyRateLimit(res: Response): never {
-  const sec = dispatchRateLimit(res);
-  throw new Error(`rate_limited:${sec}`);
+  const { retryAfterSec } = rateLimitStore.reportResponse(res);
+  throw new Error(`rate_limited:${retryAfterSec}`);
 }
 
 /**
@@ -32,7 +21,7 @@ function notifyRateLimit(res: Response): never {
  */
 export function handleRateLimitResponse(res: Response): boolean {
   if (res.status !== 429) return false;
-  dispatchRateLimit(res);
+  rateLimitStore.reportResponse(res);
   return true;
 }
 
@@ -60,13 +49,28 @@ export type ContentKey =
   | 'privacyPolicy'
   | 'termsConditions';
 
-export async function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
+/**
+ * Requests for the same key made while one is in flight share it, so the
+ * components that read one key (navbar, page, footer) cost a single API call.
+ */
+const inflightContent = new Map<ContentKey, Promise<unknown>>();
+
+export function fetchContent<T = unknown>(key: ContentKey): Promise<T | null> {
+  let pending = inflightContent.get(key);
+  if (!pending) {
+    pending = requestContent(key).finally(() => inflightContent.delete(key));
+    inflightContent.set(key, pending);
+  }
+  return pending as Promise<T | null>;
+}
+
+async function requestContent(key: ContentKey): Promise<unknown> {
   try {
     const res = await apiFetch(`${API_BASE}/content/${key}`, {
       headers: { Accept: 'application/json' }
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as { success: boolean; data: T };
+    const json = (await res.json()) as { success: boolean; data: unknown };
     return json.data ?? null;
   } catch {
     return null;

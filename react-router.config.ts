@@ -1,18 +1,13 @@
 import type { Config } from "@react-router/dev/config";
+import { PRERENDERED_PATHS } from "./app/lib/prerendered-paths";
 
 export default {
   ssr: true,
-  // Prerendered at build time. Only routes whose content does not come from the
-  // database belong here — a prerendered route's loader runs once during the
-  // build, so /, /projects, /packages and /client-journey are server-rendered
-  // per request instead. They would otherwise serve whatever the admin console
-  // had published at build time until the next deploy (the home page's stat
-  // counters rendered as 0 because the API is unreachable from the CI build).
+  // Prerendered at build time; see app/lib/prerendered-paths.ts for which
+  // routes qualify. The home page's stat counters once rendered as 0 because a
+  // database-backed route was prerendered while the API was unreachable from
+  // the CI build.
   async prerender() {
-    return [
-      "/solar-calculator",
-      "/privacy-policy",
-      "/terms-and-conditions",
-    ];
+    return [...PRERENDERED_PATHS];
   },
 } satisfies Config;
