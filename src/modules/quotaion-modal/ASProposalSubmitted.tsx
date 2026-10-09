@@ -1,5 +1,6 @@
 import type { EngineResult } from "../../models/calculation";
 import { findMatchingPackages, type SolarPackage } from "../../models/packages";
+import { PackageTypeCatalog } from "../../services/packages/PackageTypeCatalog";
 
 type ProposalSubmittedModalProps = {
   onClose: () => void;
@@ -92,7 +93,7 @@ export default function ProposalSubmittedModal({
                     </div>
                   </div>
 
-                  <div className="as-pkg-phase">{phaseLabel(pkg.phase)} · Hybrid</div>
+                  <div className="as-pkg-phase">{phaseLabel(pkg.phase)} · {PackageTypeCatalog.resolve(pkg).label}</div>
 
                   <div className="as-pkg-price">
                     <span>Starting at</span>
