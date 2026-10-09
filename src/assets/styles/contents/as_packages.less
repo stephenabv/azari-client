@@ -66,42 +66,29 @@
 }
 
 // ── Package-type tabs ─────────────────────────────────────────────────────────
-// Segment count, active index and accent arrive as CSS custom properties
-// from PackageTypeCatalog, so adding a type needs no stylesheet change.
+// Same look as the original phase toggle. Columns are equal-width so the
+// slider, sized from --seg-count and moved by --seg-index, lines up exactly
+// with the active tab whatever the label lengths.
 
 .as-packages-type-toggle {
+  display: grid;
+  grid-template-columns: repeat(var(--seg-count, 2), minmax(0, 1fr));
+
   .as-pkg-phase-slider {
     width: calc((100% - 8px) / var(--seg-count, 2));
     transform: translateX(calc(var(--seg-index, 0) * 100%));
-    border-color: color-mix(in srgb, var(--pkg-type-accent, #fff) 45%, transparent);
-    box-shadow:
-      0 2px 6px rgba(0, 0, 0, 0.35),
-      0 0 14px color-mix(in srgb, var(--pkg-type-accent, #fff) 22%, transparent);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.28s ease, box-shadow 0.28s ease;
   }
 
   .as-pkg-phase-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-
-    .as-pkg-type-dot {
-      opacity: 0.55;
-      transition: opacity 0.2s ease;
-    }
-
-    &.is-active .as-pkg-type-dot {
-      opacity: 1;
-    }
+    padding-inline: clamp(10px, 2vw, 22px);
+    text-align: center;
   }
 
   @media (max-width: 576px) {
     width: 100%;
 
     .as-pkg-phase-btn {
-      gap: 5px;
-      padding: 9px 4px;
+      padding: 9px 6px;
       font-size: clamp(10.5px, 3vw, 12px);
     }
   }
