@@ -63,7 +63,7 @@ const PACKAGES_EMPTY_STATE: EmptyStateContent = {
   eyebrow: "Coming soon",
   title: "Our solar packages are on the way",
   message:
-    "We're putting the finishing touches on packages built for Bohol homes. In the meantime, our team can size a system around your bills and roof.",
+    "We're putting the finishing touches on packages built for your business or home. In the meantime, our team can size a system around your bills and roof.",
 };
 
 type Phase = "single" | "three";
