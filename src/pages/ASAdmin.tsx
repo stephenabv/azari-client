@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import { INVERTER_CATEGORY, normalizeAttribute } from "../services/packages/PackageFilter";
-import { PackageTypeCatalog, packageTypeStyle, type PackageTypeKey, type PackageTypeSource } from "../services/packages/PackageTypeCatalog";
+import { PackageCoverPolicy, PackageTypeCatalog, packageTypeStyle, type PackageTypeKey, type PackageTypeSource } from "../services/packages/PackageTypeCatalog";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, type InverterBrandMeta, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 import {
   adminGetStats,
@@ -4210,6 +4210,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [catSearches, setCatSearches] = useState<Record<string, string>>({});
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
   const [pkgImagePreview, setPkgImagePreview] = useState<string>("");
+  // Stored type of the package being edited, to detect a type change on save.
+  const [originalPackageType, setOriginalPackageType] = useState<string | null>(null);
   const [allIpRatings, setAllIpRatings]       = useState<ApiIpRating[]>([]);
   const [sortOrderConflict, setSortOrderConflict] = useState<{ takenBy: ApiSolarPackage; proposed: number; prevValue: number } | null>(null);
   const [pendingSwap, setPendingSwap]             = useState<{ id: string; name: string; newSortOrder: number } | null>(null);
@@ -4306,7 +4308,8 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     const nextOrder = getNextSortOrder(EMPTY_PKG_FORM.phase as 'single' | 'three', null);
     setEditingId(null); setForm({ ...EMPTY_PKG_FORM, sortOrder: nextOrder });
     setNameEdited(false); setCatSearches({}); setMsg("");
-    setPkgImageFile(null); setPkgImagePreview("");
+    setPkgImageFile(null); setPkgImagePreview(PackageTypeCatalog.get(EMPTY_PKG_FORM.packageType ?? "standard_hybrid").cover);
+    setOriginalPackageType(null);
     setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(false);
     setShowForm(true);
     if (allComponents.length === 0) {
@@ -4330,6 +4333,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     });
     setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(true);
     setPkgImageFile(null); setPkgImagePreview(p.imageUrl ?? "");
+    setOriginalPackageType(PackageTypeCatalog.isKnown(p.packageType) ? p.packageType : null);
     setNameEdited(true); setCatSearches({}); setMsg(""); setShowForm(true);
     if (allComponents.length === 0) {
       adminGetComponents(apiKey).then(res => setAllComponents(res.data)).catch(() => {});
@@ -4363,6 +4367,14 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const handlePackageTypeChange = (key: PackageTypeKey) => {
     setField('packageType', key);
+    // Preview the cover the save will apply; a freshly picked photo still wins.
+    if (!pkgImageFile) {
+      const next = PackageCoverPolicy.imageUrlOnSave({
+        isNew: !editingId, previousType: originalPackageType, nextType: key,
+        imageUrl: form.imageUrl, hasNewUpload: false,
+      });
+      setPkgImagePreview(next ?? "");
+    }
     // Grid-tie systems carry no battery, as the old Grid-Tied switch enforced.
     if (!PackageTypeCatalog.get(key).hasBattery) {
       setComponents((form.components ?? []).filter(l => allComponents.find(c => c.id === l.componentId)?.category !== 'Battery'));
@@ -4470,12 +4482,22 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       if (pendingSwap) {
         await adminUpdatePackage(apiKey, pendingSwap.id, { sortOrder: pendingSwap.newSortOrder });
       }
+      const payload: PkgForm = {
+        ...form,
+        imageUrl: PackageCoverPolicy.imageUrlOnSave({
+          isNew: !editingId,
+          previousType: originalPackageType,
+          nextType: form.packageType,
+          imageUrl: form.imageUrl,
+          hasNewUpload: !!pkgImageFile,
+        }),
+      };
       let pkgId: string;
       if (editingId) {
-        await adminUpdatePackage(apiKey, editingId, form);
+        await adminUpdatePackage(apiKey, editingId, payload);
         pkgId = editingId;
       } else {
-        const result = await adminCreatePackage(apiKey, form);
+        const result = await adminCreatePackage(apiKey, payload);
         pkgId = result.data.id;
       }
       if (pkgImageFile) {

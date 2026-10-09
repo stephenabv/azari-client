@@ -17,7 +17,7 @@ export interface PackageTypeDefinition {
   readonly hasBattery: boolean;
   /** Identity color for chips, dots, borders and the cover tint. */
   readonly accent: string;
-  /** Default detail-modal cover, served from /public. */
+  /** Cover image assigned to packages of this type, served from /public. */
   readonly cover: string;
 }
 
@@ -29,7 +29,7 @@ const DEFINITIONS: Readonly<Record<PackageTypeKey, PackageTypeDefinition>> = {
     description: "Solar with battery storage",
     hasBattery: true,
     accent: "#ef4444",
-    cover: "/images/package-covers/standard-hybrid.svg",
+    cover: "/images/package-covers/standard-hybrid.webp",
   },
   premium_hybrid: {
     key: "premium_hybrid",
@@ -37,7 +37,7 @@ const DEFINITIONS: Readonly<Record<PackageTypeKey, PackageTypeDefinition>> = {
     description: "Higher-spec solar with battery storage",
     hasBattery: true,
     accent: "#3b82f6",
-    cover: "/images/package-covers/premium-hybrid.svg",
+    cover: "/images/package-covers/premium-hybrid.webp",
   },
   grid_tie: {
     key: "grid_tie",
@@ -45,7 +45,7 @@ const DEFINITIONS: Readonly<Record<PackageTypeKey, PackageTypeDefinition>> = {
     description: "Solar without battery storage",
     hasBattery: false,
     accent: "#22c55e",
-    cover: "/images/package-covers/grid-tie.svg",
+    cover: "/images/package-covers/grid-tie.webp",
   },
 };
 
@@ -103,4 +103,41 @@ export function packageTypeStyle(def: PackageTypeDefinition): Record<string, str
     "--pkg-type-accent": def.accent,
     "--pkg-type-cover": `url("${def.cover}")`,
   };
+}
+
+/** What the admin form knows when a package is saved. */
+export interface CoverSaveContext {
+  readonly isNew: boolean;
+  /** Stored type before this edit; null for unassigned or new packages. */
+  readonly previousType: string | null | undefined;
+  readonly nextType: string | null | undefined;
+  readonly imageUrl: string | null | undefined;
+  /** An image file picked in this edit; it is uploaded after the save and wins. */
+  readonly hasNewUpload: boolean;
+}
+
+/**
+ * Decides a package's cover when the admin saves it. A new package, or an
+ * existing one whose type changes, gets its type's cover; untouched packages
+ * keep whatever image they have, so older records change only when an admin
+ * changes their type. An image the admin explicitly uploads always wins.
+ */
+export class PackageCoverPolicy {
+  private static readonly covers = new Set(PackageTypeCatalog.all.map((d) => d.cover));
+
+  /** True when the URL is one of the built-in type covers rather than a custom photo. */
+  static isTypeCover(url: string | null | undefined): boolean {
+    return !!url && PackageCoverPolicy.covers.has(url);
+  }
+
+  static imageUrlOnSave(ctx: CoverSaveContext): string | null {
+    const current = ctx.imageUrl ?? null;
+    if (ctx.hasNewUpload || !PackageTypeCatalog.isKnown(ctx.nextType)) return current;
+
+    const cover = PackageTypeCatalog.get(ctx.nextType).cover;
+    const typeChanged = ctx.previousType !== ctx.nextType;
+    // A built-in cover always follows the type, even if it was left stale.
+    const staleCover = PackageCoverPolicy.isTypeCover(current) && current !== cover;
+    return ctx.isNew || typeChanged || staleCover ? cover : current;
+  }
 }

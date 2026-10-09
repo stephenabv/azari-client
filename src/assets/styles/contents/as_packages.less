@@ -1087,8 +1087,14 @@
 // Default cover for the package's type (PackageTypeCatalog).
 .as-pkg-modal-hero-bg.is-type-cover {
   background-image: var(--pkg-type-cover);
-  background-position: center;
+  background-position: center top;
   opacity: 1;
+}
+
+// Type covers already fade to dark at the bottom, so they skip the
+// left-to-right darkening a photo needs behind the text.
+.as-pkg-modal-hero-gradient.is-over-cover {
+  background-image: linear-gradient(to bottom, rgba(5, 5, 5, 0) 35%, rgba(5, 5, 5, 0.85) 100%);
 }
 
 // Keeps an uploaded photo in the type's color family.

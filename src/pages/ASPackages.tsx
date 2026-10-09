@@ -7,7 +7,7 @@ import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 import ASBrandFilter from "../components/ASBrandFilter";
 import { CompositePackageFilter, InverterBrandFilter, PackageTypeFilter, normalizeAttribute } from "../services/packages/PackageFilter";
-import { PackageTypeCatalog, packageTypeStyle, type PackageTypeDefinition, type PackageTypeKey } from "../services/packages/PackageTypeCatalog";
+import { PackageCoverPolicy, PackageTypeCatalog, packageTypeStyle, type PackageTypeDefinition, type PackageTypeKey } from "../services/packages/PackageTypeCatalog";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
@@ -497,8 +497,9 @@ function PackageCard({
 
             {}
             <div className="as-pkg-modal-hero">
-              {/* An uploaded package photo wins; otherwise the type's cover. */}
-              {pkg.imageUrl ? (
+              {/* A custom photo gets a type-colored tint; a type cover (stored or
+                  derived for packages saved before covers) is shown as is. */}
+              {pkg.imageUrl && !PackageCoverPolicy.isTypeCover(pkg.imageUrl) ? (
                 <>
                   <div className="as-pkg-modal-hero-bg" style={{ backgroundImage: `url(${pkg.imageUrl})` }} />
                   <div className="as-pkg-modal-hero-tint" aria-hidden="true" />
@@ -506,7 +507,7 @@ function PackageCard({
               ) : (
                 <div className="as-pkg-modal-hero-bg is-type-cover" aria-hidden="true" />
               )}
-              <div className="as-pkg-modal-hero-gradient" />
+              <div className={`as-pkg-modal-hero-gradient${pkg.imageUrl && !PackageCoverPolicy.isTypeCover(pkg.imageUrl) ? "" : " is-over-cover"}`} />
 
               <button className="as-pkg-modal-close" onClick={handleCloseModal} aria-label="Close details">✕</button>
 
