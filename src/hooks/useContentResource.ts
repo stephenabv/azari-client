@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSiteContentSnapshot } from "../context/siteContent";
 import { fetchContent, type ContentKey } from "../services/ASContent";
 
-export type ContentResource<T> =
+type ContentState<T> =
   | { status: "loading"; data: null }
   | { status: "ready"; data: T }
   | { status: "error"; data: null };
+
+export type ContentResource<T> = ContentState<T> & {
+  /** Discards a failed or stale result and requests the content again. */
+  reload: () => void;
+};
 
 /**
  * CMS content for `key` with its load state, for views that must tell
@@ -18,7 +23,8 @@ export function useContentResource<T>(
   { enabled = true }: { enabled?: boolean } = {},
 ): ContentResource<T> {
   const prefetched = useSiteContentSnapshot()[key] as T | undefined;
-  const [fetched, setFetched] = useState<{ key: ContentKey; resource: ContentResource<T> } | null>(null);
+  const [fetched, setFetched] = useState<{ key: ContentKey; resource: ContentState<T> } | null>(null);
+  const reload = useCallback(() => setFetched(null), []);
 
   useEffect(() => {
     if (!enabled || prefetched != null) return;
@@ -40,7 +46,7 @@ export function useContentResource<T>(
     };
   }, [enabled, key, prefetched, fetched]);
 
-  if (prefetched != null) return { status: "ready", data: prefetched };
-  if (fetched?.key === key) return fetched.resource;
-  return { status: "loading", data: null };
+  if (prefetched != null) return { status: "ready", data: prefetched, reload };
+  if (fetched?.key === key) return { ...fetched.resource, reload };
+  return { status: "loading", data: null, reload };
 }

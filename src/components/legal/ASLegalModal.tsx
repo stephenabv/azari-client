@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, type MouseEvent, type SyntheticEvent } from "react";
-import { Link } from "react-router";
 import type { LegalDocumentDefinition } from "../../config/legalDocuments";
 import { useContentResource } from "../../hooks/useContentResource";
 import { useScrollLock } from "../../hooks/useScrollLock";
@@ -133,8 +132,10 @@ export default function ASLegalModal({ definition, isOpen, onClose }: ASLegalMod
 
         {legal.status === "error" && (
           <div className="as-legal-modal-status" role="alert">
-            We couldn't load the {definition.fallbackTitle} just now.{" "}
-            <Link to={definition.path} onClick={onClose}>Open the full page</Link> instead.
+            We couldn't load the {definition.fallbackTitle} just now.
+            <button type="button" className="as-legal-modal-retry" onClick={legal.reload}>
+              Try again
+            </button>
           </div>
         )}
 
@@ -142,9 +143,6 @@ export default function ASLegalModal({ definition, isOpen, onClose }: ASLegalMod
       </div>
 
       <footer className="as-legal-modal-footer">
-        <Link className="as-legal-modal-fullpage" to={definition.path} onClick={onClose}>
-          Open full page
-        </Link>
         <button type="button" className="as-legal-modal-done" onClick={onClose}>
           Close
         </button>

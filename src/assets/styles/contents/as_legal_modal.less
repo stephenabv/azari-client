@@ -2,6 +2,7 @@
 // as_legal_page.less so the modal and the standalone pages read the same.
 
 @legal-modal-radius: 20px;
+@legal-modal-button-radius: 5px;
 @legal-modal-gutter: clamp(20px, 3.5vw, 36px);
 
 .as-legal-modal {
@@ -80,7 +81,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: @legal-modal-button-radius;
   background: transparent;
   color: #9aa0a6;
   cursor: pointer;
@@ -141,10 +142,24 @@
   padding: 32px 0;
   font-size: 15px;
   line-height: 1.6;
+  flex-wrap: wrap;
   color: #a2a6ab;
+}
 
-  a {
-    color: #ff5f5f;
+.as-legal-modal-retry {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: @legal-modal-button-radius;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #ff5f5f;
+    color: #ffffff;
   }
 }
 
@@ -162,31 +177,20 @@
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
   padding: 14px @legal-modal-gutter;
   padding-bottom: max(14px, env(safe-area-inset-bottom));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.as-legal-modal-fullpage {
-  font-size: 14px;
-  color: #a2a6ab;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: #ffffff;
-  }
-}
 
 .as-legal-modal-done {
   min-width: 120px;
   min-height: 44px;
   padding: 0 22px;
   border: 1px solid #ff5f5f;
-  border-radius: 999px;
+  border-radius: @legal-modal-button-radius;
   background: #ff5f5f;
   color: #ffffff;
   font-family: "Inter", sans-serif;
@@ -243,9 +247,14 @@
 
   .as-legal-modal-status {
     color: #444444;
+  }
 
-    a {
-      color: #d93025;
+  .as-legal-modal-retry {
+    border-color: #d1d5db;
+
+    &:hover {
+      border-color: #ff5f5f;
+      color: #111111;
     }
   }
 
@@ -254,13 +263,6 @@
     border-top-color: #ff5f5f;
   }
 
-  .as-legal-modal-fullpage {
-    color: #555555;
-
-    &:hover {
-      color: #111111;
-    }
-  }
 
   .as-legal-modal-done:focus-visible {
     outline-color: #111111;
