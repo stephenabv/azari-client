@@ -1,5 +1,6 @@
 
 import { SOLAR_CONSTANTS } from '../models/calculation';
+import type { PackageTypeKey } from './packages/PackageTypeCatalog';
 
 const API_BASE = '/api';
 
@@ -580,6 +581,8 @@ export interface ApiSolarPackage {
   inverterKw: number;
   storageKwh: number;
   phase: 'single' | 'three';
+  /** Null/absent on packages saved before types existed; resolve via PackageTypeCatalog. */
+  packageType?: string | null;
   totalPrice: number | null;
   billRangeMin: number;
   billRangeMax: number;
@@ -619,6 +622,7 @@ export interface PackageInput {
   inverterKw: number;
   storageKwh: number;
   phase: 'single' | 'three';
+  packageType?: PackageTypeKey | null;
   billRangeMin: number;
   billRangeMax: number;
   isActive: boolean;

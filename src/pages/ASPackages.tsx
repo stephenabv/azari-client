@@ -6,7 +6,8 @@ import { formatCapacity } from "../lib/units";
 import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 import ASBrandFilter from "../components/ASBrandFilter";
-import { CompositePackageFilter, InverterBrandFilter, normalizeAttribute } from "../services/packages/PackageFilter";
+import { CompositePackageFilter, InverterBrandFilter, PackageTypeFilter, normalizeAttribute } from "../services/packages/PackageFilter";
+import { PackageCoverPolicy, PackageTypeCatalog, packageTypeStyle, type PackageTypeDefinition, type PackageTypeKey } from "../services/packages/PackageTypeCatalog";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 
 const ASTalkToAnExpert = lazy(() => import("../modules/talk-to-expert-modal/ASTalkToAnExpert"));
@@ -51,6 +52,7 @@ const ctaMobileStyles = `
 
 const PAGE_SIZE = 3;
 const BRAND_PARAM = "brand";
+const TYPE_PARAM = "type";
 /** Show the filter as soon as any active package has an inverter brand. */
 const MIN_BRANDS_FOR_FILTER = 1;
 
@@ -328,6 +330,7 @@ function PackageCard({
   const { inverterLine, batteryLine, panelLine } = getCoreComponents(pkg);
   const isHybrid = pkg.storageKwh > 0;
   const displayName = inverterLine?.component.model ?? pkg.name;
+  const packageType = PackageTypeCatalog.resolve(pkg);
 
 
   const liveInverterKw = Math.round((inverterLine?.component.loadCapacityKw ?? 0) * qty.inverter * 10) / 10;
@@ -414,11 +417,12 @@ function PackageCard({
   });
 
   return (
-    <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`}>
+    <div className={`as-pkg-card${pkg.isRecommended ? " is-recommended" : ""}`} style={packageTypeStyle(packageType)} data-package-type={packageType.key}>
       {pkg.isRecommended && <div className="as-pkg-recommended-badge">Recommended</div>}
       {ipRating && <IpRatingBadge code={ipRating.code} description={ipRating.description} offset={!!pkg.isRecommended} />}
 
       <div className="as-pkg-top">
+        <PackageTypeChip type={packageType} />
         <div className="as-pkg-name">{displayName}</div>
         {priceToDisplay != null && <div className="as-pkg-price">{pesoFmt(priceToDisplay)}</div>}
         <div className="as-pkg-size-label">{formatCapacity(liveInverterKw, "power", { unit: "kW" })} System</div>
@@ -489,18 +493,26 @@ function PackageCard({
 
       {showModal && createPortal(
         <div className={`as-pkg-modal-overlay${isClosingModal ? " is-closing" : ""}`} onClick={handleCloseModal} role="dialog" aria-modal="true" aria-label={`${displayName} details`}>
-          <div className={`as-pkg-modal${isClosingModal ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()}>
+          <div className={`as-pkg-modal${isClosingModal ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()} style={packageTypeStyle(packageType)} data-package-type={packageType.key}>
 
             {}
             <div className="as-pkg-modal-hero">
-              {pkg.imageUrl && (
-                <div className="as-pkg-modal-hero-bg" style={{ backgroundImage: `url(${pkg.imageUrl})` }} />
+              {/* A custom photo gets a type-colored tint; a type cover (stored or
+                  derived for packages saved before covers) is shown as is. */}
+              {pkg.imageUrl && !PackageCoverPolicy.isTypeCover(pkg.imageUrl) ? (
+                <>
+                  <div className="as-pkg-modal-hero-bg" style={{ backgroundImage: `url(${pkg.imageUrl})` }} />
+                  <div className="as-pkg-modal-hero-tint" aria-hidden="true" />
+                </>
+              ) : (
+                <div className="as-pkg-modal-hero-bg is-type-cover" aria-hidden="true" />
               )}
-              <div className="as-pkg-modal-hero-gradient" />
+              <div className={`as-pkg-modal-hero-gradient${pkg.imageUrl && !PackageCoverPolicy.isTypeCover(pkg.imageUrl) ? "" : " is-over-cover"}`} />
 
               <button className="as-pkg-modal-close" onClick={handleCloseModal} aria-label="Close details">✕</button>
 
               <div className="as-pkg-modal-hero-content">
+                <PackageTypeChip type={packageType} />
                 <div className="as-pkg-modal-hero-label">{displayName}</div>
                 {priceToDisplay != null && (
                   <div className="as-pkg-modal-hero-price">{pesoFmt(priceToDisplay)}</div>
@@ -682,22 +694,33 @@ function PackageCard({
 
 type PackageGroup = { label: string; packages: ApiSolarPackage[] };
 
-function groupByType(packages: ApiSolarPackage[], phase: Phase): PackageGroup[] {
+const PHASE_SECTIONS: ReadonlyArray<{ phase: Phase; label: string }> = [
+  { phase: "single", label: "Single Phase" },
+  { phase: "three", label: "Three Phase" },
+];
+
+/** Splits one package type's packages into Single and Three Phase sections. */
+function groupByPhase(packages: ApiSolarPackage[]): PackageGroup[] {
   const active = packages
-    .filter((p) => p.phase === phase && p.isActive)
+    .filter((p) => p.isActive)
     .sort((a, b) =>
       (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0) ||
       (a.sortOrder ?? Infinity) - (b.sortOrder ?? Infinity) ||
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-  const hybrid = active.filter((p) => p.storageKwh > 0);
-  const gridTied = active.filter((p) => p.storageKwh === 0);
-  const phaseLabel = phase === "three" ? "Three Phase" : "Single Phase";
-  const groups: PackageGroup[] = [];
-  if (hybrid.length) groups.push({ label: `${phaseLabel} · Hybrid`, packages: hybrid });
-  if (gridTied.length) groups.push({ label: `${phaseLabel} · Grid-Tied`, packages: gridTied });
-  return groups;
+  return PHASE_SECTIONS
+    .map(({ phase, label }) => ({ label, packages: active.filter((p) => p.phase === phase) }))
+    .filter((g) => g.packages.length > 0);
+}
+
+function PackageTypeChip({ type }: { type: PackageTypeDefinition }) {
+  return (
+    <span className="as-pkg-type-chip" style={packageTypeStyle(type)}>
+      <span className="as-pkg-type-dot" aria-hidden="true" />
+      {type.label}
+    </span>
+  );
 }
 
 function PkgCardSkeleton() {
@@ -750,7 +773,6 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
     };
   }, []);
 
-  const [phase, setPhase] = useState<Phase>("single");
   const [packages, setPackages] = useState<ApiSolarPackage[]>(
     initialPackages ?? [],
   );
@@ -797,8 +819,33 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
     setVisibleCounts({});
   };
 
-  const filtered = new CompositePackageFilter([new InverterBrandFilter(brand)]).apply(packages);
-  const groups = groupByType(filtered, phase);
+  // Tabs list only types that have packages, so the site never shows an
+  // empty tab; while loading, every type is shown for the skeleton.
+  const activePackages = useMemo(() => packages.filter((p) => p.isActive), [packages]);
+  const typeTabs = activePackages.length > 0 ? PackageTypeCatalog.presentIn(activePackages) : PackageTypeCatalog.all;
+  const requestedType = searchParams.get(TYPE_PARAM);
+  const selectedType: PackageTypeDefinition =
+    typeTabs.find((t) => t.key === requestedType) ?? typeTabs[0] ?? PackageTypeCatalog.all[0];
+  const selectedTypeIndex = Math.max(0, typeTabs.indexOf(selectedType));
+
+  const handleType = (key: PackageTypeKey) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (key === typeTabs[0]?.key) next.delete(TYPE_PARAM);
+        else next.set(TYPE_PARAM, key);
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+    setVisibleCounts({});
+  };
+
+  const filtered = new CompositePackageFilter([
+    new PackageTypeFilter(selectedType.key),
+    new InverterBrandFilter(brand),
+  ]).apply(packages);
+  const groups = groupByPhase(filtered);
 
   const showMore = (label: string, total: number) => {
     setLoadingMoreGroups((prev) => ({ ...prev, [label]: true }));
@@ -813,11 +860,6 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
 
   const showLess = (label: string) => {
     setVisibleCounts((prev) => ({ ...prev, [label]: PAGE_SIZE }));
-  };
-
-  const handlePhase = (p: Phase) => {
-    setPhase(p);
-    setVisibleCounts({});
   };
 
   return (
@@ -837,20 +879,27 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
         </div>
 
         <div className="as-packages-toolbar">
-          <div className={`as-packages-phase-toggle${phase === "three" ? " is-second" : ""}`}>
+          <div
+            className="as-packages-phase-toggle as-packages-type-toggle"
+            role="tablist"
+            aria-label="Package type"
+            style={{ "--seg-count": typeTabs.length, "--seg-index": selectedTypeIndex, ...packageTypeStyle(selectedType) } as React.CSSProperties}
+          >
             <span className="as-pkg-phase-slider" aria-hidden="true" />
-            <button
-              className={`as-pkg-phase-btn${phase === "single" ? " is-active" : ""}`}
-              onClick={() => handlePhase("single")}
-            >
-              Single Phase
-            </button>
-            <button
-              className={`as-pkg-phase-btn${phase === "three" ? " is-active" : ""}`}
-              onClick={() => handlePhase("three")}
-            >
-              Three Phase
-            </button>
+            {typeTabs.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={t.key === selectedType.key}
+                className={`as-pkg-phase-btn${t.key === selectedType.key ? " is-active" : ""}`}
+                style={packageTypeStyle(t)}
+                onClick={() => handleType(t.key)}
+              >
+                <span className="as-pkg-type-dot" aria-hidden="true" />
+                {t.label}
+              </button>
+            ))}
           </div>
           {showBrandFilter && (
             <ASBrandFilter options={brandOptions} value={brand} onChange={handleBrand} />
@@ -872,13 +921,13 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
           <div className="as-packages-empty">
             {brand ? (
               <>
-                No {brandLabel} packages available for this phase.{" "}
+                No {brandLabel} {selectedType.label} packages available.{" "}
                 <button type="button" className="as-packages-empty-reset" onClick={() => handleBrand(null)}>
                   Show all brands
                 </button>
               </>
             ) : (
-              "No packages available for this phase."
+              `No ${selectedType.label} packages available.`
             )}
           </div>
         ) : (

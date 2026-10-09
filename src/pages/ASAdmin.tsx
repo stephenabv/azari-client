@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import { INVERTER_CATEGORY, normalizeAttribute } from "../services/packages/PackageFilter";
+import { PackageCoverPolicy, PackageTypeCatalog, packageTypeStyle, type PackageTypeKey, type PackageTypeSource } from "../services/packages/PackageTypeCatalog";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, type InverterBrandMeta, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
 import {
   adminGetStats,
@@ -2408,7 +2409,7 @@ function SectionsManager({ apiKey }: { apiKey: string }) {
 }
 
 type PkgForm = PackageInput;
-const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 1, mainFeatures: [], imageUrl: null };
+const EMPTY_PKG_FORM: PkgForm = { name: "", solarKwp: 0, inverterKw: 0, storageKwh: 0, phase: "single", packageType: "standard_hybrid", billRangeMin: 0, billRangeMax: 0, isActive: true, isRecommended: false, sortOrder: 1, mainFeatures: [], imageUrl: null };
 
 const ACCESSORY_CATEGORIES = ['Mounting & Racking', 'Wiring & Protection', 'Monitoring', 'Others'];
 
@@ -3967,6 +3968,25 @@ const PKG_BILL_TIERS: Array<[string, string, (p: ApiSolarPackage) => boolean]> =
   ["bill-xhigh", "Above ₱30,000/mo",     p => p.billRangeMin >= 30000],
 ];
 
+/** Package type with its identity color; marks types derived for unassigned packages. */
+function PkgTypeBadge({ pkg }: { pkg: PackageTypeSource }) {
+  const type = PackageTypeCatalog.resolve(pkg);
+  const derived = PackageTypeCatalog.isDerived(pkg);
+  return (
+    <span
+      className={`ad-pkg-type-badge${derived ? " is-derived" : ""}`}
+      style={packageTypeStyle(type) as CSSProperties}
+      title={derived ? `Not assigned yet. Shown on the site as ${type.label} based on battery storage.` : type.description}
+    >
+      <span className="ad-pkg-type-dot" aria-hidden="true" />
+      {type.label}
+      {derived && <em>auto</em>}
+    </span>
+  );
+}
+
+const UNASSIGNED_TYPE_FILTER = "unassigned";
+
 interface PkgPhaseSectionProps {
   phase: "single" | "three";
   packages: ApiSolarPackage[];
@@ -4011,7 +4031,9 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
         )
       );
     }
-    if (fType.size > 0)   r = r.filter(p => fType.has(p.storageKwh > 0 ? "hybrid" : "grid-tied"));
+    if (fType.size > 0)   r = r.filter(p =>
+      fType.has(PackageTypeCatalog.resolve(p).key) ||
+      (fType.has(UNASSIGNED_TYPE_FILTER) && PackageTypeCatalog.isDerived(p)));
     if (fStatus.size > 0) r = r.filter(p => fStatus.has(p.isActive ? "active" : "inactive"));
     if (fBill.size > 0)   r = r.filter(p => PKG_BILL_TIERS.some(([v, , fn]) => fBill.has(v) && fn(p)));
     if (fRec)             r = r.filter(p => p.isRecommended);
@@ -4065,9 +4087,9 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
                 <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowF(false)} />
                 <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--ad-surface)", border: "1px solid var(--ad-border)", borderRadius: 10, padding: "16px 18px", minWidth: 280, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 100 }}>
                   <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>System Type</div>
-                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                      {[["hybrid", "Hybrid"], ["grid-tied", "Grid-Tied"]].map(([v, l]) => (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Package Type</div>
+                    <div style={{ display: "flex", gap: "7px 14px", flexWrap: "wrap" }}>
+                      {[...PackageTypeCatalog.all.map(t => [t.key, t.label] as const), [UNASSIGNED_TYPE_FILTER, "Not assigned"] as const].map(([v, l]) => (
                         <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--ad-text)" }}>
                           <input type="checkbox" checked={fType.has(v)} onChange={() => toggleF(setFType, v)} style={{ accentColor: "var(--ad-accent)", width: 14, height: 14, cursor: "pointer" }} />{l}
                         </label>
@@ -4131,10 +4153,10 @@ function PkgPhaseSection({ phase, packages, showForm, peso, onPreview, onEdit, o
       ) : (
         <div className="ad-pkg-mgr-grid">
           {filtered.map((p) => (
-            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`}>
+            <div key={p.id} className={`ad-pkg-mgr-card${!p.isActive ? " is-inactive" : ""}${p.isRecommended ? " is-recommended" : ""} is-${p.phase}-phase`} style={packageTypeStyle(PackageTypeCatalog.resolve(p)) as CSSProperties}>
               <div className="ad-pkg-mgr-top">
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "var(--ad-text3)", background: "var(--ad-border)", borderRadius: 4, padding: "2px 7px" }}>{p.storageKwh > 0 ? "Hybrid" : "Grid-Tied"}</span>
+                  <PkgTypeBadge pkg={p} />
                   <span style={{ fontSize: 10, color: "var(--ad-text3)", background: "var(--ad-border)", borderRadius: 4, padding: "2px 6px", fontVariantNumeric: "tabular-nums", letterSpacing: "0.02em" }}>#{p.sortOrder ?? '—'}</span>
                   {(p.isRecommended ?? false) && <span className="ad-badge" style={{ background: "rgba(252,97,90,0.15)", color: "#fc615a", border: "1px solid rgba(252,97,90,0.3)", fontSize: 10 }}>★ Recommended</span>}
                 </div>
@@ -4186,9 +4208,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   const [previewPackage, setPreviewPackage] = useState<ApiSolarPackage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiSolarPackage | null>(null);
   const [catSearches, setCatSearches] = useState<Record<string, string>>({});
-  const [systemType, setSystemType]   = useState<'hybrid' | 'grid-tied'>('hybrid');
   const [pkgImageFile, setPkgImageFile]       = useState<File | null>(null);
   const [pkgImagePreview, setPkgImagePreview] = useState<string>("");
+  // Stored type of the package being edited, to detect a type change on save.
+  const [originalPackageType, setOriginalPackageType] = useState<string | null>(null);
   const [allIpRatings, setAllIpRatings]       = useState<ApiIpRating[]>([]);
   const [sortOrderConflict, setSortOrderConflict] = useState<{ takenBy: ApiSolarPackage; proposed: number; prevValue: number } | null>(null);
   const [pendingSwap, setPendingSwap]             = useState<{ id: string; name: string; newSortOrder: number } | null>(null);
@@ -4283,9 +4306,10 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
 
   const openAdd = () => {
     const nextOrder = getNextSortOrder(EMPTY_PKG_FORM.phase as 'single' | 'three', null);
-    setEditingId(null); setForm({ ...EMPTY_PKG_FORM, sortOrder: nextOrder }); setSystemType('hybrid');
+    setEditingId(null); setForm({ ...EMPTY_PKG_FORM, sortOrder: nextOrder });
     setNameEdited(false); setCatSearches({}); setMsg("");
-    setPkgImageFile(null); setPkgImagePreview("");
+    setPkgImageFile(null); setPkgImagePreview(PackageTypeCatalog.get(EMPTY_PKG_FORM.packageType ?? "standard_hybrid").cover);
+    setOriginalPackageType(null);
     setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(false);
     setShowForm(true);
     if (allComponents.length === 0) {
@@ -4294,10 +4318,11 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   };
   const openEdit = (p: ApiSolarPackage) => {
     setEditingId(p.id);
-    setSystemType(p.storageKwh > 0 ? 'hybrid' : 'grid-tied');
     setForm({
       name: p.name, solarKwp: p.solarKwp, inverterKw: p.inverterKw,
       storageKwh: p.storageKwh, phase: p.phase,
+      // Unassigned stays unassigned until an admin picks a type.
+      packageType: PackageTypeCatalog.isKnown(p.packageType) ? p.packageType : null,
       billRangeMin: p.billRangeMin, billRangeMax: p.billRangeMax,
       isActive: p.isActive, isRecommended: p.isRecommended ?? false,
       sortOrder: p.sortOrder ?? 1,
@@ -4308,6 +4333,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
     });
     setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(true);
     setPkgImageFile(null); setPkgImagePreview(p.imageUrl ?? "");
+    setOriginalPackageType(PackageTypeCatalog.isKnown(p.packageType) ? p.packageType : null);
     setNameEdited(true); setCatSearches({}); setMsg(""); setShowForm(true);
     if (allComponents.length === 0) {
       adminGetComponents(apiKey).then(res => setAllComponents(res.data)).catch(() => {});
@@ -4315,11 +4341,14 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
   };
   const closeForm = () => {
     setShowForm(false); setEditingId(null); setNameEdited(false);
-    setCatSearches({}); setMsg(""); setFormError(""); setSystemType('hybrid');
+    setCatSearches({}); setMsg(""); setFormError("");
     setPkgImageFile(null); setPkgImagePreview("");
     setSortOrderConflict(null); setPendingSwap(null); setIsSortOrderManual(false);
   };
   const setField = <K extends keyof PkgForm>(key: K, value: PkgForm[K]) => setForm((f) => ({ ...f, [key]: value }));
+  // The type shown in the builder; an unassigned package shows its derived type.
+  const formType = PackageTypeCatalog.resolve(form);
+  const systemType: 'hybrid' | 'grid-tied' = formType.hasBattery ? 'hybrid' : 'grid-tied';
 
   const handleSortOrderChange = (val: number, currentPhase: 'single' | 'three', currentSortOrder: number) => {
     const prevValue = currentSortOrder;
@@ -4333,6 +4362,22 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       setSortOrderConflict({ takenBy: conflict, proposed: val, prevValue });
     } else {
       setSortOrderConflict(null);
+    }
+  };
+
+  const handlePackageTypeChange = (key: PackageTypeKey) => {
+    setField('packageType', key);
+    // Preview the cover the save will apply; a freshly picked photo still wins.
+    if (!pkgImageFile) {
+      const next = PackageCoverPolicy.imageUrlOnSave({
+        isNew: !editingId, previousType: originalPackageType, nextType: key,
+        imageUrl: form.imageUrl, hasNewUpload: false,
+      });
+      setPkgImagePreview(next ?? "");
+    }
+    // Grid-tie systems carry no battery, as the old Grid-Tied switch enforced.
+    if (!PackageTypeCatalog.get(key).hasBattery) {
+      setComponents((form.components ?? []).filter(l => allComponents.find(c => c.id === l.componentId)?.category !== 'Battery'));
     }
   };
 
@@ -4437,12 +4482,22 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
       if (pendingSwap) {
         await adminUpdatePackage(apiKey, pendingSwap.id, { sortOrder: pendingSwap.newSortOrder });
       }
+      const payload: PkgForm = {
+        ...form,
+        imageUrl: PackageCoverPolicy.imageUrlOnSave({
+          isNew: !editingId,
+          previousType: originalPackageType,
+          nextType: form.packageType,
+          imageUrl: form.imageUrl,
+          hasNewUpload: !!pkgImageFile,
+        }),
+      };
       let pkgId: string;
       if (editingId) {
-        await adminUpdatePackage(apiKey, editingId, form);
+        await adminUpdatePackage(apiKey, editingId, payload);
         pkgId = editingId;
       } else {
-        const result = await adminCreatePackage(apiKey, form);
+        const result = await adminCreatePackage(apiKey, payload);
         pkgId = result.data.id;
       }
       if (pkgImageFile) {
@@ -4540,7 +4595,7 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Name</div><div style={{ fontSize: 14, color: "var(--ad-text)", fontWeight: 600 }}>{previewPackage.name}</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Phase</div><div style={{ fontSize: 14 }}><span className={`ad-badge ${previewPackage.phase === "single" ? "is-residential" : "is-commercial"}`}>{previewPackage.phase === "single" ? "Single Phase" : "Three Phase"}</span></div></div>
-            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>System Type</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.storageKwh > 0 ? "Hybrid" : "Grid-Tied"}</div></div>
+            <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Package Type</div><div style={{ fontSize: 14 }}><PkgTypeBadge pkg={previewPackage} /></div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Solar</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.solarKwp} kWp</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Inverter</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.inverterKw} kW</div></div>
             <div><div style={{ fontSize: 11, fontWeight: 700, color: "var(--ad-text3)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 3 }}>Storage</div><div style={{ fontSize: 14, color: "var(--ad-text)" }}>{previewPackage.storageKwh > 0 ? `${previewPackage.storageKwh} kWh` : "None"}</div></div>
@@ -4634,28 +4689,28 @@ function PackagesManager({ apiKey }: { apiKey: string }) {
                   {}
                   <div className="ad-pkg-builder-left">
                     <div className="ad-pkg-form-phase">
-                      <div className="ad-label">System Type</div>
-                      <div className="ad-pkg-phase-toggle">
-                        <button
-                          type="button"
-                          className={`ad-pkg-phase-btn${systemType === 'hybrid' ? " is-active" : ""}`}
-                          onClick={() => setSystemType('hybrid')}
-                        >
-                          Hybrid
-                          <span>With battery storage</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`ad-pkg-phase-btn${systemType === 'grid-tied' ? " is-active" : ""}`}
-                          onClick={() => {
-                            setSystemType('grid-tied');
-                            setComponents((form.components ?? []).filter(l => allComponents.find(c => c.id === l.componentId)?.category !== 'Battery'));
-                          }}
-                        >
-                          Grid-Tied
-                          <span>No battery storage</span>
-                        </button>
+                      <div className="ad-label">Package Type</div>
+                      <div className="ad-pkg-phase-toggle ad-pkg-type-toggle" role="radiogroup" aria-label="Package type">
+                        {PackageTypeCatalog.all.map((t) => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            role="radio"
+                            aria-checked={formType.key === t.key}
+                            className={`ad-pkg-phase-btn${formType.key === t.key ? " is-active" : ""}`}
+                            style={packageTypeStyle(t) as CSSProperties}
+                            onClick={() => handlePackageTypeChange(t.key)}
+                          >
+                            <span className="ad-pkg-type-label"><span className="ad-pkg-type-dot" aria-hidden="true" />{t.label}</span>
+                            <span>{t.description}</span>
+                          </button>
+                        ))}
                       </div>
+                      {PackageTypeCatalog.isDerived(form) && (
+                        <div className="ad-pkg-type-hint">
+                          Not assigned yet. The site shows this package as <strong>{formType.label}</strong> based on battery storage. Pick a type to assign it.
+                        </div>
+                      )}
                     </div>
 
                     <div className="ad-pkg-form-phase">

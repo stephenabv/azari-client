@@ -1159,6 +1159,75 @@ body.is-light {
   }
 }
 
+// ── Package type (colors come from PackageTypeCatalog via --pkg-type-accent) ──
+
+.ad-pkg-type-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pkg-type-accent);
+}
+
+.ad-pkg-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pkg-type-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--pkg-type-accent) 13%, transparent);
+  color: var(--ad-text);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+
+  em {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 10px;
+    color: var(--ad-text3);
+  }
+
+  &.is-derived {
+    border-style: dashed;
+    background: transparent;
+  }
+}
+
+.ad-pkg-type-toggle {
+  .ad-pkg-phase-btn {
+    min-width: 150px;
+
+    .ad-pkg-type-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 1;
+    }
+
+    &.is-active {
+      border-color: var(--pkg-type-accent);
+      background: color-mix(in srgb, var(--pkg-type-accent) 12%, transparent);
+      color: var(--ad-text);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--pkg-type-accent) 40%, transparent);
+    }
+  }
+}
+
+.ad-pkg-type-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ad-text2);
+}
+
 .ad-pkg-num-wrap {
   display: flex;
   align-items: center;
@@ -1490,12 +1559,14 @@ body.is-light {
     opacity: 0.45;
   }
 
+  // Top edge carries the package-type color (PackageTypeCatalog), matching
+  // the public site; phase colors remain the fallback.
   &.is-single-phase {
-    border-top: 3px solid #38bdf8;
+    border-top: 3px solid var(--pkg-type-accent, #38bdf8);
   }
 
   &.is-three-phase {
-    border-top: 3px solid #a78bfa;
+    border-top: 3px solid var(--pkg-type-accent, #a78bfa);
   }
 
   &.is-recommended {

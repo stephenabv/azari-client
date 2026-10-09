@@ -1,4 +1,5 @@
 import type { ApiSolarComponent, ApiSolarPackage } from "../ASContent";
+import { PackageTypeCatalog, type PackageTypeKey } from "./PackageTypeCatalog";
 
 /**
  * A predicate over public packages. Filters are composable and stateless, so
@@ -55,6 +56,22 @@ export class InverterBrandFilter extends ComponentAttributeFilter {
 
   protected attributeOf(component: ApiSolarComponent): string {
     return component.brand;
+  }
+}
+
+/**
+ * Matches packages of one package type. Unassigned packages match the type
+ * PackageTypeCatalog derives for them, so they stay visible under a tab.
+ */
+export class PackageTypeFilter implements PackageFilter {
+  constructor(private readonly type: PackageTypeKey | null) {}
+
+  get isActive(): boolean {
+    return this.type !== null;
+  }
+
+  matches(pkg: ApiSolarPackage): boolean {
+    return !this.isActive || PackageTypeCatalog.resolve(pkg).key === this.type;
   }
 }
 

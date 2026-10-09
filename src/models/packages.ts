@@ -7,6 +7,8 @@ export type SolarPackage = {
   inverterKw: number;
   storageKwh: number;
   phase: "single" | "three";
+  /** Absent on the built-in fallback catalog and on unassigned packages. */
+  packageType?: string | null;
   totalPrice: number;
   monthlyBillRange: [number, number];
   isRecommended?: boolean;
@@ -117,7 +119,7 @@ export async function fetchPackagesFromApi(): Promise<SolarPackage[]> {
       success: boolean;
       data: Array<{
         id: string; name: string; solarKwp: number; inverterKw: number;
-        storageKwh: number; phase: string; totalPrice: number;
+        storageKwh: number; phase: string; packageType?: string | null; totalPrice: number;
         billRangeMin: number; billRangeMax: number;
       }>;
     };
@@ -129,6 +131,7 @@ export async function fetchPackagesFromApi(): Promise<SolarPackage[]> {
       inverterKw: p.inverterKw,
       storageKwh: p.storageKwh,
       phase: p.phase as "single" | "three",
+      packageType: p.packageType ?? null,
       totalPrice: p.totalPrice,
       monthlyBillRange: [p.billRangeMin, p.billRangeMax] as [number, number],
     }));
