@@ -886,7 +886,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
       <div className="ASPackages page-container">
 
         <div className="as-packages-header">
-          <h1 className="as-packages-title">Solar Packages</h1>
+          <h1 className="as-packages-title">Our Solar Packages</h1>
           <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
