@@ -6,6 +6,7 @@ import ASNavbar from "../components/ASNavbar";
 import ASFooter from "../components/ASFooter";
 import ASRateLimitBanner from "../components/ASRateLimitBanner";
 import ASPageLoader from "../components/ASPageLoader";
+import ASLegalModalProvider from "../components/legal/ASLegalModalProvider";
 import { usePageTransition } from "../hooks/usePageTransition";
 
 /** What routes read through useOutletContext. */
@@ -53,26 +54,28 @@ export default function ASMainLayout() {
   };
 
   return (
-    <main className="app-main">
-      {isPageTransitioning && <ASPageLoader />}
-      <ASRateLimitBanner />
-      <header className="navbar-section">
-        <div className="navbar-inner">
-          <ASNavbar theme={theme} toggleTheme={toggleTheme} />
-        </div>
-      </header>
+    <ASLegalModalProvider>
+      <main className="app-main">
+        {isPageTransitioning && <ASPageLoader />}
+        <ASRateLimitBanner />
+        <header className="navbar-section">
+          <div className="navbar-inner">
+            <ASNavbar theme={theme} toggleTheme={toggleTheme} />
+          </div>
+        </header>
 
-      <div className="layout-content">
-        <div className="layout-page-body">
-          <div className={`page-container ${isHeroPage || isProjectDetail ? "no-offset" : ""}`}>
-            <div className={routePageClass} key={location.pathname}>
-              <Outlet context={{ theme, themeReady: resolvedTheme !== null } satisfies LayoutContext} />
+        <div className="layout-content">
+          <div className="layout-page-body">
+            <div className={`page-container ${isHeroPage || isProjectDetail ? "no-offset" : ""}`}>
+              <div className={routePageClass} key={location.pathname}>
+                <Outlet context={{ theme, themeReady: resolvedTheme !== null } satisfies LayoutContext} />
+              </div>
             </div>
           </div>
-        </div>
 
-        <ASFooter />
-      </div>
-    </main>
+          <ASFooter />
+        </div>
+      </main>
+    </ASLegalModalProvider>
   );
 }

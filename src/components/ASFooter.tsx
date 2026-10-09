@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useContent } from "../hooks/useContent";
 import { BUSINESS } from "../config/business";
+import ASLegalLink from "./legal/ASLegalLink";
 
 type FooterLink = {
   name: string;
@@ -110,21 +111,13 @@ export default function ASFooter() {
           <span>{resolvedFooter.footer_text?.credits}</span>
 
           <div className="as-footer-bottom-links">
-            <a
-              href={resolvedFooter.footer_text?.privacy_policy?.url}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <ASLegalLink href={resolvedFooter.footer_text?.privacy_policy?.url}>
               {resolvedFooter.footer_text?.privacy_policy?.name}
-            </a>
+            </ASLegalLink>
 
-            <a
-              href={resolvedFooter.footer_text?.terms_conditions?.url}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <ASLegalLink href={resolvedFooter.footer_text?.terms_conditions?.url}>
               {resolvedFooter.footer_text?.terms_conditions?.name}
-            </a>
+            </ASLegalLink>
 
             <span>
               © {new Date().getFullYear()} Azari Solar. All Rights Reserved.
