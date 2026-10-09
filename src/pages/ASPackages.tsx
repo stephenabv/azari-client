@@ -935,8 +935,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
             className="as-packages-empty-state"
             illustration={<PackagesEmptyIllustration />}
             actions={[
-              { kind: "button", label: "Talk to an Expert", variant: "primary", onClick: () => setCtaModalOpen(true) },
-              { kind: "link", label: "Calculate Your System", to: "/solar-calculator" },
+              { kind: "link", label: "Calculate Your System", variant: "primary", to: "/solar-calculator" },
             ]}
           />
         ) : groups.length === 0 ? (
