@@ -6,6 +6,8 @@ import { formatCapacity } from "../lib/units";
 import { SOLAR_CONSTANTS } from "../models/calculation";
 import { useContent } from "../hooks/useContent";
 import ASBrandFilter from "../components/ASBrandFilter";
+import ASEmptyState, { type EmptyStateContent } from "../components/ASEmptyState";
+import PackagesEmptyIllustration from "../components/illustrations/PackagesEmptyIllustration";
 import { CompositePackageFilter, InverterBrandFilter, PackageTypeFilter, normalizeAttribute } from "../services/packages/PackageFilter";
 import { PackageCoverPolicy, PackageTypeCatalog, packageTypeStyle, type PackageTypeDefinition, type PackageTypeKey } from "../services/packages/PackageTypeCatalog";
 import { DEFAULT_INVERTER_BRANDS_CONTENT, InverterBrandCatalog, type InverterBrandsContent } from "../services/packages/InverterBrandCatalog";
@@ -55,6 +57,14 @@ const BRAND_PARAM = "brand";
 const TYPE_PARAM = "type";
 /** Show the filter as soon as any active package has an inverter brand. */
 const MIN_BRANDS_FOR_FILTER = 1;
+
+/** Shown in place of the catalogue while no package is published. */
+const PACKAGES_EMPTY_STATE: EmptyStateContent = {
+  eyebrow: "Coming soon",
+  title: "Our solar packages are on the way",
+  message:
+    "We're putting the finishing touches on packages built for your business or home. In the meantime, our team can size a system around your bills and roof.",
+};
 
 type Phase = "single" | "three";
 type QtyState = { inverter: number; batteries: number; panels: number };
@@ -822,6 +832,8 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
   // Tabs list only types that have packages, so the site never shows an
   // empty tab; while loading, every type is shown for the skeleton.
   const activePackages = useMemo(() => packages.filter((p) => p.isActive), [packages]);
+  // Nothing to browse: the tabs and brand filter would have nothing to act on.
+  const hasNoPackages = !loading && activePackages.length === 0;
   const typeTabs = activePackages.length > 0 ? PackageTypeCatalog.presentIn(activePackages) : PackageTypeCatalog.all;
   const requestedType = searchParams.get(TYPE_PARAM);
   const selectedType: PackageTypeDefinition =
@@ -874,10 +886,11 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
       <div className="ASPackages page-container">
 
         <div className="as-packages-header">
-          <h1 className="as-packages-title">Our Residential Packages</h1>
+          <h1 className="as-packages-title">Solar Packages</h1>
           <p className="as-packages-subtitle">We offer a variety of packages for your home needs</p>
         </div>
 
+        {!hasNoPackages && (
         <div className="as-packages-toolbar">
           <div
             className="as-packages-phase-toggle as-packages-type-toggle"
@@ -903,6 +916,7 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
             <ASBrandFilter options={brandOptions} value={brand} onChange={handleBrand} />
           )}
         </div>
+        )}
 
         {loading ? (
           <div className="as-packages-skeleton" aria-busy="true">
@@ -915,6 +929,16 @@ export default function ASPackages({ initialPackages }: ASPackagesProps = {}) {
               </div>
             ))}
           </div>
+        ) : hasNoPackages ? (
+          <ASEmptyState
+            {...PACKAGES_EMPTY_STATE}
+            className="as-packages-empty-state"
+            illustration={<PackagesEmptyIllustration />}
+            actions={[
+              { kind: "button", label: "Talk to an Expert", variant: "primary", onClick: () => setCtaModalOpen(true) },
+              { kind: "link", label: "Calculate Your System", to: "/solar-calculator" },
+            ]}
+          />
         ) : groups.length === 0 ? (
           <div className="as-packages-empty">
             {brand ? (
