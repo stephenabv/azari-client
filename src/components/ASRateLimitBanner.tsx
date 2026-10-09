@@ -1,40 +1,33 @@
-import { useEffect, useRef, useState } from "react";
-import { subscribeRateLimit, type RateLimitInfo } from "../services/ASContent";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { rateLimitStore } from "../services/rateLimit/RateLimitStore";
 
 const RADIUS       = 54;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const TICK_MS      = 500;
 
 export default function ASRateLimitWall() {
-  const [info, setInfo]           = useState<RateLimitInfo | null>(null);
-  const [remaining, setRemaining] = useState(0);
-  const timerRef                  = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return subscribeRateLimit((incoming) => {
-      setInfo(incoming);
-      setRemaining(incoming.retryAfterSec);
-    });
-  }, []);
+  const info = useSyncExternalStore(
+    rateLimitStore.subscribe,
+    rateLimitStore.getSnapshot,
+    rateLimitStore.getServerSnapshot,
+  );
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!info) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-
-    timerRef.current = setInterval(() => {
-      const left = Math.ceil((info.resetAt - Date.now()) / 1000);
-      if (left <= 0) {
-        clearInterval(timerRef.current!);
-        setInfo(null);
-        setRemaining(0);
-      } else {
-        setRemaining(left);
-      }
-    }, 500);
-
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    const tick = () => {
+      const current = Date.now();
+      if (current >= info.resetAt) rateLimitStore.clear();
+      else setNow(current);
+    };
+    tick();
+    const timer = setInterval(tick, TICK_MS);
+    return () => clearInterval(timer);
   }, [info]);
 
   if (!info) return null;
+
+  const remaining = Math.max(1, Math.ceil((info.resetAt - now) / 1000));
 
   const pct    = Math.min(100, (remaining / info.retryAfterSec) * 100);
   const offset = CIRCUMFERENCE * (1 - pct / 100);
