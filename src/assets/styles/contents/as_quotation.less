@@ -590,6 +590,7 @@
 }
 
 .as-load-table {
+  container-type: inline-size;
   width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -700,7 +701,13 @@
   color: #777;
 }
 
+// Pinned to the visible width so the message never scrolls off-screen
+// while the column headers scroll sideways on narrow screens.
 .as-load-empty {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqi;
   padding: 24px;
   font-family: "Inter", sans-serif;
   font-size: 13px;
