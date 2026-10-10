@@ -19,6 +19,10 @@ import {
   ELECTRIC_RATE_CONFIG,
 } from "../models/calculation";
 import type { EngineResult, SystemPurpose, SystemType } from "../models/calculation";
+import {
+  getLoadProfileRequirement,
+  LOAD_PROFILE_REQUIRED_MESSAGE,
+} from "../models/loadProfilePolicy";
 import { SOLAR_PACKAGES, fetchPackagesFromApi, type SolarPackage } from "../models/packages";
 import type {
   QuotationAppliance,
@@ -272,7 +276,9 @@ function LoadProfileSection({
 
           {appliances.length === 0 ? (
             <div className="as-load-empty">
-              Add appliances to create a detailed load profile.
+              {required
+                ? "Add at least one appliance so we can size your system."
+                : "Add appliances to create a detailed load profile."}
             </div>
           ) : (
             <>
@@ -386,7 +392,13 @@ export default function ASQuotationEngine() {
     [appliances]
   );
 
+  const loadProfileRequirement = getLoadProfileRequirement(systemPurpose, hasBill);
+  const isLoadProfileRequired = loadProfileRequirement === "required";
+  const isLoadProfileMissing = isLoadProfileRequired && appliances.length === 0;
+
   const engineResult = useMemo((): EngineResult | null => {
+    if (isLoadProfileMissing) return null;
+
     if (systemPurpose === "monthly-savings") {
       const dpt = computeDpt(savingsTarget.num, electricRateMS.num);
       if (dpt <= 0) return null;
@@ -417,6 +429,7 @@ export default function ASQuotationEngine() {
 
     return null;
   }, [
+    isLoadProfileMissing,
     systemPurpose, systemType,
     savingsTarget.num, electricRateMS.num,
     peakPower.num, allowedGridPower.num, peakDuration.num,
@@ -517,10 +530,9 @@ export default function ASQuotationEngine() {
       if (peakDuration.num <= 0 || peakDuration.num > 24) return "Please enter a valid peak duration (between 0 and 24 hours).";
     }
 
+    if (isLoadProfileMissing) return LOAD_PROFILE_REQUIRED_MESSAGE;
+
     if (systemPurpose === "zero-bill") {
-      if (!hasBill && appliances.length === 0) {
-        return "Please enter a bill or add appliances to size the system.";
-      }
       if (hasBill) {
         if (monthlyBillZB.num <= 0) return "Please enter your monthly electricity bill.";
         if (electricRateZB.num <= 0) return "Please enter a valid electricity rate.";
@@ -600,6 +612,19 @@ export default function ASQuotationEngine() {
 
 
 
+  const renderLoadProfile = (label: string) =>
+    loadProfileRequirement === "hidden" ? null : (
+      <LoadProfileSection
+        label={label}
+        required={isLoadProfileRequired}
+        appliances={appliances}
+        totalDailyUsageWh={totalDailyUsageWh}
+        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
+        onRemove={handleRemoveAppliance}
+        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
+      />
+    );
+
   const monthlySavingsContent = (
     <>
       <div className="as-form-section">
@@ -668,14 +693,7 @@ export default function ASQuotationEngine() {
         />
       </div>
 
-      <LoadProfileSection
-        label="06"
-        appliances={appliances}
-        totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
-        onRemove={handleRemoveAppliance}
-        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
-      />
+      {renderLoadProfile("06")}
     </>
   );
 
@@ -763,6 +781,7 @@ export default function ASQuotationEngine() {
         </div>
       </div>
 
+      {renderLoadProfile("04")}
     </>
   );
 
@@ -866,14 +885,7 @@ export default function ASQuotationEngine() {
         </>
       )}
 
-      <LoadProfileSection
-        label={hasBill ? "05" : "03"}
-        appliances={appliances}
-        totalDailyUsageWh={totalDailyUsageWh}
-        onAdd={() => { setEditingAppliance(null); setModal("add-appliance"); }}
-        onRemove={handleRemoveAppliance}
-        onEdit={(a) => { setEditingAppliance(a); setModal("add-appliance"); }}
-      />
+      {renderLoadProfile(hasBill ? "05" : "03")}
     </>
   );
 
