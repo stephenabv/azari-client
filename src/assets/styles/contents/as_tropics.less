@@ -9,7 +9,7 @@ section.as-tropics-section {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   column-gap: 80px;
-  margin: 0 116px;
+  margin: 0 var(--as-section-gutter);
   font-family: "Outfit", sans-serif;
   letter-spacing: 0;
   opacity: 0;
@@ -45,7 +45,7 @@ section.as-tropics-section {
 
 .as-tropics-cards {
   width: 100%;
-  padding: 0 116px;
+  padding: 0 var(--as-section-gutter);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 32px;
@@ -227,12 +227,10 @@ section.as-tropics-section {
 
 @media (max-width: 1300px) {
   .as-tropics-cards {
-    padding: 0 72px;
     gap: 24px;
   }
 
   .as-tropics-text {
-    margin: 0 72px;
     column-gap: 56px;
   }
 
@@ -257,19 +255,20 @@ section.as-tropics-section {
 
   .as-tropics-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 0 56px;
   }
 
+  /* Odd card out in the two-column grid: centred on its own row at the same
+     width as the cards above it, instead of hugging the left column. */
   .as-performance-card {
-    grid-column: auto;
-    max-width: 420px;
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: calc((100% - 24px) / 2);
     justify-self: center;
   }
 
   .as-tropics-text {
     grid-template-columns: 1fr;
     row-gap: 28px;
-    margin: 0 56px;
   }
 
   .as-tropics-text .header {
@@ -289,7 +288,6 @@ section.as-tropics-section {
 
   .as-tropics-cards {
     grid-template-columns: 1fr;
-    padding: 0 32px;
     gap: 24px;
   }
 
@@ -298,8 +296,11 @@ section.as-tropics-section {
     border-radius: 22px;
   }
 
+  /* Single column: every card spans the full row, so the edges line up. */
   .as-performance-card {
     grid-column: auto;
+    max-width: none;
+    justify-self: stretch;
   }
 
   .as-climate-title {
@@ -340,7 +341,6 @@ section.as-tropics-section {
   }
 
   .as-tropics-text {
-    margin: 0 32px;
     row-gap: 24px;
   }
 
@@ -361,7 +361,6 @@ section.as-tropics-section {
   }
 
   .as-tropics-cards {
-    padding: 0 20px;
     gap: 20px;
   }
 
@@ -425,10 +424,6 @@ section.as-tropics-section {
     font-size: 54px;
   }
 
-  .as-tropics-text {
-    margin: 0 20px;
-  }
-
   .as-tropics-text .header {
     font-size: 34px;
   }
@@ -439,10 +434,6 @@ section.as-tropics-section {
 }
 
 @media (max-width: 400px) {
-  .as-tropics-cards {
-    padding: 0 16px;
-  }
-
   .as-tropics-card {
     height: 285px;
     border-radius: 18px;
@@ -509,10 +500,6 @@ section.as-tropics-section {
 
   .as-performance-percentage {
     font-size: 44px;
-  }
-
-  .as-tropics-text {
-    margin: 0 16px;
   }
 
   .as-tropics-text .header {
