@@ -10,6 +10,31 @@
   --as-brand-action: #d43d36;
   --as-brand-action-hover: #b9322c;
   --as-on-brand-action: #ffffff;
+
+  /* Horizontal gutter for full-width home sections, so neighbouring sections
+     (Tropics cards, Tropics text, Process) share one left/right edge at every
+     width. Change the steps here rather than in each section. */
+  --as-section-gutter: 116px;
+}
+
+@media (max-width: 1300px) {
+  :root { --as-section-gutter: 72px; }
+}
+
+@media (max-width: 1100px) {
+  :root { --as-section-gutter: 56px; }
+}
+
+@media (max-width: 768px) {
+  :root { --as-section-gutter: 32px; }
+}
+
+@media (max-width: 576px) {
+  :root { --as-section-gutter: 20px; }
+}
+
+@media (max-width: 400px) {
+  :root { --as-section-gutter: 16px; }
 }
 
 header.navbar-section {

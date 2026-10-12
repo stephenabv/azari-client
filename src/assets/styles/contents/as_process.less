@@ -1,6 +1,6 @@
 .as-process {
   width: 100%;
-  padding: 120px 116px;
+  padding: 120px var(--as-section-gutter);
 }
 
 .as-process-desktop {
@@ -161,6 +161,7 @@
   padding: 14px 32px;
   border: none;
   border-radius: 12px;
+  font-family: "Inter", sans-serif;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -170,7 +171,7 @@
 
 @media (max-width: 768px) {
   .as-process {
-    padding: 90px 32px;
+    padding: 90px var(--as-section-gutter);
   }
 
   .as-process-desktop {
@@ -256,7 +257,7 @@
 
 @media (max-width: 576px) {
   .as-process {
-    padding: 76px 20px;
+    padding: 76px var(--as-section-gutter);
   }
 
   .as-process-mobile {
@@ -301,7 +302,7 @@
 
 @media (max-width: 400px) {
   .as-process {
-    padding: 64px 16px;
+    padding: 64px var(--as-section-gutter);
   }
 
   .as-process-mobile {
@@ -336,7 +337,7 @@
 
 @media (max-width: 340px) {
   .as-process {
-    padding: 56px 14px;
+    padding: 56px var(--as-section-gutter);
   }
 
   .as-process-number {
@@ -357,11 +358,11 @@
   }
 }
 
-@media (min-width: 769px) and (max-width: 1100px) and (max-height: 700px) {
-  .as-process {
-    padding: 80px 56px;
-  }
-
+// Tablet and small laptop widths: the desktop row of steps does not fit, so
+// steps and cards sit in a three-column grid. This used to apply only to
+// viewports shorter than 700px, which left taller tablets (e.g. 900x900,
+// iPad Air) with step numbers overflowing the right edge.
+@media (min-width: 769px) and (max-width: 1100px) {
   .as-process-steps {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -424,5 +425,11 @@
 
   .as-process-cta p {
     font-size: 32px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) and (max-height: 700px) {
+  .as-process {
+    padding-block: 80px;
   }
 }
